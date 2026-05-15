@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Project Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0b0e18;
+  --s1:        #13172a;
+  --s2:        #1a1f36;
+  --s3:        #222844;
+  --border:    #2c3354;
+  --border2:   #3a4468;
+  --text:      #dde1f5;
+  --muted:     #6a74a0;
+  --dim:       #3d4568;
+  --accent:    #7b79f7;
+  --accent2:   #a5a3ff;
+  --green:     #3ec97a;
+  --amber:     #f5c542;
+  --red:       #f06f6f;
+  --pink:      #e879f9;
+  --cell-w:    60px;
+  --left-w:    260px;
+  --row-h:     46px;
+  --radius:    10px;
+  --font-ui:   'Outfit', sans-serif;
+  --font-disp: 'Fraunces', serif;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: 14px; line-height: 1.5; }
+button { font-family: var(--font-ui); cursor: pointer; border: none; outline: none; }
+input, textarea, select { font-family: var(--font-ui); font-size: 14px; outline: none; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+.hidden { display: none !important; }
+
+/* ===== LAYOUT ===== */
+#root { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ===== PROJECTS PAGE ===== */
+.page-projects { flex: 1; overflow-y: auto; padding: 48px 40px; display: flex; flex-direction: column; gap: 40px; }
+.page-projects .brand { display: flex; align-items: baseline; gap: 12px; }
+.brand-logo { font-family: var(--font-disp); font-size: 32px; font-weight: 600; color: var(--text); letter-spacing: -1px; }
+.brand-logo span { color: var(--accent); }
+.brand-tagline { color: var(--muted); font-size: 13px; }
+.projects-section-title { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+.projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.project-card {
+  background: var(--s1); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; cursor: pointer; transition: border-color .2s, transform .15s, box-shadow .2s;
+  position: relative; overflow: hidden;
+}
+.project-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: var(--card-color, var(--accent)); }
+.project-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+.project-card .card-emoji { font-size: 28px; margin-bottom: 12px; }
+.project-card .card-name { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.project-card .card-desc { color: var(--muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.project-card .card-meta { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+.card-badge { background: var(--s3); border: 1px solid var(--border); border-radius: 20px; padding: 2px 10px; font-size: 12px; color: var(--muted); }
+.card-badge.active { background: rgba(123,121,247,.15); border-color: var(--accent); color: var(--accent2); }
+.project-card .card-actions { position: absolute; top: 14px; right: 14px; display: flex; gap: 6px; opacity: 0; transition: opacity .15s; }
+.project-card:hover .card-actions { opacity: 1; }
+.icon-btn { width: 28px; height: 28px; border-radius: 6px; background: var(--s3); border: 1px solid var(--border2); color: var(--muted); display: flex; align-items: center; justify-content: center; font-size: 13px; transition: color .15s, background .15s; }
+.icon-btn:hover { color: var(--text); background: var(--s2); }
+.new-project-card {
+  background: transparent; border: 2px dashed var(--border2); border-radius: var(--radius);
+  padding: 24px; cursor: pointer; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; color: var(--muted); min-height: 140px; transition: border-color .2s, color .2s;
+}
+.new-project-card:hover { border-color: var(--accent); color: var(--accent2); }
+.new-project-card svg { width: 28px; height: 28px; }
+.new-project-card span { font-size: 13px; font-weight: 500; }
+
+/* ===== PLANNER LAYOUT ===== */
+.page-planner { flex: 1; display: flex; overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 220px; flex-shrink: 0; background: var(--s1); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-top { padding: 16px 14px 12px; border-bottom: 1px solid var(--border); }
+.back-btn { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 500; padding: 6px 8px; border-radius: 6px; cursor: pointer; transition: color .15s, background .15s; width: 100%; background: transparent; }
+.back-btn:hover { color: var(--text); background: var(--s3); }
+.back-btn svg { width: 16px; height: 16px; }
+.sidebar-brand { padding: 14px 14px 10px; }
+.sidebar-brand .brand-sm { font-family: var(--font-disp); font-size: 18px; font-weight: 600; color: var(--text); }
+.sidebar-brand .brand-sm span { color: var(--accent); }
+.sidebar-section { flex: 1; overflow-y: auto; padding: 10px 10px 10px; }
+.sidebar-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); padding: 8px 4px 6px; font-weight: 600; }
+.sidebar-project-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: background .15s; color: var(--muted); font-size: 13px; font-weight: 500; }
+.sidebar-project-item:hover { background: var(--s2); color: var(--text); }
+.sidebar-project-item.active { background: rgba(123,121,247,.15); color: var(--accent2); }
+.sidebar-project-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sidebar-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.sidebar-add-proj { margin: 8px 0; padding: 7px 10px; border-radius: 8px; background: transparent; border: 1px dashed var(--border2); color: var(--muted); font-size: 13px; width: 100%; display: flex; align-items: center; gap: 8px; transition: color .2s, border-color .2s; }
+.sidebar-add-proj:hover { color: var(--accent2); border-color: var(--accent); }
+
+/* Main Planner Area */
+.planner-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.planner-topbar { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; flex-shrink: 0; background: var(--s1); }
+.planner-project-name { font-family: var(--font-disp); font-size: 20px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.btn { padding: 7px 14px; border-radius: 7px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: background .15s, color .15s; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: #8d8bff; }
+.btn-ghost { background: var(--s3); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--s2); border-color: var(--border2); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.view-toggle { display: flex; background: var(--s3); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.view-btn { padding: 6px 12px; font-size: 12px; font-weight: 500; color: var(--muted); background: transparent; border: none; cursor: pointer; transition: background .15s, color .15s; }
+.view-btn.active { background: var(--s2); color: var(--text); }
+.date-nav { display: flex; align-items: center; gap: 6px; }
+.date-nav-label { font-size: 13px; font-weight: 500; color: var(--text); min-width: 160px; text-align: center; }
+.nav-arrow { width: 28px; height: 28px; border-radius: 6px; background: var(--s3); border: 1px solid var(--border); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: color .15s, background .15s; }
+.nav-arrow:hover { color: var(--text); background: var(--s2); }
+
+/* Gantt Container */
+.gantt-wrap { flex: 1; overflow: auto; position: relative; }
+.gantt-inner { min-width: max-content; }
+
+/* Gantt Header */
+.gantt-header-row { display: flex; position: sticky; top: 0; z-index: 30; background: var(--s1); border-bottom: 2px solid var(--border); }
+.gantt-corner { width: var(--left-w); min-width: var(--left-w); flex-shrink: 0; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; border-right: 1px solid var(--border); background: var(--s1); }
+.gantt-corner-label { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.gantt-dates-header { display: flex; }
+.gantt-date-col { width: var(--cell-w); min-width: var(--cell-w); flex-shrink: 0; padding: 6px 2px; text-align: center; border-right: 1px solid var(--border); cursor: pointer; transition: background .15s; }
+.gantt-date-col:hover { background: var(--s2); }
+.gantt-date-col.today .day-num { background: var(--accent); color: white; border-radius: 50%; }
+.day-name { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.day-num { width: 26px; height: 26px; margin: 2px auto 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; border-radius: 50%; }
+.gantt-date-col.today .day-name { color: var(--accent2); }
+.month-label { font-size: 9px; color: var(--dim); margin-top: 1px; }
+
+/* Gantt Body */
+.gantt-body { }
+
+/* Category rows */
+.category-section { }
+.category-header-row { display: flex; align-items: center; background: var(--s2); border-bottom: 1px solid var(--border); position: sticky; left: 0; }
+.category-header-left { width: var(--left-w); min-width: var(--left-w); flex-shrink: 0; padding: 8px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-right: 1px solid var(--border); user-select: none; }
+.category-chevron { font-size: 10px; color: var(--muted); transition: transform .2s; }
+.category-chevron.open { transform: rotate(90deg); }
+.category-name-txt { font-size: 12px; font-weight: 600; letter-spacing: .5px; color: var(--text); }
+.category-count { font-size: 11px; color: var(--muted); background: var(--s3); padding: 1px 7px; border-radius: 10px; }
+.category-header-right { flex: 1; height: 34px; }
+
+/* Goal rows */
+.goal-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); min-height: var(--row-h); }
+.goal-row:hover { background: rgba(255,255,255,.02); }
+.goal-left { width: var(--left-w); min-width: var(--left-w); flex-shrink: 0; padding: 0 16px; display: flex; align-items: center; gap: 8px; border-right: 1px solid var(--border); height: 100%; min-height: var(--row-h); overflow: hidden; cursor: pointer; }
+.goal-left:hover .goal-title-txt { color: var(--accent2); }
+.goal-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.goal-title-txt { font-size: 13px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .15s; }
+.goal-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.goal-cells { display: flex; height: var(--row-h); }
+
+/* Gantt cells */
+.g-cell { width: var(--cell-w); min-width: var(--cell-w); flex-shrink: 0; border-right: 1px solid rgba(44,51,84,.6); position: relative; display: flex; align-items: center; }
+.g-cell.today-col { background: rgba(123,121,247,.04); }
+.g-cell.in-range { cursor: pointer; }
+.g-cell.in-range:hover .g-bar { filter: brightness(1.2); }
+.g-bar { position: absolute; top: 9px; bottom: 9px; left: 0; right: 0; border-radius: 0; transition: filter .15s; }
+.g-cell.range-start .g-bar { left: 6px; border-radius: 6px 0 0 6px; }
+.g-cell.range-end .g-bar { right: 6px; border-radius: 0 6px 6px 0; }
+.g-cell.range-start.range-end .g-bar { left: 6px; right: 6px; border-radius: 6px; }
+.note-pip { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: white; opacity: .7; z-index: 2; pointer-events: none; }
+.g-cell.has-note .note-pip { display: block; }
+.g-cell:not(.has-note) .note-pip { display: none; }
+
+/* Empty state */
+.gantt-empty { padding: 60px 20px; text-align: center; color: var(--muted); }
+.gantt-empty-icon { font-size: 40px; margin-bottom: 12px; }
+.gantt-empty h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+.gantt-empty p { font-size: 13px; }
+
+/* ===== MODAL SYSTEM ===== */
+#modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100; backdrop-filter: blur(2px); display: none; }
+#modal-overlay.show { display: block; }
+#modal-wrap { position: fixed; inset: 0; z-index: 101; display: flex; align-items: center; justify-content: center; padding: 20px; pointer-events: none; }
+.modal { background: var(--s2); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; pointer-events: all; animation: modal-in .18s ease; }
+.modal.wide { max-width: 640px; }
+.modal.narrow { max-width: 400px; }
+@keyframes modal-in { from { opacity: 0; transform: scale(.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.modal-title { font-family: var(--font-disp); font-size: 20px; font-weight: 600; color: var(--text); }
+.modal-subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.close-btn { width: 30px; height: 30px; border-radius: 7px; background: var(--s3); color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; flex-shrink: 0; border: 1px solid var(--border); transition: color .15s, background .15s; }
+.close-btn:hover { color: var(--text); background: var(--s1); }
+.modal-footer { margin-top: 24px; display: flex; gap: 10px; justify-content: flex-end; }
+
+/* Form elements */
+.form-group { margin-bottom: 18px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .5px; margin-bottom: 7px; display: block; }
+.form-input { width: 100%; background: var(--s3); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; transition: border-color .15s; }
+.form-input:focus { border-color: var(--accent); }
+.form-input::placeholder { color: var(--dim); }
+textarea.form-input { resize: vertical; min-height: 80px; }
+select.form-input { appearance: none; cursor: pointer; }
+.form-input option { background: var(--s2); }
+
+/* Color picker */
+.color-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.color-swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform .15s, border-color .15s; }
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.selected { border-color: white; transform: scale(1.1); }
+
+/* Status select */
+.status-select-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.status-opt { padding: 7px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--s3); cursor: pointer; text-align: center; font-size: 12px; font-weight: 500; transition: border-color .15s, background .15s; color: var(--muted); }
+.status-opt.selected { border-color: var(--opt-color, var(--accent)); background: rgba(0,0,0,.3); color: var(--text); }
+.status-dot-sm { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+
+/* Emoji picker (simple) */
+.emoji-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.emoji-opt { width: 36px; height: 36px; font-size: 20px; border-radius: 7px; background: var(--s3); border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; }
+.emoji-opt:hover, .emoji-opt.selected { background: var(--s1); border-color: var(--accent); }
+
+/* Day note modal */
+.day-note-date { font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.day-note-goal { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+
+/* Journal modal */
+.journal-date-big { font-family: var(--font-disp); font-size: 28px; font-weight: 600; margin-bottom: 20px; }
+
+/* ===== MISC ===== */
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+.text-muted { color: var(--muted); }
+.mt-4 { margin-top: 4px; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.gap-8 { gap: 8px; }
+
+/* ===== TOOLTIP ===== */
+.tooltip-container { position: relative; }
+[data-tip]:hover::after { 
+  content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); 
+  background: var(--s3); border: 1px solid var(--border2); color: var(--text); padding: 4px 10px; border-radius: 6px; 
+  font-size: 11px; white-space: nowrap; z-index: 200; pointer-events: none;
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="modal-overlay" onclick="overlayClick(event)"></div>
+<div id="modal-wrap"></div>
+
+<script>
+// =====================================================
+// CONSTANTS
+// =====================================================
+const STATUSES = [
+  { val: 'not_started', label: 'Not Started', color: '#6a74a0' },
+  { val: 'in_progress', label: 'In Progress', color: '#7b79f7' },
+  { val: 'completed',   label: 'Completed',   color: '#3ec97a' },
+  { val: 'on_hold',     label: 'On Hold',      color: '#f5c542' },
+  { val: 'cancelled',   label: 'Cancelled',    color: '#f06f6f' },
+];
+
+const COLORS = [
+  '#7b79f7','#60a5fa','#f06f6f','#f5c542','#3ec97a',
+  '#34d399','#f472b6','#a78bfa','#fb923c','#2dd4bf',
+  '#e879f9','#818cf8','#4ade80','#fbbf24','#94a3b8',
+];
+
+const PROJ_COLORS = [
+  '#7b79f7','#60a5fa','#3ec97a','#f5c542','#f06f6f',
+  '#f472b6','#a78bfa','#fb923c','#2dd4bf','#e879f9',
+];
+
+const EMOJIS = ['📁','🚀','⭐','💡','🎯','🔥','📊','🌱','💎','🏆','🛠️','🎨','📝','⚡','🌟'];
+
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// =====================================================
+// UTILITIES
+// =====================================================
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const el = id => document.getElementById(id);
+const dateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseDate = s => new Date(s + 'T00:00:00');
+const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate()+n); return r; };
+const startOfWeek = d => { const r = new Date(d); r.setDate(d.getDate()-d.getDay()); return r; };
+const startOfMonth = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const daysInMonth = d => new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+const isToday = d => dateStr(d) === dateStr(new Date());
+const fmtDate = d => `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+const fmtDateShort = d => `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
+const statusInfo = val => STATUSES.find(s => s.val === val) || STATUSES[0];
+
+// =====================================================
+// STORAGE & STATE
+// =====================================================
+const DB = {
+  get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set: (k,v) => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+const S = {
+  view: 'projects',
+  projectId: null,
+  mode: 'twoweek',
+  anchor: new Date(),
+  collapsedCats: new Set(),
+
+  get projects()     { return DB.get('arc_projects') || []; },
+  sp(v)              { DB.set('arc_projects', v); },
+  get goals()        { return DB.get('arc_goals') || []; },
+  sg(v)              { DB.set('arc_goals', v); },
+  get notes()        { return DB.get('arc_notes') || {}; },
+  sn(v)              { DB.set('arc_notes', v); },
+  get journals()     { return DB.get('arc_journals') || {}; },
+  sj(v)              { DB.set('arc_journals', v); },
+
+  get project() { return this.projects.find(p => p.id === this.projectId) || null; },
+  get pGoals()  { return this.goals.filter(g => g.projectId === this.projectId); },
+
+  addProject(p)    { const ps = this.projects; ps.push(p); this.sp(ps); },
+  updateProject(p) { const ps = this.projects.map(x => x.id===p.id ? p : x); this.sp(ps); },
+  deleteProject(id){ this.sp(this.projects.filter(p => p.id!==id)); this.sg(this.goals.filter(g => g.projectId!==id)); },
+
+  addGoal(g)    { const gs = this.goals; gs.push(g); this.sg(gs); },
+  updateGoal(g) { this.sg(this.goals.map(x => x.id===g.id ? g : x)); },
+  deleteGoal(id){ this.sg(this.goals.filter(g => g.id!==id)); },
+
+  setNote(goalId, ds, text) { const n = this.notes; if(text.trim()) n[`${goalId}_${ds}`]=text.trim(); else delete n[`${goalId}_${ds}`]; this.sn(n); },
+  getNote(goalId, ds)       { return (this.notes[`${goalId}_${ds}`])||''; },
+
+  setJournal(ds, text) { const j = this.journals; if(text.trim()) j[ds]=text.trim(); else delete j[ds]; this.sj(j); },
+  getJournal(ds)       { return (this.journals[ds])||''; },
+};
+
+// =====================================================
+// VIEW RANGE
+// =====================================================
+function getViewDates() {
+  const a = S.anchor;
+  let start, count;
+  if (S.mode === 'week')    { start = startOfWeek(a); count = 7; }
+  else if (S.mode === 'twoweek') { start = startOfWeek(a); count = 14; }
+  else { start = startOfMonth(a); count = daysInMonth(a); }
+  return Array.from({length: count}, (_,i) => addDays(start, i));
+}
+
+function getViewLabel() {
+  const dates = getViewDates();
+  const first = dates[0], last = dates[dates.length-1];
+  if (S.mode === 'month') return `${MONTH_NAMES[first.getMonth()]} ${first.getFullYear()}`;
+  if (first.getMonth() === last.getMonth())
+    return `${MONTH_NAMES[first.getMonth()]} ${first.getDate()}–${last.getDate()}, ${first.getFullYear()}`;
+  return `${fmtDateShort(first)} – ${fmtDateShort(last)}`;
+}
+
+function navigate(dir) {
+  const d = new Date(S.anchor);
+  if (S.mode === 'week') d.setDate(d.getDate()+dir*7);
+  else if (S.mode === 'twoweek') d.setDate(d.getDate()+dir*14);
+  else d.setMonth(d.getMonth()+dir);
+  S.anchor = d;
+  renderPlanner();
+}
+
+function goToToday() { S.anchor = new Date(); renderPlanner(); }
+
+// =====================================================
+// MAIN RENDER
+// =====================================================
+function render() {
+  if (S.view === 'projects') renderProjects();
+  else renderPlanner();
+}
+
+// =====================================================
+// PROJECTS PAGE
+// =====================================================
+function renderProjects() {
+  const projects = S.projects;
+  const allGoals = S.goals;
+
+  const cards = projects.map(p => {
+    const gCount = allGoals.filter(g => g.projectId === p.id).length;
+    const done = allGoals.filter(g => g.projectId === p.id && g.status === 'completed').length;
+    return `
+    <div class="project-card" style="--card-color:${p.color||'#7b79f7'}" onclick="openProject('${p.id}')">
+      <div class="card-actions" onclick="event.stopPropagation()">
+        <button class="icon-btn" onclick="editProjectModal('${p.id}')" title="Edit">✎</button>
+        <button class="icon-btn" onclick="confirmDeleteProject('${p.id}')" title="Delete">✕</button>
+      </div>
+      <div class="card-emoji">${esc(p.emoji||'📁')}</div>
+      <div class="card-name">${esc(p.name)}</div>
+      <div class="card-desc">${esc(p.description||'No description')}</div>
+      <div class="card-meta">
+        <span class="card-badge">${gCount} goal${gCount!==1?'s':''}</span>
+        ${gCount>0 ? `<span class="card-badge ${done===gCount&&gCount>0?'active':''}">${done}/${gCount} done</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  el('root').innerHTML = `
+  <div class="page-projects">
+    <div class="brand">
+      <div class="brand-logo">Arc<span>us</span></div>
+      <div class="brand-tagline">Project & Goal Planner</div>
+    </div>
+    <div>
+      <div class="projects-section-title">Your Projects</div>
+      <div class="projects-grid">
+        ${cards}
+        <div class="new-project-card" onclick="newProjectModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          <span>New Project</span>
+        </div>
+      </div>
+    </div>
+    ${projects.length===0 ? `<div style="color:var(--muted);font-size:14px;text-align:center;margin-top:20px;">Create your first project to get started!</div>` : ''}
+  </div>`;
+}
+
+function openProject(id) {
+  S.projectId = id;
+  S.view = 'planner';
+  S.anchor = new Date();
+  renderPlanner();
+}
+
+// =====================================================
+// PLANNER PAGE
+// =====================================================
+function renderPlanner() {
+  const project = S.project;
+  if (!project) { S.view='projects'; renderProjects(); return; }
+
+  const dates = getViewDates();
+  const cellW = S.mode === 'month' ? 38 : S.mode === 'week' ? 90 : 60;
+  document.documentElement.style.setProperty('--cell-w', cellW+'px');
+
+  const sidebarItems = S.projects.map(p => `
+    <div class="sidebar-project-item ${p.id===S.projectId?'active':''}" onclick="switchProject('${p.id}')">
+      <div class="sidebar-project-dot" style="background:${p.color||'#7b79f7'}"></div>
+      <span class="sidebar-project-name">${esc(p.name)}</span>
+    </div>`).join('');
+
+  el('root').innerHTML = `
+  <div class="page-planner">
+    <div class="sidebar">
+      <div class="sidebar-top">
+        <button class="back-btn" onclick="backToProjects()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          All Projects
+        </button>
+      </div>
+      <div class="sidebar-brand"><div class="brand-sm">Arc<span>us</span></div></div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Projects</div>
+        ${sidebarItems}
+        <button class="sidebar-add-proj" onclick="newProjectModal()">+ New Project</button>
+      </div>
+    </div>
+    <div class="planner-main">
+      <div class="planner-topbar">
+        <div class="planner-project-name">${esc(project.emoji||'📁')} ${esc(project.name)}</div>
+        <div class="topbar-actions">
+          <div class="date-nav">
+            <button class="nav-arrow" onclick="navigate(-1)">&#8249;</button>
+            <span class="date-nav-label">${getViewLabel()}</span>
+            <button class="nav-arrow" onclick="navigate(1)">&#8250;</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="goToToday()">Today</button>
+          <div class="view-toggle">
+            <button class="view-btn ${S.mode==='week'?'active':''}" onclick="setMode('week')">Week</button>
+            <button class="view-btn ${S.mode==='twoweek'?'active':''}" onclick="setMode('twoweek')">2 Wk</button>
+            <button class="view-btn ${S.mode==='month'?'active':''}" onclick="setMode('month')">Month</button>
+          </div>
+          <button class="btn btn-primary" onclick="newGoalModal()">+ Add Goal</button>
+        </div>
+      </div>
+      <div class="gantt-wrap">
+        <div class="gantt-inner">
+          ${renderGanttHeader(dates)}
+          ${renderGanttBody(dates)}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderGanttHeader(dates) {
+  let prevMonth = -1;
+  const cols = dates.map(d => {
+    const isMon = d.getMonth() !== prevMonth;
+    prevMonth = d.getMonth();
+    return `
+    <div class="gantt-date-col ${isToday(d)?'today':''}" onclick="openJournal('${dateStr(d)}')" title="Open journal for ${fmtDate(d)}">
+      <div class="day-name">${DAY_NAMES[d.getDay()]}</div>
+      <div class="day-num">${d.getDate()}</div>
+      <div class="month-label">${isMon ? MONTH_NAMES[d.getMonth()] : ''}</div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="gantt-header-row">
+    <div class="gantt-corner">
+      <span class="gantt-corner-label">Goals</span>
+    </div>
+    <div class="gantt-dates-header">${cols}</div>
+  </div>`;
+}
+
+function renderGanttBody(dates) {
+  const goals = S.pGoals;
+  if (goals.length === 0) {
+    return `<div class="gantt-empty">
+      <div class="gantt-empty-icon">🎯</div>
+      <h3>No goals yet</h3>
+      <p class="text-muted">Click "+ Add Goal" to create your first goal for this project.</p>
+    </div>`;
+  }
+
+  // Group by category
+  const cats = {};
+  goals.forEach(g => {
+    const cat = g.category || 'Uncategorized';
+    if (!cats[cat]) cats[cat] = [];
+    cats[cat].push(g);
+  });
+
+  return Object.entries(cats).map(([cat, catGoals]) => {
+    const collapsed = S.collapsedCats.has(cat);
+    const rows = collapsed ? '' : catGoals.map(g => renderGoalRow(g, dates)).join('');
+    return `
+    <div class="category-section">
+      <div class="category-header-row">
+        <div class="category-header-left" onclick="toggleCat('${esc(cat)}')">
+          <span class="category-chevron ${collapsed?'':'open'}">▶</span>
+          <span class="category-name-txt">${esc(cat)}</span>
+          <span class="category-count">${catGoals.length}</span>
+        </div>
+        <div class="category-header-right"></div>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+}
+
+function renderGoalRow(goal, dates) {
+  const from = parseDate(goal.dateFrom);
+  const to = parseDate(goal.dateTo);
+  const color = goal.labelColor || '#7b79f7';
+  const st = statusInfo(goal.status);
+
+  const cells = dates.map(d => {
+    const inRange = d >= from && d <= to;
+    const isFirst = dateStr(d) === goal.dateFrom;
+    const isLast = dateStr(d) === goal.dateTo;
+    const hasNote = !!S.getNote(goal.id, dateStr(d));
+    const todayCol = isToday(d);
+
+    if (inRange) {
+      const classes = ['g-cell','in-range', todayCol?'today-col':'', isFirst?'range-start':'', isLast?'range-end':'', hasNote?'has-note':''].filter(Boolean).join(' ');
+      return `<div class="${classes}" onclick="openDayNote('${goal.id}','${dateStr(d)}')" title="Note for ${fmtDateShort(d)}">
+        <div class="g-bar" style="background:${color};opacity:.85"></div>
+        <div class="note-pip"></div>
+      </div>`;
+    } else {
+      return `<div class="g-cell ${todayCol?'today-col':''}"></div>`;
+    }
+  }).join('');
+
+  return `
+  <div class="goal-row">
+    <div class="goal-left" onclick="editGoalModal('${goal.id}')">
+      <div class="goal-color-dot" style="background:${color}"></div>
+      <span class="goal-title-txt" title="${esc(goal.title)}">${esc(goal.title)}</span>
+      <div class="goal-status-dot" style="background:${st.color}" title="${st.label}"></div>
+    </div>
+    <div class="goal-cells">${cells}</div>
+  </div>`;
+}
+
+function switchProject(id) { S.projectId = id; S.anchor = new Date(); renderPlanner(); }
+function backToProjects() { S.view = 'projects'; render(); }
+function setMode(m) { S.mode = m; renderPlanner(); }
+function toggleCat(cat) {
+  if (S.collapsedCats.has(cat)) S.collapsedCats.delete(cat);
+  else S.collapsedCats.add(cat);
+  renderPlanner();
+}
+
+// =====================================================
+// MODAL SYSTEM
+// =====================================================
+let activeModal = null;
+function showModal(html) {
+  el('modal-overlay').classList.add('show');
+  el('modal-wrap').innerHTML = html;
+  activeModal = el('modal-wrap').querySelector('.modal');
+  document.addEventListener('keydown', onEsc);
+}
+function closeModal() {
+  el('modal-overlay').classList.remove('show');
+  el('modal-wrap').innerHTML = '';
+  activeModal = null;
+  document.removeEventListener('keydown', onEsc);
+}
+function onEsc(e) { if (e.key === 'Escape') closeModal(); }
+function overlayClick(e) { if (e.target === el('modal-overlay')) closeModal(); }
+
+// =====================================================
+// PROJECT MODAL
+// =====================================================
+function newProjectModal() { projectModal(null); }
+function editProjectModal(id) { projectModal(S.projects.find(p => p.id===id)); }
+
+function projectModal(project) {
+  const isEdit = !!project;
+  const p = project || { name:'', description:'', color: PROJ_COLORS[0], emoji: '📁' };
+
+  const colorSwatches = PROJ_COLORS.map(c =>
+    `<div class="color-swatch ${c===p.color?'selected':''}" style="background:${c}" onclick="pickProjColor(this,'${c}')"></div>`
+  ).join('');
+
+  const emojiOpts = EMOJIS.map(e =>
+    `<div class="emoji-opt ${e===p.emoji?'selected':''}" onclick="pickEmoji(this,'${esc(e)}')">${e}</div>`
+  ).join('');
+
+  showModal(`
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">${isEdit?'Edit':'New'} Project</div>
+        <div class="modal-subtitle">${isEdit?'Update project details':'Create a new project to organize your goals'}</div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Project Name</label>
+      <input class="form-input" id="pm-name" placeholder="e.g. Product Launch" value="${esc(p.name)}" maxlength="60">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-input" id="pm-desc" placeholder="What is this project about?" rows="2">${esc(p.description||'')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Icon</label>
+      <div class="emoji-grid" id="pm-emoji-grid">${emojiOpts}</div>
+      <input type="hidden" id="pm-emoji" value="${esc(p.emoji||'📁')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      <div class="color-picker" id="pm-color-pick">${colorSwatches}</div>
+      <input type="hidden" id="pm-color" value="${p.color}">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProject(${isEdit?`'${p.id}'`:'null'})">${isEdit?'Save Changes':'Create Project'}</button>
+    </div>
+  </div>`);
+}
+
+function pickProjColor(el, color) {
+  el.closest('#pm-color-pick').querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('pm-color').value = color;
+}
+
+function pickEmoji(el, emoji) {
+  el.closest('#pm-emoji-grid').querySelectorAll('.emoji-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('pm-emoji').value = emoji;
+}
+
+function saveProject(id) {
+  const name = el('pm-name').value.trim();
+  if (!name) { el('pm-name').focus(); return; }
+  const p = {
+    id: id || uid(),
+    name,
+    description: el('pm-desc').value.trim(),
+    emoji: el('pm-emoji').value || '📁',
+    color: el('pm-color').value || PROJ_COLORS[0],
+    createdAt: id ? undefined : new Date().toISOString(),
+  };
+  if (id) { const existing = S.projects.find(x=>x.id===id); p.createdAt = existing?.createdAt; S.updateProject(p); }
+  else S.addProject(p);
+  closeModal();
+  if (S.view === 'projects') renderProjects();
+  else renderPlanner();
+}
+
+function confirmDeleteProject(id) {
+  const p = S.projects.find(x=>x.id===id);
+  showModal(`
+  <div class="modal narrow">
+    <div class="modal-header">
+      <div class="modal-title">Delete Project?</div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:8px">Delete <strong style="color:var(--text)">${esc(p?.name)}</strong> and all its goals? This cannot be undone.</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" style="background:var(--red)" onclick="doDeleteProject('${id}')">Delete</button>
+    </div>
+  </div>`);
+}
+
+function doDeleteProject(id) {
+  if (S.projectId === id) { S.projectId = null; S.view = 'projects'; }
+  S.deleteProject(id);
+  closeModal();
+  render();
+}
+
+// =====================================================
+// GOAL MODAL
+// =====================================================
+function newGoalModal(defaultCat) { goalModal(null, defaultCat); }
+function editGoalModal(id) { goalModal(S.goals.find(g=>g.id===id)); }
+
+function goalModal(goal, defaultCat) {
+  const isEdit = !!goal;
+  const today = dateStr(new Date());
+  const g = goal || {
+    title:'', description:'', category: defaultCat||'', label:'',
+    labelColor: COLORS[0], dateFrom: today, dateTo: today,
+    status: 'not_started'
+  };
+
+  // Gather existing categories for datalist
+  const existingCats = [...new Set(S.pGoals.map(x=>x.category).filter(Boolean))];
+  const catOptions = existingCats.map(c=>`<option value="${esc(c)}">`).join('');
+
+  const colorSwatches = COLORS.map(c =>
+    `<div class="color-swatch ${c===g.labelColor?'selected':''}" style="background:${c}" onclick="pickGoalColor(this,'${c}')"></div>`
+  ).join('');
+
+  const statusOpts = STATUSES.map(s => `
+    <div class="status-opt ${g.status===s.val?'selected':''}" style="--opt-color:${s.color}" onclick="pickStatus(this,'${s.val}')">
+      <span class="status-dot-sm" style="background:${s.color}"></span>${s.label}
+    </div>`).join('');
+
+  showModal(`
+  <div class="modal wide">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">${isEdit?'Edit Goal':'New Goal'}</div>
+        <div class="modal-subtitle">${isEdit?'Update this goal\'s details':'Add a goal to track in your planner'}</div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Goal Title *</label>
+      <input class="form-input" id="gm-title" placeholder="e.g. Launch marketing campaign" value="${esc(g.title)}" maxlength="80">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-input" id="gm-desc" placeholder="What does this goal involve? What does success look like?" rows="2">${esc(g.description||'')}</textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <datalist id="cat-list">${catOptions}</datalist>
+        <input class="form-input" id="gm-category" list="cat-list" placeholder="e.g. Marketing, Design…" value="${esc(g.category||'')}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Label</label>
+        <input class="form-input" id="gm-label" placeholder="e.g. High Priority, MVP…" value="${esc(g.label||'')}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Label Color</label>
+      <div class="color-picker" id="gm-color-pick">${colorSwatches}</div>
+      <input type="hidden" id="gm-color" value="${g.labelColor||COLORS[0]}">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Start Date *</label>
+        <input type="date" class="form-input" id="gm-from" value="${g.dateFrom}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date *</label>
+        <input type="date" class="form-input" id="gm-to" value="${g.dateTo}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <div class="status-select-wrap" id="gm-status-wrap">
+        ${statusOpts}
+      </div>
+      <input type="hidden" id="gm-status" value="${g.status}">
+    </div>
+    <div class="modal-footer">
+      ${isEdit ? `<button class="btn btn-ghost" style="color:var(--red);margin-right:auto" onclick="confirmDeleteGoal('${g.id}')">Delete</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoal(${isEdit?`'${g.id}'`:'null'})">${isEdit?'Save Changes':'Add Goal'}</button>
+    </div>
+  </div>`);
+}
+
+function pickGoalColor(el, color) {
+  el.closest('#gm-color-pick').querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('gm-color').value = color;
+}
+
+function pickStatus(el, val) {
+  el.closest('#gm-status-wrap').querySelectorAll('.status-opt').forEach(s=>s.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('gm-status').value = val;
+}
+
+function saveGoal(id) {
+  const title = el('gm-title').value.trim();
+  const from = el('gm-from').value;
+  const to = el('gm-to').value;
+  if (!title) { el('gm-title').focus(); return; }
+  if (!from || !to) { alert('Please set start and end dates.'); return; }
+  if (from > to) { alert('End date must be on or after start date.'); return; }
+  const g = {
+    id: id || uid(),
+    projectId: S.projectId,
+    title,
+    description: el('gm-desc').value.trim(),
+    category: el('gm-category').value.trim() || 'Uncategorized',
+    label: el('gm-label').value.trim(),
+    labelColor: el('gm-color').value || COLORS[0],
+    dateFrom: from,
+    dateTo: to,
+    status: el('gm-status').value || 'not_started',
+    createdAt: id ? undefined : new Date().toISOString(),
+  };
+  if (id) { const existing = S.goals.find(x=>x.id===id); g.createdAt = existing?.createdAt; S.updateGoal(g); }
+  else S.addGoal(g);
+  closeModal();
+  renderPlanner();
+}
+
+function confirmDeleteGoal(id) {
+  const g = S.goals.find(x=>x.id===id);
+  showModal(`
+  <div class="modal narrow">
+    <div class="modal-header">
+      <div class="modal-title">Delete Goal?</div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:8px">Delete <strong style="color:var(--text)">${esc(g?.title)}</strong>? This cannot be undone.</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" style="background:var(--red)" onclick="doDeleteGoal('${id}')">Delete</button>
+    </div>
+  </div>`);
+}
+
+function doDeleteGoal(id) {
+  S.deleteGoal(id);
+  closeModal();
+  renderPlanner();
+}
+
+// =====================================================
+// DAY NOTE MODAL
+// =====================================================
+function openDayNote(goalId, ds) {
+  const goal = S.goals.find(g=>g.id===goalId);
+  if (!goal) return;
+  const d = parseDate(ds);
+  const existing = S.getNote(goalId, ds);
+  const color = goal.labelColor || '#7b79f7';
+  const st = statusInfo(goal.status);
+
+  showModal(`
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="day-note-date">${DAY_NAMES[d.getDay()]}, ${fmtDate(d)}</div>
+        <div class="day-note-goal">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
+          ${esc(goal.title)}
+          <span class="pill" style="background:${st.color}22;color:${st.color};font-size:10px">${st.label}</span>
+        </div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    ${goal.label ? `<div style="margin-bottom:16px"><span class="pill" style="background:${color}22;color:${color}">${esc(goal.label)}</span></div>` : ''}
+    <div class="form-group">
+      <label class="form-label">Notes / Progress for this day</label>
+      <textarea class="form-input" id="dn-text" rows="6" placeholder="What did you work on? Any progress, blockers, or reflections…">${esc(existing)}</textarea>
+    </div>
+    <div class="modal-footer">
+      ${existing ? `<button class="btn btn-ghost" style="color:var(--red);margin-right:auto" onclick="clearDayNote('${goalId}','${ds}')">Clear</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDayNote('${goalId}','${ds}')">Save Note</button>
+    </div>
+  </div>`);
+}
+
+function saveDayNote(goalId, ds) {
+  S.setNote(goalId, ds, el('dn-text').value);
+  closeModal();
+  renderPlanner();
+}
+
+function clearDayNote(goalId, ds) {
+  S.setNote(goalId, ds, '');
+  closeModal();
+  renderPlanner();
+}
+
+// =====================================================
+// JOURNAL MODAL
+// =====================================================
+function openJournal(ds) {
+  const d = parseDate(ds);
+  const existing = S.getJournal(ds);
+  const todayClass = isToday(d) ? ' (Today)' : '';
+
+  showModal(`
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Daily Journal</div>
+        <div class="journal-date-big">${DAY_NAMES[d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}${todayClass}</div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Journal Entry</label>
+      <textarea class="form-input" id="jn-text" rows="8" placeholder="Write your thoughts, reflections, what happened today, what you're grateful for…">${esc(existing)}</textarea>
+    </div>
+    <div class="modal-footer">
+      ${existing ? `<button class="btn btn-ghost" style="color:var(--red);margin-right:auto" onclick="clearJournal('${ds}')">Clear Entry</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveJournal('${ds}')">Save Entry</button>
+    </div>
+  </div>`);
+}
+
+function saveJournal(ds) {
+  S.setJournal(ds, el('jn-text').value);
+  closeModal();
+}
+
+function clearJournal(ds) {
+  S.setJournal(ds, '');
+  closeModal();
+}
+
+// =====================================================
+// INIT
+// =====================================================
+render();
+</script>
+</body>
+</html>
