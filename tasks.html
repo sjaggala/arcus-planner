@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Task Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* ── Toolbar ── */
+.tasks-toolbar {
+  padding: 0 18px; height: 50px; display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+  background: var(--s1); transition: background .2s;
+}
+.toolbar-title { font-family:'Fraunces',serif; font-size:16px; font-weight:600; flex:1; }
+.filter-set { display:flex; gap:6px; align-items:center; }
+.filter-lbl { font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted); }
+.fpill { padding:4px 11px; border-radius:20px; font-size:12px;font-weight:500; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; transition:all .15s; }
+.fpill:hover { color:var(--text); border-color:var(--border2); }
+.fpill.on { background:var(--s2); color:var(--text); border-color:var(--accent); }
+.fpill.show-all { border-color:var(--accent);color:var(--accent);background:rgba(123,121,247,.1); }
+.tb-sep { width:1px;height:22px;background:var(--border);margin:0 2px; }
+.proj-select { background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:5px 10px;color:var(--text);font-size:12px;font-weight:500;cursor:pointer; }
+
+/* ── Kanban ── */
+.kanban-wrap { flex:1; overflow-x:auto; overflow-y:hidden; padding:16px 18px; }
+.kanban-board { display:flex; gap:14px; height:100%; min-width:max-content; }
+.bucket-col { width:290px; flex-shrink:0; display:flex; flex-direction:column; background:var(--s1); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.bucket-col.new-col { background:transparent; border:2px dashed var(--border2); cursor:pointer; align-items:center; justify-content:center; color:var(--muted); font-size:13px;font-weight:500;gap:6px; transition:border-color .2s,color .2s; }
+.bucket-col.new-col:hover { border-color:var(--accent);color:var(--accent); }
+.bucket-header { padding:12px 14px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.bucket-color-bar { width:4px; height:20px; border-radius:2px; flex-shrink:0; }
+.bucket-name { font-size:13px;font-weight:700;flex:1; }
+.bucket-count { font-size:11px;color:var(--muted);background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:1px 8px; }
+.bucket-menu { position:relative; }
+.bucket-menu-btn { width:24px;height:24px;border-radius:6px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s; }
+.bucket-menu-btn:hover { background:var(--s3);color:var(--text); }
+.bucket-dropdown { position:absolute;top:28px;right:0;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:4px;z-index:20;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.3); }
+.bucket-dropdown.hidden { display:none; }
+.dd-item { display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text);transition:background .15s; }
+.dd-item:hover { background:var(--s3); }
+.dd-item.danger { color:var(--red); }
+
+/* ── Cards area ── */
+.bucket-cards { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+.add-task-btn { margin:0 10px 10px; padding:8px; border-radius:8px; background:transparent; border:1px dashed var(--border2); color:var(--muted); font-size:12px;font-weight:500; cursor:pointer; transition:border-color .2s,color .2s; }
+.add-task-btn:hover { border-color:var(--accent);color:var(--accent); }
+
+/* ── Task Cards ── */
+.task-card { background:var(--s2); border:1px solid var(--border); border-radius:9px; padding:12px; cursor:pointer; transition:border-color .15s,transform .1s; position:relative; }
+.task-card:hover { border-color:var(--border2); transform:translateY(-1px); }
+.task-card.done-card { opacity:.55; }
+.task-card .pri-bar { position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:9px 0 0 9px; }
+.task-card-title { font-size:13px;font-weight:600;padding-left:10px;margin-bottom:5px;line-height:1.4; }
+.task-card.done-card .task-card-title { text-decoration:line-through; }
+.task-card-meta { display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-left:10px; }
+.card-tag { font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600; }
+.task-card-actions { position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .15s; }
+.task-card:hover .task-card-actions { opacity:1; }
+.card-action-btn { width:22px;height:22px;border-radius:5px;background:var(--s3);border:1px solid var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;transition:color .15s,background .15s; }
+.card-action-btn:hover { color:var(--text);background:var(--s2); }
+
+/* ── Goal Cards ── */
+.goal-card { background:var(--s2); border:1px solid var(--border); border-radius:9px; padding:12px; position:relative; transition:border-color .15s; }
+.goal-card::before { content:'🎯';position:absolute;top:10px;right:12px;font-size:13px;opacity:.5; }
+.goal-card-title { font-size:13px;font-weight:600;margin-bottom:6px;padding-right:20px;line-height:1.4; }
+.goal-card-meta { display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:7px; }
+.goal-card-dates { font-size:11px;color:var(--muted);margin-bottom:6px; }
+.goal-card-link { font-size:11px;color:var(--accent);font-weight:600;cursor:pointer;transition:opacity .15s; }
+.goal-card-link:hover { opacity:.75; }
+.goal-card.overdue-card { border-color:rgba(240,111,111,.4);background:rgba(240,111,111,.06); }
+
+/* ── Empty ── */
+.bucket-empty { color:var(--dim);font-size:12px;text-align:center;padding:20px 12px; }
+
+/* ── Bucket modal color pick ── */
+.bucket-colors { display:flex;gap:7px;flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<div id="nav-container"></div>
+
+<div class="tasks-toolbar">
+  <div class="toolbar-title">Task Board</div>
+  <div class="filter-set">
+    <span class="filter-lbl">Show:</span>
+    <div class="fpill show-all" id="f-all" onclick="setFilter('all')">All</div>
+    <div class="fpill" id="f-goals" onclick="setFilter('goals')">🎯 Goals</div>
+    <div class="fpill" id="f-tasks" onclick="setFilter('tasks')">✅ Tasks</div>
+  </div>
+  <div class="tb-sep"></div>
+  <div class="filter-set">
+    <span class="filter-lbl">Project:</span>
+    <select class="proj-select" id="proj-filter" onchange="renderBoard()">
+      <option value="">All Projects</option>
+    </select>
+  </div>
+  <div class="tb-sep"></div>
+  <button class="btn btn-ghost btn-sm" onclick="manageBuckets()">⚙ Columns</button>
+</div>
+
+<div class="kanban-wrap">
+  <div class="kanban-board" id="kanban-board"></div>
+</div>
+
+<div id="modal-overlay" onclick="overlayClick(event)"></div>
+<div id="modal-wrap"></div>
+<script src="data.js"></script>
+<script>
+// ======================================================
+// STATE
+// ======================================================
+let filterMode = 'all'; // 'all' | 'goals' | 'tasks'
+let openDropdown = null;
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDate(s) { if(!s) return ''; const d=new Date(s+'T00:00:00'); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; }
+function isOverdue(g) { return !['completed','cancelled'].includes(g.status) && g.dateTo < Arc.today(); }
+
+// ======================================================
+// INIT
+// ======================================================
+function init() {
+  Arc.Settings.load();
+  Arc.applyTheme(Arc.Settings.get('theme','dark'));
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('tasks');
+
+  // Populate project filter
+  const sel = document.getElementById('proj-filter');
+  Arc.Projects.getAll().forEach(p => {
+    const o = document.createElement('option'); o.value=p.id; o.textContent=p.name; sel.appendChild(o);
+  });
+
+  renderBoard();
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', e => {
+    if (openDropdown && !openDropdown.contains(e.target)) {
+      openDropdown.querySelector('.bucket-dropdown').classList.add('hidden');
+      openDropdown = null;
+    }
+  });
+}
+
+// ======================================================
+// FILTER
+// ======================================================
+function setFilter(mode) {
+  filterMode = mode;
+  document.getElementById('f-all').className   = 'fpill' + (mode==='all'?' show-all':'');
+  document.getElementById('f-goals').className = 'fpill' + (mode==='goals'?' on':'');
+  document.getElementById('f-tasks').className = 'fpill' + (mode==='tasks'?' on':'');
+  renderBoard();
+}
+
+// ======================================================
+// BOARD RENDER
+// ======================================================
+function renderBoard() {
+  const board    = document.getElementById('kanban-board');
+  const buckets  = Arc.Buckets.getAll();
+  const allGoals = Arc.Goals.getAll();
+  const allTasks = Arc.Tasks.getAll();
+  const projId   = document.getElementById('proj-filter').value;
+
+  board.innerHTML = '';
+
+  buckets.forEach(bucket => {
+    // Get goal cards for this bucket (filtered by goal status mapping)
+    let goalCards = [];
+    if (filterMode !== 'tasks') {
+      let goals = allGoals.filter(g => {
+        const b = Arc.Buckets.forGoal(g);
+        return b && b.id === bucket.id;
+      });
+      if (projId) goals = goals.filter(g => g.projectId === projId);
+      goalCards = goals;
+    }
+
+    // Get standalone task cards for this bucket
+    let taskCards = [];
+    if (filterMode !== 'goals') {
+      let tasks = allTasks.filter(t => t.bucketId === bucket.id);
+      if (projId) tasks = tasks.filter(t => t.projectId === projId || !t.projectId);
+      taskCards = tasks;
+    }
+
+    const total = goalCards.length + taskCards.length;
+    const col = document.createElement('div');
+    col.className = 'bucket-col';
+    col.dataset.bucketId = bucket.id;
+
+    // Done column: fade when empty
+    const isDone = bucket.id === 'b_done';
+
+    col.innerHTML = `
+      <div class="bucket-header">
+        <div class="bucket-color-bar" style="background:${bucket.color}"></div>
+        <div class="bucket-name">${Arc.esc(bucket.name)}</div>
+        <div class="bucket-count">${total}</div>
+        <div class="bucket-menu" id="bm-${bucket.id}">
+          <button class="bucket-menu-btn" onclick="toggleBucketMenu('${bucket.id}',event)" title="Column options">⋯</button>
+          <div class="bucket-dropdown hidden">
+            <div class="dd-item" onclick="editBucketModal('${bucket.id}')">✎ Rename</div>
+            ${!bucket.isDefault ? `<div class="dd-item" onclick="editBucketModal('${bucket.id}',true)">🎨 Color</div>` : ''}
+            ${!bucket.isDefault ? `<div class="dd-item danger" onclick="confirmDelBucket('${bucket.id}')">🗑 Delete</div>` : ''}
+            ${isDone && total > 0 ? `<div class="dd-item" onclick="clearDoneGoals()">✓ Clear done tasks</div>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="bucket-cards" id="bc-${bucket.id}">
+        ${goalCards.map(g => renderGoalCard(g)).join('')}
+        ${taskCards.map(t => renderTaskCard(t, bucket.id)).join('')}
+        ${total===0 ? `<div class="bucket-empty">Drop tasks here</div>` : ''}
+      </div>
+      ${filterMode !== 'goals' ? `<button class="add-task-btn" onclick="newTaskModal('${bucket.id}')">＋ Add Task</button>` : ''}
+    `;
+    board.appendChild(col);
+  });
+
+  // New column button
+  const addCol = document.createElement('div');
+  addCol.className = 'bucket-col new-col';
+  addCol.onclick = () => newBucketModal();
+  addCol.innerHTML = `<span style="font-size:20px">⊕</span> Add Column`;
+  board.appendChild(addCol);
+}
+
+// ======================================================
+// GOAL CARD
+// ======================================================
+function renderGoalCard(goal) {
+  const proj = Arc.Projects.getById(goal.projectId);
+  const st   = Arc.Goals.statusInfo(goal.status);
+  const od   = isOverdue(goal);
+  const color = goal.labelColor || st.color;
+
+  return `<div class="goal-card ${od?'overdue-card':''}">
+    <div class="goal-card-title">${Arc.esc(goal.title)}</div>
+    <div class="goal-card-meta">
+      ${proj ? `<span class="card-tag" style="background:${(proj.color||'#7b79f7')}22;color:${proj.color||'#7b79f7'}">${Arc.esc(proj.name)}</span>` : ''}
+      <span class="card-tag" style="background:${st.color}20;color:${st.color}">${st.label}</span>
+      ${goal.label ? `<span class="card-tag" style="background:${color}20;color:${color}">${Arc.esc(goal.label)}</span>` : ''}
+      ${od ? `<span class="card-tag" style="background:rgba(240,111,111,.15);color:var(--red)">⚠ Overdue</span>` : ''}
+    </div>
+    <div class="goal-card-dates">📅 ${fmtDate(goal.dateFrom)} → ${fmtDate(goal.dateTo)}</div>
+    <div class="goal-card-link" onclick="window.location.href='planner.html?pid=${goal.projectId}'">View in Planner →</div>
+  </div>`;
+}
+
+// ======================================================
+// TASK CARD
+// ======================================================
+function renderTaskCard(task, bucketId) {
+  const pri   = Arc.PRIORITIES.find(p => p.val === task.priority) || Arc.PRIORITIES[1];
+  const proj  = task.projectId ? Arc.Projects.getById(task.projectId) : null;
+  const isDone = bucketId === 'b_done';
+  const isOd  = task.dueDate && task.dueDate < Arc.today() && !isDone;
+
+  return `<div class="task-card ${isDone?'done-card':''}" onclick="editTaskModal('${task.id}')">
+    <div class="pri-bar" style="background:${pri.color}"></div>
+    <div class="task-card-actions" onclick="event.stopPropagation()">
+      <div class="card-action-btn" onclick="editTaskModal('${task.id}')" title="Edit">✎</div>
+      <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">✕</div>
+    </div>
+    <div class="task-card-title">${Arc.esc(task.title)}</div>
+    <div class="task-card-meta">
+      ${proj ? `<span class="card-tag" style="background:${(proj.color||'#7b79f7')}22;color:${proj.color||'#7b79f7'}">${Arc.esc(proj.name)}</span>` : ''}
+      ${task.dueDate ? `<span class="card-tag" style="background:${isOd?'rgba(240,111,111,.15)':'var(--s3)'};color:${isOd?'var(--red)':'var(--muted)'}">${isOd?'⚠ ':''}${fmtDate(task.dueDate)}</span>` : ''}
+      <span class="card-tag" style="background:${pri.color}20;color:${pri.color}">${pri.label}</span>
+    </div>
+  </div>`;
+}
+
+// ======================================================
+// BUCKET MENU
+// ======================================================
+function toggleBucketMenu(bucketId, e) {
+  e.stopPropagation();
+  const menu = document.getElementById(`bm-${bucketId}`);
+  const dd   = menu.querySelector('.bucket-dropdown');
+  const isHidden = dd.classList.contains('hidden');
+
+  // Close any open
+  if (openDropdown && openDropdown !== menu) {
+    openDropdown.querySelector('.bucket-dropdown').classList.add('hidden');
+  }
+
+  dd.classList.toggle('hidden', !isHidden);
+  openDropdown = isHidden ? menu : null;
+}
+
+function editBucketModal(id, colorOnly = false) {
+  closeAllDropdowns();
+  const bucket = Arc.Buckets.getAll().find(b => b.id === id); if (!bucket) return;
+  const colorOpts = ['#6a74a0','#7b79f7','#60a5fa','#f5c542','#3ec97a','#f06f6f','#fb923c','#f472b6','#2dd4bf','#a78bfa'].map(c =>
+    `<div class="cswatch ${c===bucket.color?'sel':''}" style="background:${c}" onclick="pickBC(this,'${c}')"></div>`
+  ).join('');
+
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr">
+      <div><div class="modal-title">Edit Column</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Column Name</label><input class="form-inp" id="bc-name" value="${Arc.esc(bucket.name)}" maxlength="30"></div>
+    <div class="form-group"><label class="form-lbl">Color</label><div class="color-picker" id="bc-cp">${colorOpts}</div><input type="hidden" id="bc-color" value="${bucket.color}"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveBucket('${id}')">Save</button>
+    </div>
+  </div>`);
+  if (!colorOnly) document.getElementById('bc-name').focus();
+}
+
+function pickBC(el, c) { el.closest('#bc-cp').querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel')); el.classList.add('sel'); document.getElementById('bc-color').value=c; }
+
+function saveBucket(id) {
+  const bucket = Arc.Buckets.getAll().find(b=>b.id===id); if(!bucket) return;
+  const name  = document.getElementById('bc-name').value.trim();
+  const color = document.getElementById('bc-color').value;
+  if (!name) return;
+  Arc.Buckets.update({ ...bucket, name, color });
+  closeModal(); renderBoard();
+}
+
+function newBucketModal() {
+  const colorOpts = ['#6a74a0','#7b79f7','#60a5fa','#f5c542','#3ec97a','#f06f6f','#fb923c','#f472b6','#2dd4bf','#a78bfa'].map((c,i) =>
+    `<div class="cswatch ${i===0?'sel':''}" style="background:${c}" onclick="pickBC(this,'${c}')"></div>`
+  ).join('');
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr">
+      <div><div class="modal-title">New Column</div><div class="modal-sub">Add a custom kanban column</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Column Name</label><input class="form-inp" id="bc-name" placeholder="e.g. Blocked, Review…" maxlength="30"></div>
+    <div class="form-group"><label class="form-lbl">Color</label><div class="color-picker" id="bc-cp">${colorOpts}</div><input type="hidden" id="bc-color" value="#6a74a0"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createBucket()">Add Column</button>
+    </div>
+  </div>`);
+}
+
+function createBucket() {
+  const name  = document.getElementById('bc-name').value.trim();
+  const color = document.getElementById('bc-color').value;
+  if (!name) { document.getElementById('bc-name').style.borderColor='var(--red)'; return; }
+  Arc.Buckets.add({ id: Arc.uid(), name, color, statuses: [], isDefault: false });
+  closeModal(); renderBoard();
+}
+
+function confirmDelBucket(id) {
+  const b = Arc.Buckets.getAll().find(x=>x.id===id);
+  closeAllDropdowns();
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr"><div class="modal-title">Delete Column?</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <p style="color:var(--muted);font-size:13px">Delete <strong style="color:var(--text)">${Arc.esc(b?.name)}</strong>? Tasks in this column will move to <strong style="color:var(--text)">To Do</strong>.</p>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="doDelBucket('${id}')">Delete</button></div>
+  </div>`);
+}
+
+function doDelBucket(id) { Arc.Buckets.delete(id, 'b_todo'); closeModal(); renderBoard(); }
+
+function manageBuckets() {
+  const buckets = Arc.Buckets.getAll();
+  const rows = buckets.map(b => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:12px;height:12px;border-radius:50%;background:${b.color};flex-shrink:0"></div>
+      <span style="flex:1;font-size:13px;font-weight:500">${Arc.esc(b.name)}</span>
+      ${b.isDefault ? `<span style="font-size:10px;color:var(--muted);padding:1px 7px;border-radius:10px;border:1px solid var(--border)">Default</span>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="editBucketModal('${b.id}')">Edit</button>
+      ${!b.isDefault ? `<button class="btn btn-sm" style="background:rgba(240,111,111,.15);color:var(--red);border:1px solid rgba(240,111,111,.3)" onclick="confirmDelBucket('${b.id}')">✕</button>` : ''}
+    </div>`).join('');
+
+  showModal(`<div class="modal">
+    <div class="modal-hdr">
+      <div><div class="modal-title">Manage Columns</div><div class="modal-sub">Customise your kanban board</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div style="margin-bottom:16px">${rows}</div>
+    <div style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="closeModal();newBucketModal()">＋ Add New Column</button>
+    </div>
+    <div>
+      <button class="btn btn-ghost btn-sm" style="color:var(--muted)" onclick="if(confirm('Reset to default columns? Custom columns will be removed.'))doResetBuckets()">↺ Reset to defaults</button>
+    </div>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">Done</button></div>
+  </div>`);
+}
+
+function doResetBuckets() { Arc.Buckets.reset(); closeModal(); renderBoard(); }
+function clearDoneGoals() { closeAllDropdowns(); alert('Goal cards follow goal status. To mark a goal done, update its status in the Planner.'); }
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.bucket-dropdown').forEach(d => d.classList.add('hidden'));
+  openDropdown = null;
+}
+
+// ======================================================
+// TASK MODAL — New / Edit
+// ======================================================
+function newTaskModal(bucketId) {
+  taskModal(null, bucketId);
+}
+
+function editTaskModal(id) {
+  const task = Arc.Tasks.getAll().find(t => t.id === id);
+  if (task) taskModal(task, task.bucketId);
+}
+
+function taskModal(task, defaultBucketId) {
+  const isEdit = !!task;
+  const t = task || { title:'', description:'', priority:'medium', dueDate:'', projectId:'', bucketId: defaultBucketId||'b_todo' };
+  const buckets = Arc.Buckets.getAll();
+  const projects = Arc.Projects.getAll();
+  const bucketOpts = buckets.map(b => `<option value="${b.id}" ${b.id===t.bucketId?'selected':''}>${Arc.esc(b.name)}</option>`).join('');
+  const projOpts = `<option value="">No project</option>` + projects.map(p => `<option value="${p.id}" ${p.id===t.projectId?'selected':''}>${Arc.esc(p.name)}</option>`).join('');
+  const prioOpts = Arc.PRIORITIES.map(p => `<option value="${p.val}" ${p.val===t.priority?'selected':''}>${p.label}</option>`).join('');
+
+  showModal(`<div class="modal">
+    <div class="modal-hdr">
+      <div><div class="modal-title">${isEdit?'Edit Task':'New Task'}</div><div class="modal-sub">${isEdit?'Update this task':'Add a standalone task to your board'}</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Task Title *</label><input class="form-inp" id="tm-title" placeholder="What needs to be done?" value="${Arc.esc(t.title)}" maxlength="80"></div>
+    <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="tm-desc" rows="2" placeholder="Additional details…">${Arc.esc(t.description||'')}</textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-lbl">Priority</label><select class="form-inp" id="tm-pri">${prioOpts}</select></div>
+      <div class="form-group"><label class="form-lbl">Due Date</label><input type="date" class="form-inp" id="tm-due" value="${t.dueDate||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-lbl">Column</label><select class="form-inp" id="tm-bucket">${bucketOpts}</select></div>
+      <div class="form-group"><label class="form-lbl">Project (optional)</label><select class="form-inp" id="tm-proj">${projOpts}</select></div>
+    </div>
+    <div class="modal-foot">
+      ${isEdit?`<button class="btn btn-ghost" style="margin-right:auto;color:var(--red)" onclick="confirmDelTask('${t.id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask(${isEdit?`'${t.id}'`:'null'})">${isEdit?'Save':'Add Task'}</button>
+    </div>
+  </div>`);
+}
+
+function saveTask(id) {
+  const title = document.getElementById('tm-title').value.trim();
+  if (!title) { document.getElementById('tm-title').style.borderColor='var(--red)'; document.getElementById('tm-title').focus(); return; }
+  const existing = id ? Arc.Tasks.getAll().find(t=>t.id===id) : null;
+  const task = {
+    id: id || Arc.uid(),
+    title,
+    description: document.getElementById('tm-desc').value.trim(),
+    priority: document.getElementById('tm-pri').value,
+    dueDate: document.getElementById('tm-due').value,
+    bucketId: document.getElementById('tm-bucket').value,
+    projectId: document.getElementById('tm-proj').value,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+  };
+  id ? Arc.Tasks.update(task) : Arc.Tasks.add(task);
+  closeModal(); renderBoard();
+}
+
+function confirmDelTask(id) {
+  const t = Arc.Tasks.getAll().find(x=>x.id===id);
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr"><div class="modal-title">Delete Task?</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <p style="color:var(--muted);font-size:13px">Delete <strong style="color:var(--text)">${Arc.esc(t?.title)}</strong>? This cannot be undone.</p>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="doDelTask('${id}')">Delete</button></div>
+  </div>`);
+}
+
+function doDelTask(id) { Arc.Tasks.delete(id); closeModal(); renderBoard(); }
+function onProfileSaved() { document.getElementById('nav-container').innerHTML = Arc.navHtml('tasks'); }
+function onDataImported() { window.location.reload(); }
+
+init();
+</script>
+</body>
+</html>

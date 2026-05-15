@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Layout ────────────────────────────────────────────── */
+body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+
+/* ── Planner Toolbar ───────────────────────────────────── */
+.planner-toolbar {
+  display:flex; align-items:center; gap:10px; padding:0 18px;
+  height:50px; flex-shrink:0; border-bottom:1px solid var(--border);
+  background:var(--s1); transition:background .2s;
+}
+.back-btn {
+  display:inline-flex; align-items:center; gap:6px; padding:6px 13px 6px 9px;
+  background:var(--s3); border:1.5px solid var(--border2); border-radius:8px;
+  color:var(--text); font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0;
+  white-space:nowrap; transition:background .15s, border-color .15s, color .15s;
+}
+.back-btn:hover { background:var(--s2); border-color:var(--accent); color:var(--accent); }
+.back-btn svg { width:14px; height:14px; }
+.tb-div { width:1px; height:22px; background:var(--border); flex-shrink:0; }
+.proj-name { font-family:'Fraunces',serif; font-size:16px; font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tb-right { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+.view-toggle { display:flex; background:var(--s3); border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+.view-btn { padding:5px 10px; font-size:12px; font-weight:500; color:var(--muted); background:transparent; border:none; cursor:pointer; transition:background .15s, color .15s; }
+.view-btn.active { background:var(--s2); color:var(--text); }
+.date-nav { display:flex; align-items:center; gap:3px; }
+.date-nav-label { font-size:12px; font-weight:600; min-width:148px; text-align:center; }
+.nav-arrow { width:26px; height:26px; border-radius:6px; background:var(--s3); border:1px solid var(--border); color:var(--muted); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; transition:color .15s, background .15s; }
+.nav-arrow:hover { color:var(--text); background:var(--s2); }
+
+/* ── Filter Bar ────────────────────────────────────────── */
+.filter-bar {
+  display:flex; align-items:center; gap:7px; padding:0 18px;
+  height:44px; flex-shrink:0; border-bottom:1px solid var(--border);
+  background:var(--s2); overflow-x:auto; transition:background .2s;
+}
+.filter-bar::-webkit-scrollbar { height:0; }
+.filter-lbl { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+.fpill {
+  padding:3px 11px; border-radius:20px; font-size:12px; font-weight:500;
+  border:1px solid var(--border); background:var(--s3); color:var(--muted);
+  cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:5px;
+  white-space:nowrap; flex-shrink:0;
+}
+.fpill:hover { border-color:var(--border2); color:var(--text); }
+.fpill .pd { width:7px; height:7px; border-radius:50%; }
+.filter-sep { width:1px; height:16px; background:var(--border); margin:0 2px; flex-shrink:0; }
+
+/* ── Gantt wrap ────────────────────────────────────────── */
+.gantt-wrap { flex:1; overflow:auto; position:relative; }
+.gantt-inner { min-width:max-content; }
+
+/* ── Gantt Header ──────────────────────────────────────── */
+.gantt-hdr {
+  display:flex; position:sticky; top:0; z-index:30;
+  background:var(--s1); border-bottom:2px solid var(--border);
+  transition:background .2s;
+}
+.g-corner {
+  width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0;
+  padding:8px 16px; display:flex; align-items:center; border-right:1px solid var(--border);
+  background:var(--s1);
+}
+.g-corner-lbl { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
+.g-dates { display:flex; }
+.g-date-col {
+  width:var(--gCell); min-width:var(--gCell); flex-shrink:0;
+  padding:5px 2px 4px; text-align:center; border-right:1px solid var(--border);
+  cursor:pointer; transition:background .15s; user-select:none;
+}
+.g-date-col:hover { background:var(--s3); }
+.g-date-col.is-today { background:rgba(123,121,247,.07); }
+[data-theme="light"] .g-date-col.is-today { background:rgba(84,82,214,.05); }
+.g-date-col.is-today .d-num { background:var(--accent); color:#fff !important; }
+.g-date-col.is-today .d-name { color:var(--accent); }
+.d-name { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+.d-num { width:24px; height:24px; margin:2px auto 0; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; }
+.d-mon { font-size:9px; color:var(--dim); font-weight:600; margin-top:1px; }
+
+/* ── Category ──────────────────────────────────────────── */
+.cat-row { display:flex; background:var(--s2); border-bottom:1px solid var(--border); border-top:1px solid var(--border); margin-top:2px; transition:background .2s; }
+.cat-left { width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0; padding:7px 14px; display:flex; align-items:center; gap:8px; cursor:pointer; border-right:1px solid var(--border); user-select:none; }
+.cat-left:hover { background:var(--s3); }
+.cat-chev { font-size:9px; color:var(--dim); transition:transform .2s; }
+.cat-chev.open { transform:rotate(90deg); }
+.cat-title { font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+.cat-badge { font-size:10px; color:var(--muted); background:var(--s3); padding:1px 7px; border-radius:10px; border:1px solid var(--border); }
+.cat-filler { flex:1; }
+
+/* ── Goal Rows ─────────────────────────────────────────── */
+.goal-row { display:flex; border-bottom:1px solid var(--border); min-height:44px; transition:background .1s; }
+.goal-row:hover { background:color-mix(in srgb, var(--text) 3%, transparent); }
+.goal-row.is-overdue { background:rgba(240,111,111,.09); }
+[data-theme="light"] .goal-row.is-overdue { background:rgba(220,38,38,.055); }
+.goal-row.is-overdue:hover { filter:brightness(1.04); }
+.goal-left {
+  width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0;
+  padding:0 12px; display:flex; align-items:center; gap:8px;
+  border-right:1px solid var(--border); cursor:pointer; overflow:hidden;
+  min-height:44px;
+}
+.goal-left:hover .goal-title { color:var(--accent); }
+.goal-clr { width:3px; height:22px; border-radius:2px; flex-shrink:0; }
+.goal-title { font-size:13px; font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:color .15s; }
+.overdue-icon { font-size:12px; flex-shrink:0; color:var(--red); }
+.status-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.goal-cells { display:flex; height:44px; }
+.g-cell {
+  width:var(--gCell); min-width:var(--gCell); flex-shrink:0;
+  border-right:1px solid rgba(44,51,84,.38); position:relative; display:flex; align-items:center;
+}
+[data-theme="light"] .g-cell { border-right-color:rgba(186,192,218,.42); }
+.g-cell.is-today-col { background:rgba(123,121,247,.04); }
+[data-theme="light"] .g-cell.is-today-col { background:rgba(84,82,214,.035); }
+.g-cell.in-range { cursor:pointer; }
+.g-cell.in-range:hover .g-bar { filter:brightness(1.15); }
+.g-bar { position:absolute; top:9px; bottom:9px; left:0; right:0; border-radius:0; transition:filter .15s; }
+.g-cell.rs .g-bar { left:5px; border-radius:6px 0 0 6px; }
+.g-cell.re .g-bar { right:5px; border-radius:0 6px 6px 0; }
+.g-cell.rs.re .g-bar { left:5px; right:5px; border-radius:6px; }
+.note-pip { position:absolute; bottom:4px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; background:rgba(255,255,255,.88); z-index:2; pointer-events:none; display:none; }
+.g-cell.has-note .note-pip { display:block; }
+[data-theme="light"] .note-pip { background:rgba(0,0,0,.4); }
+
+/* Overdue today indicator */
+.overdue-today-pip {
+  position:absolute; inset:9px 5px; border-radius:5px;
+  background:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(240,111,111,.2) 3px,rgba(240,111,111,.2) 6px);
+  border:1.5px dashed rgba(240,111,111,.5);
+  display:flex; align-items:center; justify-content:center; font-size:10px;
+}
+[data-theme="light"] .overdue-today-pip { background:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(220,38,38,.12) 3px,rgba(220,38,38,.12) 6px); border-color:rgba(220,38,38,.38); }
+
+/* ── Empty state ───────────────────────────────────────── */
+.gantt-empty { padding:70px 24px; text-align:center; color:var(--muted); }
+.gantt-empty-icon { font-size:36px; margin-bottom:14px; }
+.gantt-empty h3 { font-size:15px; font-weight:600; color:var(--text); margin-bottom:6px; }
+.gantt-empty p { font-size:13px; }
+
+/* ── Status grid (for goal modal) ─────────────────────── */
+.status-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+.status-opt { padding:7px 8px; border-radius:7px; border:1px solid var(--border); background:var(--s3); cursor:pointer; text-align:center; font-size:12px; font-weight:500; color:var(--muted); transition:all .15s; }
+.status-opt.sel { border-color:var(--oc); background:color-mix(in srgb,var(--oc) 14%,transparent); color:var(--text); }
+.st-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+</style>
+</head>
+<body>
+<div id="nav-container"></div>
+
+<div class="planner-toolbar" id="planner-toolbar"></div>
+<div class="filter-bar" id="filter-bar"></div>
+
+<div class="gantt-wrap">
+  <div class="gantt-inner" id="gantt-inner"></div>
+</div>
+
+<div id="modal-overlay" onclick="overlayClick(event)"></div>
+<div id="modal-wrap"></div>
+<script src="data.js"></script>
+<script>
+// =====================================================================
+// STATE
+// =====================================================================
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const PS = {
+  pid:            new URLSearchParams(location.search).get('pid'),
+  mode:           'twoweek', // 'week' | 'twoweek' | 'month'
+  anchor:         new Date(),
+  collapsedCats:  new Set(),
+  statusFilter:   new Set(),  // empty = show all
+  showOverdueOnly: false,
+
+  get project()       { return Arc.Projects.getById(this.pid); },
+  get allGoals()      { return Arc.Goals.getAll().filter(g => g.projectId === this.pid); },
+  get filteredGoals() {
+    let gs = this.allGoals;
+    if (this.showOverdueOnly) return gs.filter(g => Arc.Goals.isOverdue(g));
+    if (this.statusFilter.size > 0) gs = gs.filter(g => this.statusFilter.has(g.status));
+    return gs;
+  },
+};
+
+// =====================================================================
+// VIEW RANGE
+// =====================================================================
+function getViewDates() {
+  const a = PS.anchor;
+  let start, count;
+  if (PS.mode === 'week') {
+    start = soWeek(a); count = 7;
+  } else if (PS.mode === 'twoweek') {
+    start = soWeek(a); count = 14;
+  } else {
+    start = new Date(a.getFullYear(), a.getMonth(), 1);
+    count = new Date(a.getFullYear(), a.getMonth() + 1, 0).getDate();
+  }
+  return Array.from({ length: count }, (_, i) => addDays(start, i));
+}
+
+function soWeek(d) { const r = new Date(d); r.setDate(d.getDate() - d.getDay()); return r; }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function isToday(d) { return Arc.dateStr(d) === Arc.today(); }
+
+function getViewLabel() {
+  const d = getViewDates(), f = d[0], l = d[d.length - 1];
+  if (PS.mode === 'month') return `${MONTHS[f.getMonth()]} ${f.getFullYear()}`;
+  if (f.getMonth() === l.getMonth()) return `${MONTHS[f.getMonth()]} ${f.getDate()}–${l.getDate()}, ${f.getFullYear()}`;
+  return `${MONTHS[f.getMonth()]} ${f.getDate()} – ${MONTHS[l.getMonth()]} ${l.getDate()}`;
+}
+
+function navigate(dir) {
+  const d = new Date(PS.anchor);
+  if (PS.mode === 'week')    d.setDate(d.getDate() + dir * 7);
+  else if (PS.mode === 'twoweek') d.setDate(d.getDate() + dir * 14);
+  else d.setMonth(d.getMonth() + dir);
+  PS.anchor = d; render();
+}
+
+function goToday() { PS.anchor = new Date(); render(); }
+function setMode(m) { PS.mode = m; render(); }
+function toggleFilter(v) { PS.showOverdueOnly = false; PS.statusFilter.has(v) ? PS.statusFilter.delete(v) : PS.statusFilter.add(v); render(); }
+function clearFilter() { PS.statusFilter = new Set(); PS.showOverdueOnly = false; render(); }
+function toggleOverdue() { PS.showOverdueOnly = !PS.showOverdueOnly; if (PS.showOverdueOnly) PS.statusFilter = new Set(); render(); }
+function toggleCat(c) { PS.collapsedCats.has(c) ? PS.collapsedCats.delete(c) : PS.collapsedCats.add(c); render(); }
+
+// =====================================================================
+// MAIN RENDER
+// =====================================================================
+function render() {
+  const proj = PS.project;
+  if (!proj) { location.href = 'index.html'; return; }
+
+  const dates = getViewDates();
+  const cellW = PS.mode === 'month' ? 38 : PS.mode === 'week' ? 84 : 60;
+  document.documentElement.style.setProperty('--gCell', cellW + 'px');
+  document.documentElement.style.setProperty('--gLeft', '260px');
+
+  renderToolbar(proj, dates);
+  renderFilterBar();
+  renderGantt(dates);
+}
+
+// ── Toolbar ──────────────────────────────────────────────────────────
+function renderToolbar(proj, dates) {
+  document.getElementById('planner-toolbar').innerHTML = `
+    <button class="back-btn" onclick="location.href='index.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      All Projects
+    </button>
+    <div class="tb-div"></div>
+    <div class="proj-name">${Arc.esc(proj.emoji || '📁')} ${Arc.esc(proj.name)}</div>
+    <div class="tb-right">
+      <div class="date-nav">
+        <button class="nav-arrow" onclick="navigate(-1)">‹</button>
+        <span class="date-nav-label">${getViewLabel()}</span>
+        <button class="nav-arrow" onclick="navigate(1)">›</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="goToday()">Today</button>
+      <div class="view-toggle">
+        <button class="view-btn ${PS.mode==='week'?'active':''}" onclick="setMode('week')">Week</button>
+        <button class="view-btn ${PS.mode==='twoweek'?'active':''}" onclick="setMode('twoweek')">2 Wk</button>
+        <button class="view-btn ${PS.mode==='month'?'active':''}" onclick="setMode('month')">Month</button>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="newGoalModal()">+ Add Goal</button>
+    </div>`;
+}
+
+// ── Filter Bar ───────────────────────────────────────────────────────
+function renderFilterBar() {
+  const overdueCount = PS.allGoals.filter(g => Arc.Goals.isOverdue(g)).length;
+  const allActive = PS.statusFilter.size === 0 && !PS.showOverdueOnly;
+
+  const pills = Arc.STATUSES.map(st => {
+    const on = PS.statusFilter.has(st.val);
+    const sty = on ? `background:${st.color}20;border-color:${st.color};color:${st.color}` : '';
+    return `<div class="fpill" style="${sty}" onclick="toggleFilter('${st.val}')">
+      <span class="pd" style="background:${st.color}"></span>${st.label}
+    </div>`;
+  }).join('');
+
+  const overduePill = overdueCount > 0 ? `
+    <div class="filter-sep"></div>
+    <div class="fpill ${PS.showOverdueOnly ? '' : ''}" 
+         style="${PS.showOverdueOnly ? 'background:rgba(240,111,111,.15);border-color:var(--red);color:var(--red)' : 'border-color:var(--red);color:var(--red)'}"
+         onclick="toggleOverdue()">⚠ Overdue (${overdueCount})</div>` : '';
+
+  document.getElementById('filter-bar').innerHTML = `
+    <span class="filter-lbl">Filter:</span>
+    <div class="fpill" 
+         style="${allActive ? 'background:var(--s3);border-color:var(--accent);color:var(--accent)' : ''}"
+         onclick="clearFilter()">All</div>
+    ${pills}${overduePill}`;
+}
+
+// ── Gantt ─────────────────────────────────────────────────────────────
+function renderGantt(dates) {
+  const goals = PS.filteredGoals;
+  const gi = document.getElementById('gantt-inner');
+
+  const headerHtml = renderGanttHeader(dates);
+
+  if (goals.length === 0) {
+    const msg = PS.statusFilter.size > 0 || PS.showOverdueOnly
+      ? 'No goals match this filter.'
+      : 'No goals yet — click "+ Add Goal" to create your first goal.';
+    gi.innerHTML = headerHtml + `<div class="gantt-empty">
+      <div class="gantt-empty-icon">🎯</div>
+      <h3>${msg}</h3>
+      <p>Goals appear as horizontal bars across their date range.</p>
+    </div>`;
+    return;
+  }
+
+  // Group by category
+  const cats = {};
+  goals.forEach(g => {
+    const c = g.category || 'Uncategorized';
+    if (!cats[c]) cats[c] = [];
+    cats[c].push(g);
+  });
+
+  const bodyHtml = Object.entries(cats).map(([cat, cgs]) => {
+    const coll = PS.collapsedCats.has(cat);
+    const rows = coll ? '' : cgs.map(g => renderGoalRow(g, dates)).join('');
+    return `<div>
+      <div class="cat-row">
+        <div class="cat-left" onclick="toggleCat(${JSON.stringify(cat)})">
+          <span class="cat-chev ${coll ? '' : 'open'}">▶</span>
+          <span class="cat-title">${Arc.esc(cat)}</span>
+          <span class="cat-badge">${cgs.length}</span>
+        </div>
+        <div class="cat-filler"></div>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  gi.innerHTML = headerHtml + bodyHtml;
+}
+
+function renderGanttHeader(dates) {
+  let prevMonth = -1;
+  const cols = dates.map(d => {
+    const showMon = d.getMonth() !== prevMonth;
+    prevMonth = d.getMonth();
+    return `<div class="g-date-col ${isToday(d) ? 'is-today' : ''}" 
+                 onclick="openJournal('${Arc.dateStr(d)}')" 
+                 title="Journal · ${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}">
+      <div class="d-name">${DAYS[d.getDay()]}</div>
+      <div class="d-num">${d.getDate()}</div>
+      <div class="d-mon">${showMon ? MONTHS[d.getMonth()] : ''}</div>
+    </div>`;
+  }).join('');
+  return `<div class="gantt-hdr">
+    <div class="g-corner"><span class="g-corner-lbl">Goals</span></div>
+    <div class="g-dates">${cols}</div>
+  </div>`;
+}
+
+function renderGoalRow(goal, dates) {
+  const from  = new Date(goal.dateFrom + 'T00:00:00');
+  const to    = new Date(goal.dateTo + 'T00:00:00');
+  const color = goal.labelColor || '#7b79f7';
+  const st    = Arc.Goals.statusInfo(goal.status);
+  const od    = Arc.Goals.isOverdue(goal);
+
+  const cells = dates.map(d => {
+    const ds    = Arc.dateStr(d);
+    const inR   = d >= from && d <= to;
+    const tc    = isToday(d);
+    const isF   = ds === goal.dateFrom;
+    const isL   = ds === goal.dateTo;
+    const hasN  = !!getNote(goal.id, ds);
+
+    // Today's column for overdue goal (today is past end date)
+    if (tc && od && !inR) {
+      return `<div class="g-cell is-today-col" 
+                   onclick="openDayNote('${goal.id}','${ds}')" 
+                   title="Overdue — click to add note">
+        <div class="overdue-today-pip">⚠</div>
+      </div>`;
+    }
+
+    if (inR) {
+      const cls = ['g-cell','in-range', tc?'is-today-col':'', isF?'rs':'', isL?'re':'', hasN?'has-note':''].filter(Boolean).join(' ');
+      return `<div class="${cls}" onclick="openDayNote('${goal.id}','${ds}')" title="${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}">
+        <div class="g-bar" style="background:${color};opacity:.82"></div>
+        <div class="note-pip"></div>
+      </div>`;
+    }
+
+    return `<div class="g-cell ${tc ? 'is-today-col' : ''}"></div>`;
+  }).join('');
+
+  return `<div class="goal-row ${od ? 'is-overdue' : ''}">
+    <div class="goal-left" onclick="editGoalModal('${goal.id}')">
+      <div class="goal-clr" style="background:${color}"></div>
+      <span class="goal-title" title="${Arc.esc(goal.title)}">${Arc.esc(goal.title)}</span>
+      ${od ? `<span class="overdue-icon" title="Overdue — was due ${goal.dateTo}">⚠</span>` : ''}
+      <div class="status-dot" style="background:${st.color}" title="${st.label}"></div>
+    </div>
+    <div class="goal-cells">${cells}</div>
+  </div>`;
+}
+
+// =====================================================================
+// NOTES HELPERS
+// =====================================================================
+function getNotes() { return JSON.parse(localStorage.getItem('arc_n') || '{}'); }
+function getNote(goalId, ds) { return getNotes()[`${goalId}_${ds}`] || ''; }
+function saveNote(goalId, ds, txt) {
+  const n = getNotes();
+  if (txt.trim()) n[`${goalId}_${ds}`] = txt.trim();
+  else delete n[`${goalId}_${ds}`];
+  localStorage.setItem('arc_n', JSON.stringify(n));
+}
+
+function getJournals() { return JSON.parse(localStorage.getItem('arc_j') || '{}'); }
+function getJournal(ds) { return getJournals()[ds] || ''; }
+function saveJournal(ds, txt) {
+  const j = getJournals();
+  if (txt.trim()) j[ds] = txt.trim();
+  else delete j[ds];
+  localStorage.setItem('arc_j', JSON.stringify(j));
+}
+
+// =====================================================================
+// GOAL MODAL
+// =====================================================================
+function newGoalModal(dc) { goalModal(null, dc); }
+function editGoalModal(id) {
+  const g = Arc.Goals.getAll().find(x => x.id === id);
+  if (g) goalModal(g);
+}
+
+function goalModal(goal, dc) {
+  const ie    = !!goal;
+  const today = Arc.today();
+  const g     = goal || { title:'', description:'', category:dc||'', label:'', labelColor:Arc.COLORS[0], dateFrom:today, dateTo:today, status:'not_started' };
+
+  const existCats = [...new Set(PS.allGoals.map(x => x.category).filter(Boolean))];
+  const catOpts   = existCats.map(c => `<option value="${Arc.esc(c)}">`).join('');
+  const cSw       = Arc.COLORS.map(c => `<div class="cswatch ${c===g.labelColor?'sel':''}" style="background:${c}" onclick="pgc(this,'${c}')"></div>`).join('');
+  const stOpts    = Arc.STATUSES.map(s => `<div class="status-opt ${g.status===s.val?'sel':''}" style="--oc:${s.color}" onclick="pst(this,'${s.val}')"><span class="st-dot" style="background:${s.color}"></span>${s.label}</div>`).join('');
+
+  showModal(`<div class="modal wide">
+    <div class="modal-hdr">
+      <div><div class="modal-title">${ie ? 'Edit Goal' : 'New Goal'}</div><div class="modal-sub">${ie ? 'Update goal details' : 'Add a goal to your project timeline'}</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Goal Title *</label><input class="form-inp" id="gm-title" placeholder="e.g. Launch marketing campaign" value="${Arc.esc(g.title)}" maxlength="80"></div>
+    <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="gm-desc" rows="2" placeholder="What does success look like?">${Arc.esc(g.description || '')}</textarea></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-lbl">Category</label>
+        <datalist id="gm-cats">${catOpts}</datalist>
+        <input class="form-inp" id="gm-cat" list="gm-cats" placeholder="e.g. Marketing, Design…" value="${Arc.esc(g.category || '')}">
+      </div>
+      <div class="form-group"><label class="form-lbl">Label</label><input class="form-inp" id="gm-lbl" placeholder="e.g. High Priority, MVP…" value="${Arc.esc(g.label || '')}"></div>
+    </div>
+    <div class="form-group"><label class="form-lbl">Bar Color</label><div class="color-picker" id="gm-cp">${cSw}</div><input type="hidden" id="gm-color" value="${g.labelColor || Arc.COLORS[0]}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-lbl">Start Date *</label><input type="date" class="form-inp" id="gm-from" value="${g.dateFrom}"></div>
+      <div class="form-group"><label class="form-lbl">End Date *</label><input type="date" class="form-inp" id="gm-to" value="${g.dateTo}"></div>
+    </div>
+    <div class="form-group"><label class="form-lbl">Status</label><div class="status-grid" id="gm-sw">${stOpts}</div><input type="hidden" id="gm-status" value="${g.status}"></div>
+    <div class="modal-foot">
+      ${ie ? `<button class="btn btn-ghost" style="margin-right:auto;color:var(--red)" onclick="confirmDelGoal('${g.id}')">Delete Goal</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoal(${ie ? `'${g.id}'` : 'null'})">${ie ? 'Save Changes' : 'Add Goal'}</button>
+    </div>
+  </div>`);
+}
+
+function pgc(el, c) { el.closest('#gm-cp').querySelectorAll('.cswatch').forEach(s => s.classList.remove('sel')); el.classList.add('sel'); document.getElementById('gm-color').value = c; }
+function pst(el, v) { el.closest('#gm-sw').querySelectorAll('.status-opt').forEach(s => s.classList.remove('sel')); el.classList.add('sel'); document.getElementById('gm-status').value = v; }
+
+function saveGoal(id) {
+  const title = document.getElementById('gm-title').value.trim();
+  const from  = document.getElementById('gm-from').value;
+  const to    = document.getElementById('gm-to').value;
+  if (!title) { document.getElementById('gm-title').style.borderColor = 'var(--red)'; document.getElementById('gm-title').focus(); return; }
+  if (!from || !to) { alert('Please set start and end dates.'); return; }
+  if (from > to) { alert('End date must be on or after start date.'); return; }
+  const existing = id ? Arc.Goals.getAll().find(x => x.id === id) : null;
+  const g = {
+    id: id || Arc.uid(), projectId: PS.pid, title,
+    description:  document.getElementById('gm-desc').value.trim(),
+    category:     document.getElementById('gm-cat').value.trim() || 'Uncategorized',
+    label:        document.getElementById('gm-lbl').value.trim(),
+    labelColor:   document.getElementById('gm-color').value || Arc.COLORS[0],
+    dateFrom: from, dateTo: to,
+    status:       document.getElementById('gm-status').value || 'not_started',
+    createdAt:    existing?.createdAt || new Date().toISOString(),
+  };
+  const gs = Arc.Goals.getAll();
+  if (id) { Arc.Goals.save(gs.map(x => x.id === id ? g : x)); }
+  else    { gs.push(g); Arc.Goals.save(gs); }
+  closeModal(); render();
+}
+
+function confirmDelGoal(id) {
+  const g = Arc.Goals.getAll().find(x => x.id === id);
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr"><div class="modal-title">Delete Goal?</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <p style="color:var(--muted);font-size:13px">Delete <strong style="color:var(--text)">${Arc.esc(g?.title)}</strong>? This cannot be undone.</p>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="doDelGoal('${id}')">Delete</button></div>
+  </div>`);
+}
+function doDelGoal(id) {
+  Arc.Goals.save(Arc.Goals.getAll().filter(g => g.id !== id));
+  closeModal(); render();
+}
+
+// =====================================================================
+// DAY NOTE MODAL
+// =====================================================================
+function openDayNote(goalId, ds) {
+  const goal = Arc.Goals.getAll().find(g => g.id === goalId); if (!goal) return;
+  const d    = new Date(ds + 'T00:00:00');
+  const ex   = getNote(goalId, ds);
+  const st   = Arc.Goals.statusInfo(goal.status);
+  const od   = Arc.Goals.isOverdue(goal);
+  const clr  = goal.labelColor || '#7b79f7';
+
+  showModal(`<div class="modal">
+    <div class="modal-hdr">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}</div>
+        <div style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${clr};display:inline-block;flex-shrink:0"></span>
+          ${Arc.esc(goal.title)}
+        </div>
+        <div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${st.color}20;color:${st.color};font-weight:600">${st.label}</span>
+          ${goal.label ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${clr}20;color:${clr};font-weight:600">${Arc.esc(goal.label)}</span>` : ''}
+          ${od ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(240,111,111,.15);color:var(--red);font-weight:600">⚠ Overdue since ${goal.dateTo}</span>` : ''}
+        </div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Notes / Progress</label><textarea class="form-inp" id="dn-txt" rows="6" placeholder="What did you work on? Any progress, blockers, or reflections…">${Arc.esc(ex)}</textarea></div>
+    <div class="modal-foot">
+      ${ex ? `<button class="btn btn-ghost" style="color:var(--red);margin-right:auto" onclick="clearNote('${goalId}','${ds}')">Clear Note</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDayNote('${goalId}','${ds}')">Save Note</button>
+    </div>
+  </div>`);
+}
+
+function saveDayNote(goalId, ds) { saveNote(goalId, ds, document.getElementById('dn-txt').value); closeModal(); render(); }
+function clearNote(goalId, ds)   { saveNote(goalId, ds, ''); closeModal(); render(); }
+
+// =====================================================================
+// JOURNAL MODAL
+// =====================================================================
+function openJournal(ds) {
+  const d  = new Date(ds + 'T00:00:00');
+  const ex = getJournal(ds);
+  const td = isToday(d);
+
+  showModal(`<div class="modal">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title">Daily Journal</div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin-top:4px;color:${td ? 'var(--accent)' : 'var(--text)'}">
+          ${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}${td ? ' · Today' : ''}
+        </div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Journal Entry</label><textarea class="form-inp" id="jn-txt" rows="8" placeholder="Thoughts, progress, reflections, what you're grateful for…">${Arc.esc(ex)}</textarea></div>
+    <div class="modal-foot">
+      ${ex ? `<button class="btn btn-ghost" style="color:var(--red);margin-right:auto" onclick="clearJournal('${ds}')">Clear Entry</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="doSaveJournal('${ds}')">Save Entry</button>
+    </div>
+  </div>`);
+}
+
+function doSaveJournal(ds) { saveJournal(ds, document.getElementById('jn-txt').value); closeModal(); }
+function clearJournal(ds)  { saveJournal(ds, ''); closeModal(); }
+
+// =====================================================================
+// HOOKS & INIT
+// =====================================================================
+function onProfileSaved() {
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('planner');
+}
+
+// Override Arc.Goals.save to also trigger render
+const _origGoalsSave = Arc.Goals.getAll; // just a ref, doesn't need override
+
+function init() {
+  // Redirect if no project specified
+  if (!PS.pid) { location.href = 'index.html'; return; }
+
+  Arc.Settings.load();
+  Arc.applyTheme(Arc.Settings.get('theme', 'dark'));
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('planner');
+
+  // Update page title
+  const proj = PS.project;
+  if (proj) document.title = `Arcus — ${proj.name}`;
+  else { location.href = 'index.html'; return; }
+
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
