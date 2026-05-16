@@ -447,17 +447,22 @@ function editGoalModal(id) {
 function goalModal(goal, dc) {
   const ie    = !!goal;
   const today = Arc.today();
-  const g     = goal || { title:'', description:'', category:dc||'', label:'', labelColor:Arc.COLORS[0], dateFrom:today, dateTo:today, status:'not_started' };
+  const g     = goal || { title:'', description:'', category:dc||'', label:'', labelColor:Arc.COLORS[0], dateFrom:today, dateTo:today, status:'not_started', projectId:PS.pid };
 
   const existCats = [...new Set(PS.allGoals.map(x => x.category).filter(Boolean))];
   const catOpts   = existCats.map(c => `<option value="${Arc.esc(c)}">`).join('');
   const cSw       = Arc.COLORS.map(c => `<div class="cswatch ${c===g.labelColor?'sel':''}" style="background:${c}" onclick="pgc(this,'${c}')"></div>`).join('');
   const stOpts    = Arc.STATUSES.map(s => `<div class="status-opt ${g.status===s.val?'sel':''}" style="--oc:${s.color}" onclick="pst(this,'${s.val}')"><span class="st-dot" style="background:${s.color}"></span>${s.label}</div>`).join('');
+  const allProjs  = Arc.Projects.getAll();
+  const projOpts  = allProjs.map(p => `<option value="${Arc.esc(p.id)}" ${p.id===(g.projectId||PS.pid)?'selected':''}>${Arc.esc(p.name)}</option>`).join('');
 
   showModal(`<div class="modal wide">
     <div class="modal-hdr">
       <div><div class="modal-title">${ie ? 'Edit Goal' : 'New Goal'}</div><div class="modal-sub">${ie ? 'Update goal details' : 'Add a goal to your project timeline'}</div></div>
       <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Project</label>
+      <select class="form-inp" id="gm-proj">${projOpts}</select>
     </div>
     <div class="form-group"><label class="form-lbl">Goal Title *</label><input class="form-inp" id="gm-title" placeholder="e.g. Launch marketing campaign" value="${Arc.esc(g.title)}" maxlength="80"></div>
     <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="gm-desc" rows="2" placeholder="What does success look like?">${Arc.esc(g.description || '')}</textarea></div>
@@ -495,7 +500,7 @@ function saveGoal(id) {
   if (from > to) { alert('End date must be on or after start date.'); return; }
   const existing = id ? Arc.Goals.getAll().find(x => x.id === id) : null;
   const g = {
-    id: id || Arc.uid(), projectId: PS.pid, title,
+    id: id || Arc.uid(), projectId: document.getElementById('gm-proj')?.value || PS.pid, title,
     description:  document.getElementById('gm-desc').value.trim(),
     category:     document.getElementById('gm-cat').value.trim() || 'Uncategorized',
     label:        document.getElementById('gm-lbl').value.trim(),
