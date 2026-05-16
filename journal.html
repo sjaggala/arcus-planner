@@ -209,6 +209,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
     <input type="date" id="cr-to"   class="cr-inp" onchange="renderDateStrip()" title="To date">
   </div>
   <div style="flex:1"></div>
+  <span style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0">Jump to</span>
   <input type="date" id="date-jump" class="date-jump-inp" title="Jump to any date" onchange="jumpToDate(this.value)">
   <button class="btn btn-ghost btn-sm" onclick="goToday()">Today</button>
 </div>
@@ -529,7 +530,7 @@ function renderEditor() {
       <button class="fmt-btn"    onclick="fmt('formatBlock','blockquote')" title="Quote" style="font-size:16px;line-height:1">"</button>
       <button class="fmt-btn sm" onclick="insertRule()"                   title="Divider">—</button>
       <div class="fmt-sep"></div>
-      <button class="fmt-btn sm" onclick="fmt('removeFormat')"            title="Clear formatting">✕ fmt</button>
+      <button class="fmt-btn sm" onclick="fmt('removeFormat')"            title="Clear formatting">Clear</button>
       <div class="fmt-sep"></div>
       <select class="fmt-btn sm" id="lh-select" onchange="setLineHeight(this.value)" title="Line height" style="padding:0 4px;cursor:pointer;width:auto">
         <option value="1.4">Tight</option>

@@ -88,7 +88,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .d-mon { font-size:9px; color:var(--dim); font-weight:600; margin-top:1px; }
 
 /* ── Category ──────────────────────────────────────────── */
-.cat-row { display:flex; background:var(--s2); border-bottom:1px solid var(--border); border-top:1px solid var(--border); margin-top:2px; transition:background .2s; }
+.cat-row { display:flex; background:var(--s2); border-bottom:1px solid var(--border); transition:background .2s; }
 .cat-left { width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0; padding:7px 14px; display:flex; align-items:center; gap:8px; cursor:pointer; border-right:1px solid var(--border); user-select:none; }
 .cat-left:hover { background:var(--s3); }
 .cat-chev { font-size:9px; color:var(--dim); transition:transform .2s; }
@@ -148,7 +148,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .od-pill:hover,.od-pill.active { background:rgba(240,111,111,.18); }
 
 /* ── Project group header (all-projects view) ───────────── */
-.proj-grp-hdr { display:flex; border-top:2px solid var(--border2); margin-top:4px; }
+.proj-grp-hdr { display:flex; border-top:2px solid var(--border2); }
 .proj-grp-left { width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0; padding:9px 14px; display:flex; align-items:center; gap:8px; border-right:1px solid var(--border); background:var(--s2); }
 .proj-grp-fill { flex:1; background:var(--s2); border-bottom:1px solid var(--border); }
 
@@ -440,7 +440,6 @@ function renderGoalRow(goal, dates) {
 
   return `<div class="goal-row ${od ? 'is-overdue' : ''}">
     <div class="goal-left" onclick="editGoalModal('${goal.id}')">
-      <div class="goal-clr" style="background:${color}"></div>
       <span class="goal-title" title="${Arc.esc(goal.title)}">${Arc.esc(goal.title)}</span>
       ${od ? `<span class="overdue-icon" title="Overdue — was due ${goal.dateTo}">⚠</span>` : ''}
       <div class="status-dot" style="background:${st.color}" title="${st.label}"></div>

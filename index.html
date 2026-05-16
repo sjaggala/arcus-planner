@@ -95,7 +95,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
           Active Goals Today
           <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
             <button class="btn btn-primary btn-sm" onclick="newGoalModal()">＋ Goal</button>
-            <span class="section-title-action" style="margin-left:0" onclick="location.href='projects.html'">View Projects →</span>
+            <span class="section-title-action" style="margin-left:0" onclick="location.href='projects.html'">View Projects</span>
           </span>
         </div>
       </div>
@@ -107,7 +107,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
       <div class="focus-panel-hdr">
         <div class="section-title">
           Tasks Due
-          <span class="section-title-action" onclick="location.href='tasks.html'">Open Board →</span>
+          <span class="section-title-action" onclick="location.href='tasks.html'">Open Board</span>
         </div>
       </div>
       <div class="focus-items" id="tasks-today"></div>
@@ -126,7 +126,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         Upcoming Events
         <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
           <button class="btn btn-primary btn-sm" onclick="location.href='events.html?new=1'">＋ Event</button>
-          <span class="section-title-action" style="margin-left:0" onclick="location.href='events.html'">Open Calendar →</span>
+          <span class="section-title-action" style="margin-left:0" onclick="location.href='events.html'">Open Calendar</span>
         </span>
       </div>
     </div>
@@ -140,7 +140,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         Today's Journal
         <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
           <button class="btn btn-primary btn-sm" onclick="newJournalEntry()">＋ New Entry</button>
-          <span class="section-title-action" style="margin-left:0" onclick="location.href='journal.html'">Open Journal →</span>
+          <span class="section-title-action" style="margin-left:0" onclick="location.href='journal.html'">Open Journal</span>
         </span>
       </div>
     </div>
@@ -300,7 +300,6 @@ function renderEventsUpcoming() {
           ${ev.description?`<span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${Arc.esc(ev.description.slice(0,50))}</span>`:''}
         </div>
       </div>
-      <div style="color:var(--muted);font-size:16px;flex-shrink:0;margin-left:6px">›</div>
     </div>`;
   }).join('');
 }
@@ -336,7 +335,6 @@ function renderJournalToday() {
           ${preview?`<span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${Arc.esc(preview)}</span>`:''}
         </div>
       </div>
-      <div style="color:var(--muted);font-size:16px;flex-shrink:0;margin-left:6px">›</div>
     </div>`;
   }).join('');
 }
