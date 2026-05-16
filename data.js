@@ -161,9 +161,10 @@ const Arc = (() => {
   // ── Nav HTML ─────────────────────────────────────────────────────────
   function navHtml(activePage) {
     const links = [
-      { id: 'home',    label: 'Home',    href: 'index.html' },
-      { id: 'planner', label: 'Planner', href: 'planner.html' },
-      { id: 'tasks',   label: 'Tasks',   href: 'tasks.html' },
+      { id: 'home',     label: 'Home',     href: 'index.html' },
+      { id: 'projects', label: 'Projects', href: 'projects.html' },
+      { id: 'tasks',    label: 'Tasks',    href: 'tasks.html' },
+      { id: 'journal',  label: 'Journal',  href: 'journal.html' },
     ];
     const linksHtml = links.map(l =>
       `<a href="${l.href}" class="nav-link ${l.id === activePage ? 'active' : ''}">${l.label}</a>`
@@ -267,11 +268,92 @@ const Arc = (() => {
     </div>`);
   }
 
+  // ── Folder Auto-Save (File System Access API) ────────────────────────
+  const FolderSave = (() => {
+    const IDB = 'arcus_fs', ST = 'handles';
+    function openIDB() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open(IDB, 1);
+        r.onupgradeneeded = e => e.target.result.createObjectStore(ST);
+        r.onsuccess = e => res(e.target.result);
+        r.onerror = () => rej(r.error);
+      });
+    }
+    async function getHandle() {
+      try {
+        const d = await openIDB();
+        return new Promise(res => {
+          const r = d.transaction(ST).objectStore(ST).get('dir');
+          r.onsuccess = () => res(r.result || null);
+          r.onerror = () => res(null);
+        });
+      } catch { return null; }
+    }
+    async function putHandle(h) {
+      try {
+        const d = await openIDB();
+        return new Promise((res, rej) => {
+          const tx = d.transaction(ST, 'readwrite');
+          tx.objectStore(ST).put(h, 'dir');
+          tx.oncomplete = () => res(true);
+          tx.onerror = () => rej(false);
+        });
+      } catch { return false; }
+    }
+    async function delHandle() {
+      try {
+        const d = await openIDB();
+        await new Promise((res, rej) => {
+          const tx = d.transaction(ST, 'readwrite');
+          tx.objectStore(ST).delete('dir');
+          tx.oncomplete = res; tx.onerror = rej;
+        });
+      } catch {}
+    }
+    async function folderName() { const h = await getHandle(); return h ? h.name : null; }
+    function buildData() {
+      return { version: 2, exportedAt: new Date().toISOString(),
+        profile: Profile.get(), projects: Projects.getAll(), goals: Goals.getAll(),
+        notes: DB.get('arc_n') || {}, journals: DB.get('arc_j') || {},
+        buckets: Buckets.getAll(), tasks: Tasks.getAll() };
+    }
+    async function writeToHandle(h) {
+      const perm = await h.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') {
+        const r = await h.requestPermission({ mode: 'readwrite' });
+        if (r !== 'granted') return false;
+      }
+      const fh = await h.getFileHandle('arcus-autosave.json', { create: true });
+      const w = await fh.createWritable();
+      await w.write(JSON.stringify(buildData(), null, 2));
+      await w.close();
+      return true;
+    }
+    async function saveNow() {
+      if (!window.showDirectoryPicker) return { ok: false, err: 'not_supported' };
+      let h = await getHandle();
+      if (!h) {
+        try { h = await window.showDirectoryPicker({ mode: 'readwrite' }); await putHandle(h); }
+        catch (e) { return { ok: false, err: e.name === 'AbortError' ? 'cancelled' : e.message }; }
+      }
+      try {
+        const ok = await writeToHandle(h);
+        return ok ? { ok: true, folder: h.name } : { ok: false, err: 'permission_denied' };
+      } catch (e) { await delHandle(); return { ok: false, err: e.message }; }
+    }
+    async function pick() { await delHandle(); return saveNow(); }
+    async function clear() { await delHandle(); }
+    return { folderName, saveNow, pick, clear, supported: () => !!window.showDirectoryPicker };
+  })();
+
   // ── Basic Settings Modal (can be overridden per-page) ────────────────
-  function openSettingsModal() {
+  async function openSettingsModal() {
     const theme = Settings.get('theme', 'dark');
     const ps = Projects.getAll().length, gs = Goals.getAll().length;
     const ts = Tasks.getAll().length, bs = Buckets.getAll().length;
+    const fsSupported = FolderSave.supported();
+    const fname = fsSupported ? await FolderSave.folderName() : null;
+
     showModal(`<div class="modal wide">
       <div class="modal-hdr">
         <div><div class="modal-title">Settings</div><div class="modal-sub">Preferences and data management</div></div>
@@ -291,6 +373,27 @@ const Arc = (() => {
         </div>
       </div>
       <div style="margin-bottom:22px">
+        <div class="ss-section-title">Auto-Save to Folder</div>
+        ${fsSupported ? `
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+            ${fname
+              ? `Saving to <strong style="color:var(--text)">${esc(fname)}/</strong> as <code style="background:var(--s3);padding:1px 5px;border-radius:4px;font-size:11px">arcus-autosave.json</code>`
+              : 'Pick a local folder — Arcus saves your data there as JSON automatically.'}
+          </div>
+          <div style="display:flex;gap:8px">
+            ${fname
+              ? `<button class="btn btn-ghost" id="fs-save-btn" style="flex:1;justify-content:center" onclick="arcFSSave(this)">⬇ Save Now</button>
+                 <button class="btn btn-ghost" onclick="arcFSPick(this)">📁 Change Folder</button>
+                 <button class="btn btn-ghost" style="color:var(--muted)" onclick="arcFSClear()">✕ Clear</button>`
+              : `<button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="arcFSPick(this)">📁 Choose Save Folder…</button>`}
+          </div>
+        ` : `
+          <div style="font-size:12px;color:var(--muted);background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 13px">
+            Folder auto-save requires Chrome or Edge. Use <strong>Export Backup</strong> below to save your data as a file.
+          </div>
+        `}
+      </div>
+      <div style="margin-bottom:22px">
         <div class="ss-section-title">Your Data</div>
         <div style="display:flex;gap:28px;margin-bottom:14px">
           <div><div style="font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--accent);line-height:1">${ps}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Projects</div></div>
@@ -302,13 +405,13 @@ const Arc = (() => {
           <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="Arc.exportAllData()">⬇ Export Backup</button>
           <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="Arc.importData()">⬆ Import Backup</button>
         </div>
-        <div class="form-hint" style="margin-top:6px">Export saves all your data as JSON. Import replaces everything from a backup file. For folder auto-save, use the Planner page.</div>
+        <div class="form-hint" style="margin-top:6px">Export saves all your data as a JSON file. Import replaces everything from a backup file.</div>
       </div>
       <div>
         <div class="ss-section-title">About</div>
         <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 13px;font-size:12px;color:var(--muted);line-height:1.7">
-          <strong style="color:var(--text)">Arcus Planner v2</strong> — Gantt planner + Kanban task board.<br>
-          Single-origin app hosted on GitHub Pages. All data stored locally in your browser.
+          <strong style="color:var(--text)">Arcus Planner v2</strong> — Gantt planner + Kanban board + Journal.<br>
+          Single-origin app on GitHub Pages. All data stored locally in your browser.
         </div>
       </div>
       <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">Done</button></div>
@@ -316,7 +419,7 @@ const Arc = (() => {
   }
 
   return { uid, esc, dateStr, today, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
-           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks,
+           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, FolderSave,
            avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal };
 })();
 
@@ -371,3 +474,27 @@ function arcSetTheme(t) {
 
 // Default openSettings — pages can override this after loading data.js
 function openSettings() { Arc.openSettingsModal(); }
+
+// ── Folder Save global handlers ───────────────────────────────────────
+async function arcFSPick(btn) {
+  const orig = btn ? btn.textContent : '';
+  if (btn) btn.textContent = 'Picking…';
+  const r = await Arc.FolderSave.pick();
+  if (r.ok) { openSettings(); }
+  else if (r.err !== 'cancelled') { alert('Could not access folder: ' + r.err); if (btn) btn.textContent = orig; }
+  else if (btn) btn.textContent = orig;
+}
+
+async function arcFSSave(btn) {
+  if (!btn) return;
+  const orig = btn.textContent;
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  const r = await Arc.FolderSave.saveNow();
+  if (r.ok) { btn.textContent = '✓ Saved!'; setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000); }
+  else { btn.textContent = orig; btn.disabled = false; alert('Save failed: ' + r.err); }
+}
+
+async function arcFSClear() {
+  await Arc.FolderSave.clear();
+  openSettings();
+}
