@@ -175,15 +175,20 @@ const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const PS = {
-  pid:            new URLSearchParams(location.search).get('pid'),
-  mode:           'twoweek', // 'week' | 'twoweek' | 'month'
-  anchor:         new Date(),
-  collapsedCats:  new Set(),
-  statusFilter:   new Set(),  // empty = show all
+  pid:             new URLSearchParams(location.search).get('pid'),
+  selectedPids:    (() => { const p = new URLSearchParams(location.search).get('pid'); return new Set(p ? [p] : []); })(),
+  mode:            'twoweek',
+  anchor:          new Date(),
+  collapsedCats:   new Set(),
+  statusFilter:    new Set(),
   showOverdueOnly: false,
 
   get project()       { return Arc.Projects.getById(this.pid); },
-  get allGoals()      { return Arc.Goals.getAll().filter(g => g.projectId === this.pid); },
+  get allGoals()      {
+    const all = Arc.Goals.getAll();
+    if (this.selectedPids.size === 0) return all;
+    return all.filter(g => this.selectedPids.has(g.projectId));
+  },
   get filteredGoals() {
     let gs = this.allGoals;
     if (this.showOverdueOnly) return gs.filter(g => Arc.Goals.isOverdue(g));
@@ -233,34 +238,46 @@ function setMode(m) { PS.mode = m; render(); }
 function toggleFilter(v) { PS.showOverdueOnly = false; PS.statusFilter.has(v) ? PS.statusFilter.delete(v) : PS.statusFilter.add(v); render(); }
 function clearFilter() { PS.statusFilter = new Set(); PS.showOverdueOnly = false; render(); }
 function toggleOverdue() { PS.showOverdueOnly = !PS.showOverdueOnly; if (PS.showOverdueOnly) PS.statusFilter = new Set(); render(); }
+function toggleProject(pid) { if (PS.selectedPids.has(pid)) PS.selectedPids.delete(pid); else PS.selectedPids.add(pid); render(); }
+function clearProjects() { PS.selectedPids = new Set(); render(); }
 function toggleCat(c) { PS.collapsedCats.has(c) ? PS.collapsedCats.delete(c) : PS.collapsedCats.add(c); render(); }
 
 // =====================================================================
 // MAIN RENDER
 // =====================================================================
 function render() {
-  const proj = PS.project;
-  if (!proj) { location.href = 'index.html'; return; }
+  const allProjects = Arc.Projects.getAll();
+  if (PS.pid && !PS.project) { location.href = 'projects.html'; return; }
+  if (allProjects.length === 0) { location.href = 'projects.html'; return; }
 
   const dates = getViewDates();
   const cellW = PS.mode === 'month' ? 38 : PS.mode === 'week' ? 84 : 60;
   document.documentElement.style.setProperty('--gCell', cellW + 'px');
   document.documentElement.style.setProperty('--gLeft', '260px');
 
-  renderToolbar(proj, dates);
-  renderFilterBar();
+  renderToolbar(allProjects, dates);
+  renderFilterBar(allProjects);
   renderGantt(dates);
 }
 
 // ── Toolbar ──────────────────────────────────────────────────────────
-function renderToolbar(proj, dates) {
+function renderToolbar(allProjects, dates) {
+  let projLabel;
+  if (PS.selectedPids.size === 0) {
+    projLabel = 'All Projects';
+  } else if (PS.selectedPids.size === 1) {
+    const p = Arc.Projects.getById([...PS.selectedPids][0]);
+    projLabel = p ? `${Arc.esc(p.emoji||'📁')} ${Arc.esc(p.name)}` : 'Project';
+  } else {
+    projLabel = `${PS.selectedPids.size} Projects`;
+  }
   document.getElementById('planner-toolbar').innerHTML = `
-    <button class="back-btn" onclick="location.href='index.html'">
+    <button class="back-btn" onclick="location.href='projects.html'">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      All Projects
+      Projects
     </button>
     <div class="tb-div"></div>
-    <div class="proj-name">${Arc.esc(proj.emoji || '📁')} ${Arc.esc(proj.name)}</div>
+    <div class="proj-name">${projLabel}</div>
     <div class="tb-right">
       <div class="date-nav">
         <button class="nav-arrow" onclick="navigate(-1)">‹</button>
@@ -278,30 +295,39 @@ function renderToolbar(proj, dates) {
 }
 
 // ── Filter Bar ───────────────────────────────────────────────────────
-function renderFilterBar() {
+function renderFilterBar(allProjects) {
   const overdueCount = PS.allGoals.filter(g => Arc.Goals.isOverdue(g)).length;
-  const allActive = PS.statusFilter.size === 0 && !PS.showOverdueOnly;
+  const allStatusActive = PS.statusFilter.size === 0 && !PS.showOverdueOnly;
+  const allProjsSelected = PS.selectedPids.size === 0;
 
-  const pills = Arc.STATUSES.map(st => {
+  const projPills = allProjects.map(p => {
+    const on = PS.selectedPids.has(p.id);
+    const clr = p.color || '#7b79f7';
+    return `<div class="fpill" style="${on ? `background:${clr}20;border-color:${clr};color:${clr}` : ''}" onclick="toggleProject('${p.id}')">
+      <span class="pd" style="background:${clr}"></span>${Arc.esc(p.name)}
+    </div>`;
+  }).join('');
+
+  const statusPills = Arc.STATUSES.map(st => {
     const on = PS.statusFilter.has(st.val);
-    const sty = on ? `background:${st.color}20;border-color:${st.color};color:${st.color}` : '';
-    return `<div class="fpill" style="${sty}" onclick="toggleFilter('${st.val}')">
+    return `<div class="fpill" style="${on ? `background:${st.color}20;border-color:${st.color};color:${st.color}` : ''}" onclick="toggleFilter('${st.val}')">
       <span class="pd" style="background:${st.color}"></span>${st.label}
     </div>`;
   }).join('');
 
   const overduePill = overdueCount > 0 ? `
     <div class="filter-sep"></div>
-    <div class="fpill ${PS.showOverdueOnly ? '' : ''}" 
-         style="${PS.showOverdueOnly ? 'background:rgba(240,111,111,.15);border-color:var(--red);color:var(--red)' : 'border-color:var(--red);color:var(--red)'}"
+    <div class="fpill" style="${PS.showOverdueOnly ? 'background:rgba(240,111,111,.15);border-color:var(--red);color:var(--red)' : 'border-color:var(--red);color:var(--red)'}"
          onclick="toggleOverdue()">⚠ Overdue (${overdueCount})</div>` : '';
 
   document.getElementById('filter-bar').innerHTML = `
-    <span class="filter-lbl">Filter:</span>
-    <div class="fpill" 
-         style="${allActive ? 'background:var(--s3);border-color:var(--accent);color:var(--accent)' : ''}"
-         onclick="clearFilter()">All</div>
-    ${pills}${overduePill}`;
+    <span class="filter-lbl">Projects:</span>
+    <div class="fpill" style="${allProjsSelected ? 'background:var(--s3);border-color:var(--accent);color:var(--accent)' : ''}" onclick="clearProjects()">All</div>
+    ${projPills}
+    <div class="filter-sep"></div>
+    <span class="filter-lbl">Status:</span>
+    <div class="fpill" style="${allStatusActive ? 'background:var(--s3);border-color:var(--accent);color:var(--accent)' : ''}" onclick="clearFilter()">All</div>
+    ${statusPills}${overduePill}`;
 }
 
 // ── Gantt ─────────────────────────────────────────────────────────────
@@ -378,7 +404,7 @@ function renderGoalRow(goal, dates) {
 
   const cells = dates.map(d => {
     const ds    = Arc.dateStr(d);
-    const inR   = d >= from && d <= to;
+    const inR   = ds >= goal.dateFrom && ds <= goal.dateTo;
     const tc    = isToday(d);
     const isF   = ds === goal.dateFrom;
     const isL   = ds === goal.dateTo;
@@ -404,10 +430,15 @@ function renderGoalRow(goal, dates) {
     return `<div class="g-cell ${tc ? 'is-today-col' : ''}"></div>`;
   }).join('');
 
+  const showProj   = PS.selectedPids.size !== 1;
+  const projForGoal = showProj ? Arc.Projects.getById(goal.projectId) : null;
   return `<div class="goal-row ${od ? 'is-overdue' : ''}">
     <div class="goal-left" onclick="editGoalModal('${goal.id}')">
       <div class="goal-clr" style="background:${color}"></div>
-      <span class="goal-title" title="${Arc.esc(goal.title)}">${Arc.esc(goal.title)}</span>
+      <div style="flex:1;min-width:0;overflow:hidden">
+        <div class="goal-title" title="${Arc.esc(goal.title)}">${Arc.esc(goal.title)}</div>
+        ${projForGoal ? `<div style="font-size:10px;color:var(--dim);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${Arc.esc(projForGoal.emoji||'📁')} ${Arc.esc(projForGoal.name)}</div>` : ''}
+      </div>
       ${od ? `<span class="overdue-icon" title="Overdue — was due ${goal.dateTo}">⚠</span>` : ''}
       <div class="status-dot" style="background:${st.color}" title="${st.label}"></div>
     </div>
@@ -602,24 +633,24 @@ function clearJournal(ds)  { saveJournal(ds, ''); closeModal(); }
 // HOOKS & INIT
 // =====================================================================
 function onProfileSaved() {
-  document.getElementById('nav-container').innerHTML = Arc.navHtml('planner');
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('projects');
 }
 
 // Override Arc.Goals.save to also trigger render
 const _origGoalsSave = Arc.Goals.getAll; // just a ref, doesn't need override
 
 function init() {
-  // Redirect if no project specified
-  if (!PS.pid) { location.href = 'index.html'; return; }
-
   Arc.Settings.load();
   Arc.applyTheme(Arc.Settings.get('theme', 'dark'));
-  document.getElementById('nav-container').innerHTML = Arc.navHtml('planner');
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('projects');
 
-  // Update page title
-  const proj = PS.project;
-  if (proj) document.title = `Arcus — ${proj.name}`;
-  else { location.href = 'index.html'; return; }
+  if (PS.pid) {
+    const proj = PS.project;
+    if (!proj) { location.href = 'projects.html'; return; }
+    document.title = `Arcus — ${proj.name}`;
+  } else {
+    document.title = 'Arcus — Planner';
+  }
 
   render();
 }

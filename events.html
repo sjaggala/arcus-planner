@@ -25,7 +25,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
 /* Month grid */
 .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden; flex:1; }
-.day-hdr { background:var(--s2); padding:8px 0; text-align:center; font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
+.day-hdr { background:var(--s2); padding:4px 0; text-align:center; font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
 .day-cell { background:var(--s1); min-height:90px; padding:6px; position:relative; cursor:pointer; transition:background .1s; }
 .day-cell:hover { background:var(--s2); }
 .day-cell.other-month { background:var(--bg); }
@@ -136,6 +136,21 @@ function fmtDateFull(d) {
   return `${DAYS_LONG[d.getDay()]}, ${MONTHS_LONG[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
+function getGoalTaskItems(dStr) {
+  const goals = Arc.Goals.getAll().filter(g => g.dateTo === dStr && g.status !== 'cancelled' && g.status !== 'completed');
+  const tasks = Arc.Tasks.getAll().filter(t => t.dueDate === dStr && t.bucketId !== 'b_done');
+  return [
+    ...goals.map(g => ({ kind:'goal', id:g.id, title:g.title, color: g.labelColor||'#3ec97a' })),
+    ...tasks.map(t => ({ kind:'task', id:t.id, title:t.title, color:'#f5c542' })),
+  ];
+}
+
+function gtPillHtml(item) {
+  const icon = item.kind === 'goal' ? '🎯' : '✓';
+  return `<div class="ev-pill" style="background:transparent;color:${item.color};border:1px dashed ${item.color}"
+    title="${item.kind==='goal'?'Goal due':'Task due'}: ${Arc.esc(item.title)}">${icon} ${Arc.esc(item.title)}</div>`;
+}
+
 function setView(v) {
   curView = v;
   document.querySelectorAll('.view-pill').forEach(b => b.classList.toggle('active', b.dataset.view === v));
@@ -223,25 +238,28 @@ function renderMonth() {
 }
 
 function dayCell(d, evs, today, otherMonth) {
-  const dStr = ds(d);
+  const dStr   = ds(d);
   const isToday = dStr === today;
-  const dayEvs = evs.filter(ev => ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr));
+  const dayEvs  = evs.filter(ev => ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr));
+  const gtItems = getGoalTaskItems(dStr);
   const MAX = 3;
-  const shown = dayEvs.slice(0, MAX);
-  const more  = dayEvs.length - MAX;
+  const shownEvs = dayEvs.slice(0, MAX);
+  const shownGT  = gtItems.slice(0, Math.max(0, MAX - shownEvs.length));
+  const moreCount = (dayEvs.length - shownEvs.length) + (gtItems.length - shownGT.length);
 
-  const pills = shown.map(ev => {
+  const evPills = shownEvs.map(ev => {
     const clr = ev.color || '#7b79f7';
     return `<div class="ev-pill" style="background:${clr}22;color:${clr};border:1px solid ${clr}44"
       onclick="event.stopPropagation();editEvent('${ev.id}')" title="${Arc.esc(ev.title)}">${Arc.esc(ev.title)}</div>`;
   }).join('');
 
-  const morePill = more > 0 ? `<div class="more-pill" onclick="event.stopPropagation();setView('day');curDate=new Date('${dStr}');render()">+${more} more</div>` : '';
+  const gtPills  = shownGT.map(gtPillHtml).join('');
+  const morePill = moreCount > 0 ? `<div class="more-pill" onclick="event.stopPropagation();clickDay('${dStr}')">+${moreCount} more</div>` : '';
 
   return `<div class="day-cell ${otherMonth?'other-month':''} ${isToday?'is-today':''}"
     onclick="clickDay('${dStr}')">
     <div class="day-num">${d.getDate()}</div>
-    ${pills}${morePill}
+    ${evPills}${gtPills}${morePill}
   </div>`;
 }
 
@@ -269,11 +287,12 @@ function renderWeekView(container) {
 
   // All-day events row
   const allDayRow = days.map(d => {
-    const dStr = ds(d);
+    const dStr  = ds(d);
     const adevs = evs.filter(ev => ev.allDay && (ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr)));
-    return `<div style="padding:3px;border-right:1px solid var(--border);min-height:24px">${
-      adevs.map(ev => `<div class="ev-pill" style="background:${(ev.color||'#7b79f7')}22;color:${ev.color||'#7b79f7'}" onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}</div>`).join('')
-    }</div>`;
+    const gtItems = getGoalTaskItems(dStr);
+    const evPills = adevs.map(ev => `<div class="ev-pill" style="background:${(ev.color||'#7b79f7')}22;color:${ev.color||'#7b79f7'};border:1px solid ${(ev.color||'#7b79f7')}44" onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}</div>`).join('');
+    const gtPills = gtItems.map(gtPillHtml).join('');
+    return `<div style="padding:3px;border-right:1px solid var(--border);min-height:24px">${evPills}${gtPills}</div>`;
   }).join('');
 
   // Hours
@@ -328,8 +347,9 @@ function renderDayView(container) {
   const today = todayDs();
   const isToday = dStr === today;
   const dayEvs = evs.filter(ev => ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr));
-  const allDayEvs = dayEvs.filter(ev => ev.allDay);
-  const timedEvs  = dayEvs.filter(ev => !ev.allDay && ev.startTime);
+  const allDayEvs  = dayEvs.filter(ev => ev.allDay);
+  const gtItemsDay = getGoalTaskItems(dStr);
+  const timedEvs   = dayEvs.filter(ev => !ev.allDay && ev.startTime);
 
   const hours = Array.from({length:24}, (_,i) => i);
   const timeLbls = hours.map(h => {
@@ -351,9 +371,12 @@ function renderDayView(container) {
       onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}<br><span style="font-weight:400;font-size:9px">${fmt12(ev.startTime)}${ev.endTime?' – '+fmt12(ev.endTime):''}</span></div>`;
   }).join('');
 
-  const allDayPills = allDayEvs.map(ev =>
-    `<div class="ev-pill" style="background:${(ev.color||'#7b79f7')}22;color:${ev.color||'#7b79f7'};border:1px solid ${(ev.color||'#7b79f7')}44;cursor:pointer" onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}</div>`
-  ).join('');
+  const allDayPills = [
+    ...allDayEvs.map(ev =>
+      `<div class="ev-pill" style="background:${(ev.color||'#7b79f7')}22;color:${ev.color||'#7b79f7'};border:1px solid ${(ev.color||'#7b79f7')}44;cursor:pointer" onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}</div>`
+    ),
+    ...gtItemsDay.map(gtPillHtml),
+  ].join('');
 
   container.innerHTML = `<div class="day-view">
     <div class="day-view-hdr">
@@ -362,7 +385,7 @@ function renderDayView(container) {
       </div>
       <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="newEventModal('${dStr}')">＋ Add Event</button>
     </div>
-    ${allDayEvs.length>0?`<div class="day-allday-bar"><span class="day-allday-lbl">ALL DAY</span>${allDayPills}</div>`:''}
+    ${(allDayEvs.length+gtItemsDay.length)>0?`<div class="day-allday-bar"><span class="day-allday-lbl">ALL DAY / DUE</span>${allDayPills}</div>`:''}
     <div style="flex:1;overflow-y:auto;display:grid;grid-template-columns:52px 1fr">
       <div class="week-time-col">${timeLbls}</div>
       <div style="position:relative">${hourLines}${blocks}</div>
@@ -386,11 +409,13 @@ function renderAgenda() {
   });
 
   const groups = days.map(dStr => {
-    const dayEvs = evs.filter(ev => ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr));
-    if (!dayEvs.length) return '';
+    const dayEvs  = evs.filter(ev => ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr));
+    const gtItems = getGoalTaskItems(dStr);
+    if (!dayEvs.length && !gtItems.length) return '';
     const d = new Date(dStr + 'T12:00:00');
     const isToday = dStr === today;
-    const rows = dayEvs.sort((a,b) => {
+
+    const evRows = dayEvs.sort((a,b) => {
       if (a.allDay && !b.allDay) return -1;
       if (!a.allDay && b.allDay) return 1;
       return (a.startTime||'').localeCompare(b.startTime||'');
@@ -407,13 +432,28 @@ function renderAgenda() {
         <span class="ev-type-badge" style="background:${clr}22;color:${clr};flex-shrink:0">${Arc.esc(ev.type||'Event')}</span>
       </div>`;
     }).join('');
+
+    const gtRows = gtItems.map(item => {
+      const icon = item.kind === 'goal' ? '🎯' : '✓';
+      const clr  = item.color;
+      const lbl  = item.kind === 'goal' ? 'Goal due' : 'Task due';
+      return `<div class="agenda-ev-row" style="opacity:.88">
+        <div class="agenda-ev-dot" style="background:transparent;border:2px solid ${clr}"></div>
+        <div class="agenda-ev-time" style="font-style:italic;color:var(--dim)">Due</div>
+        <div style="flex:1;min-width:0">
+          <div class="agenda-ev-title">${icon} ${Arc.esc(item.title)}</div>
+        </div>
+        <span class="ev-type-badge" style="background:${clr}22;color:${clr};border:1px dashed ${clr};flex-shrink:0">${lbl}</span>
+      </div>`;
+    }).join('');
+
     return `<div class="agenda-day-group">
       <div class="agenda-day-hdr ${isToday?'is-today':''}">${DAYS_LONG[d.getDay()]}, ${MONTHS_SHORT[m]} ${d.getDate()}</div>
-      ${rows}
+      ${evRows}${gtRows}
     </div>`;
   }).filter(Boolean).join('');
 
-  if (!groups) return `<div class="agenda-empty">No events this month.<br><span style="color:var(--accent);cursor:pointer" onclick="newEventModal(null)">+ Add an event</span></div>`;
+  if (!groups) return `<div class="agenda-empty">No events, goals, or tasks due this month.<br><span style="color:var(--accent);cursor:pointer" onclick="newEventModal(null)">+ Add an event</span></div>`;
   return `<div class="agenda-list">${groups}</div>`;
 }
 
