@@ -141,6 +141,17 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 }
 [data-theme="light"] .overdue-today-pip { background:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(220,38,38,.12) 3px,rgba(220,38,38,.12) 6px); border-color:rgba(220,38,38,.38); }
 
+/* ── Dropdown filters ──────────────────────────────────── */
+.dd-filter { background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:4px 9px;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:border-color .15s; }
+.dd-filter:focus { outline:none;border-color:var(--accent); }
+.od-pill { padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid var(--red);color:var(--red);cursor:pointer;background:rgba(240,111,111,.08);white-space:nowrap; }
+.od-pill:hover,.od-pill.active { background:rgba(240,111,111,.18); }
+
+/* ── Project group header (all-projects view) ───────────── */
+.proj-grp-hdr { display:flex; border-top:2px solid var(--border2); margin-top:4px; }
+.proj-grp-left { width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0; padding:9px 14px; display:flex; align-items:center; gap:8px; border-right:1px solid var(--border); background:var(--s2); }
+.proj-grp-fill { flex:1; background:var(--s2); border-bottom:1px solid var(--border); }
+
 /* ── Empty state ───────────────────────────────────────── */
 .gantt-empty { padding:70px 24px; text-align:center; color:var(--muted); }
 .gantt-empty-icon { font-size:36px; margin-bottom:14px; }
@@ -176,23 +187,23 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 const PS = {
   pid:             new URLSearchParams(location.search).get('pid'),
-  selectedPids:    (() => { const p = new URLSearchParams(location.search).get('pid'); return new Set(p ? [p] : []); })(),
+  filterPid:       new URLSearchParams(location.search).get('pid') || '',
+  filterStatus:    '',
+  showOverdueOnly: false,
   mode:            'twoweek',
   anchor:          new Date(),
   collapsedCats:   new Set(),
-  statusFilter:    new Set(),
-  showOverdueOnly: false,
 
   get project()       { return Arc.Projects.getById(this.pid); },
   get allGoals()      {
     const all = Arc.Goals.getAll();
-    if (this.selectedPids.size === 0) return all;
-    return all.filter(g => this.selectedPids.has(g.projectId));
+    if (this.filterPid) return all.filter(g => g.projectId === this.filterPid);
+    return all;
   },
   get filteredGoals() {
     let gs = this.allGoals;
     if (this.showOverdueOnly) return gs.filter(g => Arc.Goals.isOverdue(g));
-    if (this.statusFilter.size > 0) gs = gs.filter(g => this.statusFilter.has(g.status));
+    if (this.filterStatus) gs = gs.filter(g => g.status === this.filterStatus);
     return gs;
   },
 };
@@ -235,11 +246,9 @@ function navigate(dir) {
 
 function goToday() { PS.anchor = new Date(); render(); }
 function setMode(m) { PS.mode = m; render(); }
-function toggleFilter(v) { PS.showOverdueOnly = false; PS.statusFilter.has(v) ? PS.statusFilter.delete(v) : PS.statusFilter.add(v); render(); }
-function clearFilter() { PS.statusFilter = new Set(); PS.showOverdueOnly = false; render(); }
-function toggleOverdue() { PS.showOverdueOnly = !PS.showOverdueOnly; if (PS.showOverdueOnly) PS.statusFilter = new Set(); render(); }
-function toggleProject(pid) { if (PS.selectedPids.has(pid)) PS.selectedPids.delete(pid); else PS.selectedPids.add(pid); render(); }
-function clearProjects() { PS.selectedPids = new Set(); render(); }
+function setProjectFilter(pid) { PS.filterPid = pid; PS.showOverdueOnly = false; render(); }
+function setStatusFilter(st)   { PS.filterStatus = st; PS.showOverdueOnly = false; render(); }
+function toggleOverdue() { PS.showOverdueOnly = !PS.showOverdueOnly; if (PS.showOverdueOnly) PS.filterStatus = ''; render(); }
 function toggleCat(c) { PS.collapsedCats.has(c) ? PS.collapsedCats.delete(c) : PS.collapsedCats.add(c); render(); }
 
 // =====================================================================
@@ -262,15 +271,8 @@ function render() {
 
 // ── Toolbar ──────────────────────────────────────────────────────────
 function renderToolbar(allProjects, dates) {
-  let projLabel;
-  if (PS.selectedPids.size === 0) {
-    projLabel = 'All Projects';
-  } else if (PS.selectedPids.size === 1) {
-    const p = Arc.Projects.getById([...PS.selectedPids][0]);
-    projLabel = p ? `${Arc.esc(p.emoji||'📁')} ${Arc.esc(p.name)}` : 'Project';
-  } else {
-    projLabel = `${PS.selectedPids.size} Projects`;
-  }
+  const proj = PS.filterPid ? Arc.Projects.getById(PS.filterPid) : null;
+  const projLabel = proj ? `${Arc.esc(proj.emoji||'📁')} ${Arc.esc(proj.name)}` : 'All Projects';
   document.getElementById('planner-toolbar').innerHTML = `
     <button class="back-btn" onclick="location.href='projects.html'">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -297,73 +299,81 @@ function renderToolbar(allProjects, dates) {
 // ── Filter Bar ───────────────────────────────────────────────────────
 function renderFilterBar(allProjects) {
   const overdueCount = PS.allGoals.filter(g => Arc.Goals.isOverdue(g)).length;
-  const allStatusActive = PS.statusFilter.size === 0 && !PS.showOverdueOnly;
-  const allProjsSelected = PS.selectedPids.size === 0;
-
-  const projPills = allProjects.map(p => {
-    const on = PS.selectedPids.has(p.id);
-    const clr = p.color || '#7b79f7';
-    return `<div class="fpill" style="${on ? `background:${clr}20;border-color:${clr};color:${clr}` : ''}" onclick="toggleProject('${p.id}')">
-      <span class="pd" style="background:${clr}"></span>${Arc.esc(p.name)}
-    </div>`;
-  }).join('');
-
-  const statusPills = Arc.STATUSES.map(st => {
-    const on = PS.statusFilter.has(st.val);
-    return `<div class="fpill" style="${on ? `background:${st.color}20;border-color:${st.color};color:${st.color}` : ''}" onclick="toggleFilter('${st.val}')">
-      <span class="pd" style="background:${st.color}"></span>${st.label}
-    </div>`;
-  }).join('');
-
-  const overduePill = overdueCount > 0 ? `
-    <div class="filter-sep"></div>
-    <div class="fpill" style="${PS.showOverdueOnly ? 'background:rgba(240,111,111,.15);border-color:var(--red);color:var(--red)' : 'border-color:var(--red);color:var(--red)'}"
-         onclick="toggleOverdue()">⚠ Overdue (${overdueCount})</div>` : '';
-
+  const projOpts = `<option value="">All Projects</option>` +
+    allProjects.map(p => `<option value="${p.id}" ${p.id===PS.filterPid?'selected':''}>${Arc.esc(p.name)}</option>`).join('');
+  const statusOpts = `<option value="">All Statuses</option>` +
+    Arc.STATUSES.map(s => `<option value="${s.val}" ${s.val===PS.filterStatus?'selected':''}>${s.label}</option>`).join('');
+  const odBtn = overdueCount > 0
+    ? `<div class="filter-sep"></div><button class="od-pill ${PS.showOverdueOnly?'active':''}" onclick="toggleOverdue()">⚠ Overdue (${overdueCount})</button>`
+    : '';
   document.getElementById('filter-bar').innerHTML = `
-    <span class="filter-lbl">Projects:</span>
-    <div class="fpill" style="${allProjsSelected ? 'background:var(--s3);border-color:var(--accent);color:var(--accent)' : ''}" onclick="clearProjects()">All</div>
-    ${projPills}
+    <span class="filter-lbl">Project:</span>
+    <select class="dd-filter" onchange="setProjectFilter(this.value)">${projOpts}</select>
     <div class="filter-sep"></div>
     <span class="filter-lbl">Status:</span>
-    <div class="fpill" style="${allStatusActive ? 'background:var(--s3);border-color:var(--accent);color:var(--accent)' : ''}" onclick="clearFilter()">All</div>
-    ${statusPills}${overduePill}`;
+    <select class="dd-filter" onchange="setStatusFilter(this.value)">${statusOpts}</select>
+    ${odBtn}`;
 }
 
 // ── Gantt ─────────────────────────────────────────────────────────────
 function renderGantt(dates) {
   const goals = PS.filteredGoals;
-  const gi = document.getElementById('gantt-inner');
-
+  const gi    = document.getElementById('gantt-inner');
   const headerHtml = renderGanttHeader(dates);
 
   if (goals.length === 0) {
-    const msg = PS.statusFilter.size > 0 || PS.showOverdueOnly
+    const msg = (PS.filterStatus || PS.showOverdueOnly)
       ? 'No goals match this filter.'
       : 'No goals yet — click "+ Add Goal" to create your first goal.';
     gi.innerHTML = headerHtml + `<div class="gantt-empty">
-      <div class="gantt-empty-icon">🎯</div>
-      <h3>${msg}</h3>
+      <div class="gantt-empty-icon">🎯</div><h3>${msg}</h3>
       <p>Goals appear as horizontal bars across their date range.</p>
     </div>`;
     return;
   }
 
-  // Group by category
+  let bodyHtml;
+  if (PS.filterPid) {
+    // Single project: group by category only
+    bodyHtml = renderGoalsByCategory(goals, dates);
+  } else {
+    // All projects: group by project → category
+    const projs = Arc.Projects.getAll();
+    bodyHtml = projs
+      .map(p => {
+        const pGoals = goals.filter(g => g.projectId === p.id);
+        if (!pGoals.length) return '';
+        return `<div>
+          <div class="proj-grp-hdr">
+            <div class="proj-grp-left">
+              <span style="font-size:16px">${Arc.esc(p.emoji||'📁')}</span>
+              <span style="font-size:12px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${Arc.esc(p.name)}</span>
+              <span class="cat-badge">${pGoals.length}</span>
+            </div>
+            <div class="proj-grp-fill"></div>
+          </div>
+          ${renderGoalsByCategory(pGoals, dates)}
+        </div>`;
+      }).join('');
+  }
+
+  gi.innerHTML = headerHtml + bodyHtml;
+}
+
+function renderGoalsByCategory(goals, dates) {
   const cats = {};
   goals.forEach(g => {
     const c = g.category || 'Uncategorized';
     if (!cats[c]) cats[c] = [];
     cats[c].push(g);
   });
-
-  const bodyHtml = Object.entries(cats).map(([cat, cgs]) => {
+  return Object.entries(cats).map(([cat, cgs]) => {
     const coll = PS.collapsedCats.has(cat);
     const rows = coll ? '' : cgs.map(g => renderGoalRow(g, dates)).join('');
     return `<div>
       <div class="cat-row">
         <div class="cat-left" onclick="toggleCat(${JSON.stringify(cat)})">
-          <span class="cat-chev ${coll ? '' : 'open'}">▶</span>
+          <span class="cat-chev ${coll?'':'open'}">▶</span>
           <span class="cat-title">${Arc.esc(cat)}</span>
           <span class="cat-badge">${cgs.length}</span>
         </div>
@@ -372,8 +382,6 @@ function renderGantt(dates) {
       ${rows}
     </div>`;
   }).join('');
-
-  gi.innerHTML = headerHtml + bodyHtml;
 }
 
 function renderGanttHeader(dates) {
@@ -430,15 +438,10 @@ function renderGoalRow(goal, dates) {
     return `<div class="g-cell ${tc ? 'is-today-col' : ''}"></div>`;
   }).join('');
 
-  const showProj   = PS.selectedPids.size !== 1;
-  const projForGoal = showProj ? Arc.Projects.getById(goal.projectId) : null;
   return `<div class="goal-row ${od ? 'is-overdue' : ''}">
     <div class="goal-left" onclick="editGoalModal('${goal.id}')">
       <div class="goal-clr" style="background:${color}"></div>
-      <div style="flex:1;min-width:0;overflow:hidden">
-        <div class="goal-title" title="${Arc.esc(goal.title)}">${Arc.esc(goal.title)}</div>
-        ${projForGoal ? `<div style="font-size:10px;color:var(--dim);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${Arc.esc(projForGoal.emoji||'📁')} ${Arc.esc(projForGoal.name)}</div>` : ''}
-      </div>
+      <span class="goal-title" title="${Arc.esc(goal.title)}">${Arc.esc(goal.title)}</span>
       ${od ? `<span class="overdue-icon" title="Overdue — was due ${goal.dateTo}">⚠</span>` : ''}
       <div class="status-dot" style="background:${st.color}" title="${st.label}"></div>
     </div>

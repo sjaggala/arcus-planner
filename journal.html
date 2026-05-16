@@ -153,7 +153,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .editor-scroll { flex:1; overflow-y:auto; padding:16px 24px 32px; min-width:0; }
 .entry-editor {
   width:100%; min-height:220px; outline:none; box-sizing:border-box;
-  font-family:'Outfit',sans-serif; font-size:14px; line-height:1.85;
+  font-family:'Outfit',sans-serif; font-size:14px; line-height:1.65;
   color:var(--text); caret-color:var(--accent);
 }
 .entry-editor:empty::before { content:attr(data-placeholder); color:var(--dim); pointer-events:none; display:block; }
@@ -530,6 +530,13 @@ function renderEditor() {
       <button class="fmt-btn sm" onclick="insertRule()"                   title="Divider">—</button>
       <div class="fmt-sep"></div>
       <button class="fmt-btn sm" onclick="fmt('removeFormat')"            title="Clear formatting">✕ fmt</button>
+      <div class="fmt-sep"></div>
+      <select class="fmt-btn sm" id="lh-select" onchange="setLineHeight(this.value)" title="Line height" style="padding:0 4px;cursor:pointer;width:auto">
+        <option value="1.4">Tight</option>
+        <option value="1.65" selected>Normal</option>
+        <option value="1.85">Relaxed</option>
+        <option value="2.1">Loose</option>
+      </select>
     </div>
     <div class="editor-scroll">
       <div class="entry-editor" id="entry-editor"
@@ -563,6 +570,7 @@ function fmt(cmd, val) {
   refreshToolbar(); scheduleSave();
 }
 function insertRule() { document.execCommand('insertHTML', false, '<hr>'); scheduleSave(); }
+function setLineHeight(v) { const ed = document.getElementById('entry-editor'); if (ed) { ed.style.lineHeight = v; ed.focus(); } }
 function refreshToolbar() {
   ['bold','italic','underline','strikeThrough'].forEach(cmd => {
     const btn = document.getElementById('fmt-'+cmd);

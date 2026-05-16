@@ -219,7 +219,6 @@ function renderGoalsToday() {
     const od   = Arc.Goals.isOverdue(g);
     const clr  = g.labelColor || st.color;
     return `<div class="focus-item">
-      <div class="focus-dot" style="background:${clr}"></div>
       <div style="flex:1;min-width:0">
         <div class="focus-title">${Arc.esc(g.title)}${od?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
         <div class="focus-meta">
@@ -253,7 +252,6 @@ function renderTasksToday() {
     const isOd = t.dueDate && t.dueDate < Arc.today();
     const proj = t.projectId ? Arc.Projects.getById(t.projectId) : null;
     return `<div class="focus-item">
-      <div class="focus-dot" style="background:${pri.color}"></div>
       <div style="flex:1;min-width:0">
         <div class="focus-title">${Arc.esc(t.title)}${isOd?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
         <div class="focus-meta">
@@ -294,7 +292,6 @@ function renderEventsUpcoming() {
     const dateLabel = isToday ? 'Today' : fmtEvDate(ev.startDate);
     const timeLabel = ev.allDay ? 'All day' : fmt12(ev.startTime);
     return `<div class="focus-item" onclick="location.href='events.html'" style="cursor:pointer">
-      <div class="focus-dot" style="background:${clr}"></div>
       <div style="flex:1;min-width:0">
         <div class="focus-title">${Arc.esc(ev.title)}</div>
         <div class="focus-meta">
@@ -332,7 +329,6 @@ function renderJournalToday() {
     const title   = (e.title && e.title !== 'Journal Entry') ? e.title : 'Journal Entry';
     const preview = plain.slice(0,90) + (plain.length>90?'…':'');
     return `<div class="focus-item" onclick="location.href='journal.html'" style="cursor:pointer">
-      <div class="focus-dot" style="background:var(--accent)"></div>
       <div style="flex:1;min-width:0">
         <div class="focus-title">${Arc.esc(title)}</div>
         <div class="focus-meta" style="flex-wrap:nowrap;overflow:hidden">
