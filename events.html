@@ -11,7 +11,25 @@
 <link rel="stylesheet" href="style.css">
 <style>
 body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+.ev-layout { flex:1; display:flex; min-height:0; }
+.ev-sidebar { width:210px; flex-shrink:0; border-right:1px solid var(--border); display:flex; flex-direction:column; padding:20px 14px; gap:16px; overflow-y:auto; background:var(--s1); }
+.ev-main { flex:1; display:flex; flex-direction:column; min-width:0; }
 .page-body { flex:1; overflow-y:auto; padding:28px 36px 60px; display:flex; flex-direction:column; }
+
+/* Mini calendar */
+.mini-cal { display:flex; flex-direction:column; gap:8px; }
+.mini-cal-hdr { display:flex; align-items:center; justify-content:space-between; }
+.mini-cal-title { font-size:12px; font-weight:700; color:var(--text); }
+.mini-cal-nav { background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; padding:2px 5px; border-radius:4px; line-height:1; }
+.mini-cal-nav:hover { background:var(--s3); color:var(--text); }
+.mini-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+.mc-dh { font-size:9px; font-weight:700; text-align:center; color:var(--dim); padding:2px 0; }
+.mc-day { font-size:11px; text-align:center; padding:3px 1px; border-radius:4px; cursor:pointer; color:var(--muted); line-height:1.4; }
+.mc-day:hover { background:var(--s3); color:var(--text); }
+.mc-day.other-m { color:var(--dim); }
+.mc-day.is-today { background:var(--accent); color:#fff; border-radius:50%; }
+.mc-day.is-cur { background:var(--s3); color:var(--text); font-weight:700; outline:1px solid var(--accent); }
+.mc-day.has-ev { font-weight:700; color:var(--text); }
 
 /* Toolbar */
 .cal-toolbar { display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
@@ -93,25 +111,35 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 </head>
 <body>
 <div id="nav-container"></div>
-<div class="page-body">
+<div class="ev-layout">
 
-  <div class="cal-toolbar">
-    <div class="cal-nav">
-      <button class="cal-nav-btn" onclick="navigate(-1)" title="Previous">‹</button>
-      <button class="btn btn-ghost btn-sm" onclick="goToday()" style="padding:5px 12px">Today</button>
-      <button class="cal-nav-btn" onclick="navigate(1)" title="Next">›</button>
-    </div>
-    <div class="cal-title" id="cal-title"></div>
-    <button class="btn btn-primary btn-sm" onclick="newEventModal(null)">＋ New Event</button>
-    <div class="view-pills">
-      <button class="view-pill" data-view="month" onclick="setView('month')">Month</button>
-      <button class="view-pill" data-view="week"  onclick="setView('week')">Week</button>
-      <button class="view-pill" data-view="day"   onclick="setView('day')">Day</button>
-      <button class="view-pill" data-view="agenda" onclick="setView('agenda')">List</button>
-    </div>
+  <div class="ev-sidebar">
+    <div class="mini-cal" id="mini-cal"></div>
   </div>
 
-  <div id="cal-body" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
+  <div class="ev-main">
+    <div class="page-body">
+
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="navigate(-1)" title="Previous">‹</button>
+          <button class="btn btn-ghost btn-sm" onclick="goToday()" style="padding:5px 12px">Today</button>
+          <button class="cal-nav-btn" onclick="navigate(1)" title="Next">›</button>
+        </div>
+        <div class="cal-title" id="cal-title"></div>
+        <button class="btn btn-primary btn-sm" onclick="newEventModal(null)">＋ New Event</button>
+        <div class="view-pills">
+          <button class="view-pill" data-view="month" onclick="setView('month')">Month</button>
+          <button class="view-pill" data-view="week"  onclick="setView('week')">Week</button>
+          <button class="view-pill" data-view="day"   onclick="setView('day')">Day</button>
+          <button class="view-pill" data-view="agenda" onclick="setView('agenda')">List</button>
+        </div>
+      </div>
+
+      <div id="cal-body" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
+
+    </div>
+  </div>
 
 </div>
 
@@ -149,14 +177,16 @@ function getGoalTaskItems(dStr) {
   const goals = Arc.Goals.getAll().filter(g => g.dateTo === dStr && g.status !== 'cancelled' && g.status !== 'completed');
   const tasks = Arc.Tasks.getAll().filter(t => t.dueDate === dStr && t.bucketId !== 'b_done');
   return [
-    ...goals.map(g => ({ kind:'goal', id:g.id, title:g.title, color: g.labelColor||'#3ec97a' })),
+    ...goals.map(g => ({ kind:'goal', id:g.id, title:g.title, color: g.labelColor||'#3ec97a', projectId: g.projectId })),
     ...tasks.map(t => ({ kind:'task', id:t.id, title:t.title, color:'#f5c542' })),
   ];
 }
 
 function gtPillHtml(item) {
   const icon = item.kind === 'goal' ? '🎯' : '✓';
-  return `<div class="ev-pill" style="background:var(--s3);color:var(--muted);border:1px solid var(--border)"
+  const nav = item.kind === 'goal' ? `location.href='planner.html?pid=${item.projectId}'` : `location.href='tasks.html'`;
+  return `<div class="ev-pill" style="background:${item.color}20;color:${item.color};border:1px solid ${item.color}44;cursor:pointer"
+    onclick="event.stopPropagation();${nav}"
     title="${item.kind==='goal'?'Goal due':'Task due'}: ${Arc.esc(item.title)}">${icon} ${Arc.esc(item.title)}</div>`;
 }
 
@@ -176,10 +206,60 @@ function navigate(dir) {
 
 function goToday() { curDate = new Date(); render(); }
 
+// ── Mini calendar sidebar ────────────────────────────────────────────
+let miniCalYear  = new Date().getFullYear();
+let miniCalMonth = new Date().getMonth();
+
+function miniCalPrev() { miniCalMonth--; if (miniCalMonth < 0) { miniCalMonth = 11; miniCalYear--; } renderMiniCal(); }
+function miniCalNext() { miniCalMonth++; if (miniCalMonth > 11) { miniCalMonth = 0; miniCalYear++; } renderMiniCal(); }
+
+function miniCalNav(dStr) {
+  curDate = new Date(dStr + 'T12:00:00');
+  render();
+}
+
+function renderMiniCal() {
+  const today   = todayDs();
+  const curDs   = ds(curDate);
+  const evDates = new Set(Arc.Events.getAll().map(e => e.startDate));
+  const gtDates = new Set([
+    ...Arc.Goals.getAll().filter(g => g.dateTo && g.status !== 'cancelled' && g.status !== 'completed').map(g => g.dateTo),
+    ...Arc.Tasks.getAll().filter(t => t.dueDate && t.bucketId !== 'b_done').map(t => t.dueDate),
+  ]);
+
+  const y = miniCalYear, m = miniCalMonth;
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  let cells = '';
+  for (let i = 0; i < firstDay; i++) cells += `<div class="mc-day other-m"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cls  = [
+      'mc-day',
+      dStr === today  ? 'is-today' : '',
+      dStr === curDs  ? 'is-cur'   : '',
+      (evDates.has(dStr) || gtDates.has(dStr)) ? 'has-ev' : '',
+    ].filter(Boolean).join(' ');
+    cells += `<div class="${cls}" onclick="miniCalNav('${dStr}')">${d}</div>`;
+  }
+
+  const hdrs = ['S','M','T','W','T','F','S'].map(h => `<div class="mc-dh">${h}</div>`).join('');
+  document.getElementById('mini-cal').innerHTML =
+    `<div class="mini-cal-hdr">
+      <button class="mini-cal-nav" onclick="miniCalPrev()">‹</button>
+      <div class="mini-cal-title">${MONTHS_SHORT[m]} ${y}</div>
+      <button class="mini-cal-nav" onclick="miniCalNext()">›</button>
+    </div>
+    <div class="mini-cal-grid">${hdrs}${cells}</div>`;
+}
+
 function init() {
   Arc.Settings.load();
   Arc.applyTheme(Arc.Settings.get('theme','dark'));
   document.getElementById('nav-container').innerHTML = Arc.navHtml('events');
+  miniCalYear  = curDate.getFullYear();
+  miniCalMonth = curDate.getMonth();
   setView('month');
   const p = new URLSearchParams(location.search);
   if (p.get('new') === '1') {
@@ -190,6 +270,7 @@ function init() {
 
 function render() {
   updateTitle();
+  renderMiniCal();
   const body = document.getElementById('cal-body');
   if (curView === 'month')  body.innerHTML = renderMonth();
   else if (curView === 'week')  renderWeekView(body);
@@ -440,10 +521,11 @@ function renderAgenda() {
 
     const gtItems2 = gtItems.map(item => {
       const icon = item.kind === 'goal' ? '🎯' : '✓';
-      return `<div class="agr-ev" style="opacity:.72">
-        <div class="agr-stripe" style="background:var(--border2)"></div>
+      const nav = item.kind === 'goal' ? `location.href='planner.html?pid=${item.projectId}'` : `location.href='tasks.html'`;
+      return `<div class="agr-ev" onclick="${nav}" style="cursor:pointer">
+        <div class="agr-stripe" style="background:${item.color}"></div>
         <div class="agr-ev-body">
-          <div class="agr-ev-title" style="color:var(--muted)">${icon} ${Arc.esc(item.title)}</div>
+          <div class="agr-ev-title" style="color:${item.color}">${icon} ${Arc.esc(item.title)}</div>
           <div class="agr-ev-meta">Due · ${item.kind === 'goal' ? 'Goal' : 'Task'}</div>
         </div>
       </div>`;
