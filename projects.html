@@ -69,7 +69,10 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
       <h1>Projects</h1>
       <p id="proj-subtitle">Organise your goals into projects</p>
     </div>
-    <button class="btn btn-primary" onclick="newProjectModal()">+ New Project</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="btn btn-ghost" onclick="location.href='planner.html'">View All Goals</button>
+      <button class="btn btn-primary" onclick="newProjectModal()">+ New Project</button>
+    </div>
   </div>
 
   <div class="proj-stats" id="proj-stats"></div>
