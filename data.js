@@ -132,6 +132,23 @@ const Arc = (() => {
     forGoal(goal) { return this.getAll().find(b => b.statuses && b.statuses.includes(goal.status)); },
   };
 
+  // ── Events / Reminders ──────────────────────────────────────────────
+  const Events = {
+    getAll()   { return DB.get('arc_ev') || []; },
+    save(evs)  { DB.set('arc_ev', evs); },
+    add(ev)    { const evs = this.getAll(); evs.push(ev); this.save(evs); },
+    update(ev) { this.save(this.getAll().map(x => x.id === ev.id ? ev : x)); },
+    delete(id) { this.save(this.getAll().filter(x => x.id !== id)); },
+    upcoming(days = 14) {
+      const t = today();
+      const lim = dateStr(new Date(Date.now() + days * 86400000));
+      return this.getAll()
+        .filter(ev => ev.startDate >= t && ev.startDate <= lim)
+        .sort((a, b) => (a.startDate + (a.startTime||'')).localeCompare(b.startDate + (b.startTime||'')));
+    },
+    onDate(ds) { return this.getAll().filter(ev => ev.startDate === ds || (ev.endDate && ev.startDate <= ds && ev.endDate >= ds)); },
+  };
+
   // ── Tasks (standalone, non-goal tasks) ──────────────────────────────
   const Tasks = {
     getAll()     { return DB.get('arc_tasks') || []; },
@@ -164,6 +181,7 @@ const Arc = (() => {
       { id: 'home',     label: 'Home',     href: 'index.html' },
       { id: 'projects', label: 'Projects', href: 'projects.html' },
       { id: 'tasks',    label: 'Tasks',    href: 'tasks.html' },
+      { id: 'events',   label: 'Events',   href: 'events.html' },
       { id: 'journal',  label: 'Journal',  href: 'journal.html' },
     ];
     const linksHtml = links.map(l =>
@@ -197,6 +215,7 @@ const Arc = (() => {
       journals2: DB.get('arc_j2')      || [],
       buckets:   Buckets.getAll(),
       tasks:     Tasks.getAll(),
+      events:    Events.getAll(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -223,6 +242,7 @@ const Arc = (() => {
         if (d.journals2)  DB.set('arc_j2',      d.journals2);
         if (d.buckets)    DB.set('arc_buckets', d.buckets);
         if (d.tasks)      DB.set('arc_tasks',   d.tasks);
+        if (d.events)     DB.set('arc_ev',      d.events);
         closeModal();
         if (typeof onDataImported === 'function') onDataImported();
         else window.location.reload();
@@ -317,7 +337,8 @@ const Arc = (() => {
       return { version: 3, exportedAt: new Date().toISOString(),
         profile: Profile.get(), projects: Projects.getAll(), goals: Goals.getAll(),
         notes: DB.get('arc_n') || {}, journals: DB.get('arc_j') || {},
-        journals2: DB.get('arc_j2') || [], buckets: Buckets.getAll(), tasks: Tasks.getAll() };
+        journals2: DB.get('arc_j2') || [], buckets: Buckets.getAll(),
+        tasks: Tasks.getAll(), events: Events.getAll() };
     }
     async function writeToHandle(h) {
       const perm = await h.queryPermission({ mode: 'readwrite' });
@@ -424,12 +445,11 @@ const Arc = (() => {
             <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">📊 Gantt Planner</span>
             <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">✅ Kanban Board</span>
             <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">📓 Journal</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">📅 Events</span>
             <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">🌙 Dark &amp; Light</span>
           </div>
           <div style="padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);line-height:1.8">
             <div>© 2025 Arcus Labs, Inc. All rights reserved.</div>
-            <div>Developer: Sravan Jaggala</div>
-            <div>Follow on LinkedIn: <i>linkedin.com/in/sravan-jaggala/</i></div>
             <div>Hosted on GitHub Pages &nbsp;·&nbsp; Built with vanilla HTML, CSS &amp; JavaScript</div>
           </div>
         </div>
@@ -439,7 +459,7 @@ const Arc = (() => {
   }
 
   return { uid, esc, dateStr, today, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
-           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, FolderSave,
+           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, FolderSave,
            avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal };
 })();
 
