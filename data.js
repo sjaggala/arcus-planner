@@ -411,9 +411,25 @@ const Arc = (() => {
       </div>
       <div>
         <div class="ss-section-title">About</div>
-        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 13px;font-size:12px;color:var(--muted);line-height:1.7">
-          <strong style="color:var(--text)">Arcus Planner v2</strong> — Gantt planner + Kanban board + Journal.<br>
-          Single-origin app on GitHub Pages. All data stored locally in your browser.
+        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.7">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#7b79f7,#a78bfa);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Fraunces',serif;font-size:21px;font-weight:700;color:#fff;letter-spacing:-1px">A</div>
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:-.2px">Arcus Planner</div>
+              <div style="font-size:11px;color:var(--dim);margin-top:1px">Version 3.0 &nbsp;·&nbsp; Personal Edition</div>
+            </div>
+          </div>
+          <div style="margin-bottom:12px">A personal productivity suite combining Gantt-style goal planning, a flexible Kanban task board, and a rich multi-entry journal — all in one private, offline-first app. Your data never leaves your device.</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">📊 Gantt Planner</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">✅ Kanban Board</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">📓 Journal</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">🌙 Dark &amp; Light</span>
+          </div>
+          <div style="padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);line-height:1.8">
+            <div>© 2025 Arcus Labs, Inc. All rights reserved.</div>
+            <div>Hosted on GitHub Pages &nbsp;·&nbsp; Built with vanilla HTML, CSS &amp; JavaScript</div>
+          </div>
         </div>
       </div>
       <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">Done</button></div>
