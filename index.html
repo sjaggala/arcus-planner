@@ -241,17 +241,35 @@ function renderTasksToday() {
 function renderJournalStrip() {
   const today = Arc.today();
   const now   = new Date();
-  const journals = JSON.parse(localStorage.getItem('arc_j') || '{}');
-  const entry = journals[today] || '';
   document.getElementById('journal-strip-date').textContent =
     `${DAYS_LONG[now.getDay()]}, ${MONTHS_LONG[now.getMonth()]} ${now.getDate()}`;
-  const bodyEl = document.getElementById('journal-strip-body');
-  if (entry) {
-    bodyEl.className = 'journal-strip-text';
-    bodyEl.textContent = entry;
+
+  // Read from arc_j2 (multi-entry) first, fall back to legacy arc_j
+  let previewText = '', previewLabel = '';
+  const j2 = JSON.parse(localStorage.getItem('arc_j2') || 'null');
+  if (j2) {
+    const todayEntries = j2
+      .filter(e => e.date === today)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (todayEntries.length > 0) {
+      const first = todayEntries[0];
+      const plain = first.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      previewLabel = (first.title && first.title !== 'Journal Entry') ? first.title : '';
+      previewText  = plain;
+      if (todayEntries.length > 1) previewText += ` … (+${todayEntries.length - 1} more)`;
+    }
   } else {
-    bodyEl.className = 'journal-strip-empty';
-    bodyEl.textContent = 'No entry yet — click to write today\'s journal…';
+    const j = JSON.parse(localStorage.getItem('arc_j') || '{}');
+    previewText = j[today] || '';
+  }
+
+  const bodyEl = document.getElementById('journal-strip-body');
+  if (previewText) {
+    bodyEl.className   = 'journal-strip-text';
+    bodyEl.textContent = previewLabel ? `${previewLabel}: ${previewText}` : previewText;
+  } else {
+    bodyEl.className   = 'journal-strip-empty';
+    bodyEl.textContent = "No entry yet — click to write today's journal…";
   }
 }
 

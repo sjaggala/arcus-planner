@@ -188,14 +188,15 @@ const Arc = (() => {
   // ── Data Export / Import ──────────────────────────────────────────────
   function exportAllData() {
     const data = {
-      version: 2, exportedAt: new Date().toISOString(),
-      profile: Profile.get(),
-      projects: Projects.getAll(),
-      goals: Goals.getAll(),
-      notes: DB.get('arc_n') || {},
-      journals: DB.get('arc_j') || {},
-      buckets: Buckets.getAll(),
-      tasks: Tasks.getAll(),
+      version: 3, exportedAt: new Date().toISOString(),
+      profile:   Profile.get(),
+      projects:  Projects.getAll(),
+      goals:     Goals.getAll(),
+      notes:     DB.get('arc_n')       || {},
+      journals:  DB.get('arc_j')       || {},
+      journals2: DB.get('arc_j2')      || [],
+      buckets:   Buckets.getAll(),
+      tasks:     Tasks.getAll(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -214,13 +215,14 @@ const Arc = (() => {
         const d = JSON.parse(await file.text());
         if (!d.projects && !d.goals) { alert('Invalid Arcus backup file.'); return; }
         if (!confirm(`Import from "${file.name}"? This replaces ALL current data.`)) return;
-        if (d.profile)   Profile.save(d.profile);
-        if (d.projects)  DB.set('arc_p', d.projects);
-        if (d.goals)     DB.set('arc_g', d.goals);
-        if (d.notes)     DB.set('arc_n', d.notes);
-        if (d.journals)  DB.set('arc_j', d.journals);
-        if (d.buckets)   DB.set('arc_buckets', d.buckets);
-        if (d.tasks)     DB.set('arc_tasks', d.tasks);
+        if (d.profile)    Profile.save(d.profile);
+        if (d.projects)   DB.set('arc_p',       d.projects);
+        if (d.goals)      DB.set('arc_g',       d.goals);
+        if (d.notes)      DB.set('arc_n',       d.notes);
+        if (d.journals)   DB.set('arc_j',       d.journals);
+        if (d.journals2)  DB.set('arc_j2',      d.journals2);
+        if (d.buckets)    DB.set('arc_buckets', d.buckets);
+        if (d.tasks)      DB.set('arc_tasks',   d.tasks);
         closeModal();
         if (typeof onDataImported === 'function') onDataImported();
         else window.location.reload();
@@ -312,10 +314,10 @@ const Arc = (() => {
     }
     async function folderName() { const h = await getHandle(); return h ? h.name : null; }
     function buildData() {
-      return { version: 2, exportedAt: new Date().toISOString(),
+      return { version: 3, exportedAt: new Date().toISOString(),
         profile: Profile.get(), projects: Projects.getAll(), goals: Goals.getAll(),
         notes: DB.get('arc_n') || {}, journals: DB.get('arc_j') || {},
-        buckets: Buckets.getAll(), tasks: Tasks.getAll() };
+        journals2: DB.get('arc_j2') || [], buckets: Buckets.getAll(), tasks: Tasks.getAll() };
     }
     async function writeToHandle(h) {
       const perm = await h.queryPermission({ mode: 'readwrite' });
