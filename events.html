@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Events</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{var __t=(JSON.parse(localStorage.getItem('arc_cfg')||'{}')).theme;if(__t)document.documentElement.setAttribute('data-theme',__t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+.page-body { flex:1; overflow-y:auto; padding:28px 36px 60px; display:flex; flex-direction:column; }
+
+/* Toolbar */
+.cal-toolbar { display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.cal-nav { display:flex; align-items:center; gap:4px; }
+.cal-nav-btn { width:30px; height:30px; border-radius:7px; background:var(--s2); border:1px solid var(--border); color:var(--text); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+.cal-nav-btn:hover { background:var(--s3); }
+.cal-title { font-family:'Fraunces',serif; font-size:18px; font-weight:600; letter-spacing:-.3px; min-width:160px; text-align:center; }
+.view-pills { display:flex; background:var(--s2); border:1px solid var(--border); border-radius:8px; padding:3px; gap:2px; margin-left:auto; }
+.view-pill { padding:5px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; color:var(--muted); transition:all .15s; border:none; background:transparent; }
+.view-pill.active { background:var(--accent); color:#fff; }
+
+/* Month grid */
+.month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden; flex:1; }
+.day-hdr { background:var(--s2); padding:8px 0; text-align:center; font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
+.day-cell { background:var(--s1); min-height:90px; padding:6px; position:relative; cursor:pointer; transition:background .1s; }
+.day-cell:hover { background:var(--s2); }
+.day-cell.other-month { background:var(--bg); }
+.day-cell.other-month .day-num { color:var(--dim); }
+.day-cell.is-today .day-num { background:var(--accent); color:#fff; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; }
+.day-num { font-size:12px; font-weight:600; width:22px; height:22px; display:flex; align-items:center; justify-content:center; margin-bottom:3px; }
+.ev-pill { font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; line-height:1.4; }
+.ev-pill:hover { filter:brightness(1.15); }
+.more-pill { font-size:10px; color:var(--muted); padding:1px 4px; cursor:pointer; }
+.more-pill:hover { color:var(--accent); }
+
+/* Week grid */
+.week-grid { display:flex; flex-direction:column; flex:1; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.week-hdr-row { display:grid; grid-template-columns:52px repeat(7,1fr); background:var(--s2); border-bottom:1px solid var(--border); }
+.week-hdr-cell { padding:8px 6px; text-align:center; font-size:11px; font-weight:700; color:var(--muted); }
+.week-hdr-cell.is-today { color:var(--accent); }
+.week-hdr-date { font-size:18px; font-weight:600; font-family:'Fraunces',serif; display:block; }
+.week-body { flex:1; overflow-y:auto; display:grid; grid-template-columns:52px repeat(7,1fr); }
+.week-time-col { border-right:1px solid var(--border); }
+.week-hour-lbl { height:52px; display:flex; align-items:flex-start; justify-content:flex-end; padding:4px 8px 0 0; font-size:10px; color:var(--dim); }
+.week-day-col { border-right:1px solid var(--border); position:relative; }
+.week-day-col:last-child { border-right:none; }
+.week-hour-line { height:52px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+.week-hour-line:hover { background:rgba(123,121,247,.06); }
+.week-ev-block { position:absolute; left:2px; right:2px; border-radius:5px; padding:2px 5px; font-size:10px; font-weight:600; overflow:hidden; cursor:pointer; z-index:1; line-height:1.3; }
+.week-ev-block:hover { filter:brightness(1.15); z-index:2; }
+
+/* Day view */
+.day-view { display:flex; flex-direction:column; flex:1; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.day-view-hdr { padding:14px 16px; background:var(--s2); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
+.day-view-title { font-family:'Fraunces',serif; font-size:20px; font-weight:600; }
+.day-view-body { flex:1; overflow-y:auto; display:grid; grid-template-columns:52px 1fr; }
+.day-view-events { position:relative; }
+.day-allday-bar { padding:8px 12px; border-bottom:1px solid var(--border); display:flex; gap:6px; flex-wrap:wrap; align-items:center; background:var(--s1); min-height:36px; }
+.day-allday-lbl { font-size:10px; color:var(--dim); margin-right:4px; }
+
+/* List view (agenda) */
+.agenda-list { display:flex; flex-direction:column; gap:0; }
+.agenda-day-group { margin-bottom:4px; }
+.agenda-day-hdr { padding:10px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); background:var(--s2); border:1px solid var(--border); border-radius:8px 8px 0 0; }
+.agenda-day-hdr.is-today { color:var(--accent); }
+.agenda-ev-row { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--s1); border:1px solid var(--border); border-top:none; cursor:pointer; transition:background .1s; }
+.agenda-ev-row:last-child { border-radius:0 0 8px 8px; }
+.agenda-ev-row:hover { background:var(--s2); }
+.agenda-ev-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.agenda-ev-time { font-size:11px; color:var(--muted); min-width:72px; flex-shrink:0; }
+.agenda-ev-title { font-size:13px; font-weight:600; }
+.agenda-ev-desc { font-size:11px; color:var(--muted); margin-top:1px; }
+.agenda-empty { text-align:center; padding:60px 20px; color:var(--muted); font-size:13px; }
+
+/* Event type badge */
+.ev-type-badge { font-size:10px; padding:2px 8px; border-radius:10px; font-weight:600; }
+
+@media(max-width:700px) { .page-body { padding:16px 12px 40px; } .cal-title { min-width:120px; font-size:15px; } }
+</style>
+</head>
+<body>
+<div id="nav-container"></div>
+<div class="page-body">
+
+  <div class="cal-toolbar">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="navigate(-1)" title="Previous">‹</button>
+      <button class="btn btn-ghost btn-sm" onclick="goToday()" style="padding:5px 12px">Today</button>
+      <button class="cal-nav-btn" onclick="navigate(1)" title="Next">›</button>
+    </div>
+    <div class="cal-title" id="cal-title"></div>
+    <button class="btn btn-primary btn-sm" onclick="newEventModal(null)">＋ New Event</button>
+    <div class="view-pills">
+      <button class="view-pill" data-view="month" onclick="setView('month')">Month</button>
+      <button class="view-pill" data-view="week"  onclick="setView('week')">Week</button>
+      <button class="view-pill" data-view="day"   onclick="setView('day')">Day</button>
+      <button class="view-pill" data-view="agenda" onclick="setView('agenda')">List</button>
+    </div>
+  </div>
+
+  <div id="cal-body" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
+
+</div>
+
+<div id="modal-overlay" onclick="overlayClick(event)"></div>
+<div id="modal-wrap"></div>
+<script src="data.js"></script>
+<script>
+const DAYS_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAYS_LONG   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const EV_COLORS   = ['#7b79f7','#60a5fa','#3ec97a','#f5c542','#f06f6f','#f472b6','#fb923c','#2dd4bf','#e879f9','#94a3b8'];
+const EV_TYPES    = ['Event','Reminder','Meeting','Deadline','Personal'];
+
+let curView   = 'month';
+let curDate   = new Date();
+
+function ds(d) { return Arc.dateStr(d); }
+function todayDs() { return Arc.today(); }
+
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+function addMonths(d, n) { const r = new Date(d); r.setMonth(r.getMonth()+n); return r; }
+
+function fmt12(t) {
+  if (!t) return '';
+  const [h,m] = t.split(':').map(Number);
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+}
+
+function fmtDateFull(d) {
+  return `${DAYS_LONG[d.getDay()]}, ${MONTHS_LONG[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function setView(v) {
+  curView = v;
+  document.querySelectorAll('.view-pill').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  render();
+}
+
+function navigate(dir) {
+  if (curView === 'month') curDate = addMonths(curDate, dir);
+  else if (curView === 'week') curDate = addDays(curDate, dir * 7);
+  else if (curView === 'day')  curDate = addDays(curDate, dir);
+  else if (curView === 'agenda') curDate = addMonths(curDate, dir);
+  render();
+}
+
+function goToday() { curDate = new Date(); render(); }
+
+function init() {
+  Arc.Settings.load();
+  Arc.applyTheme(Arc.Settings.get('theme','dark'));
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('events');
+  setView('month');
+  const p = new URLSearchParams(location.search);
+  if (p.get('new') === '1') {
+    history.replaceState({}, '', 'events.html');
+    setTimeout(() => newEventModal(null), 150);
+  }
+}
+
+function render() {
+  updateTitle();
+  const body = document.getElementById('cal-body');
+  if (curView === 'month')  body.innerHTML = renderMonth();
+  else if (curView === 'week')  renderWeekView(body);
+  else if (curView === 'day')   renderDayView(body);
+  else if (curView === 'agenda') body.innerHTML = renderAgenda();
+}
+
+function updateTitle() {
+  const el = document.getElementById('cal-title');
+  if (curView === 'month') {
+    el.textContent = `${MONTHS_LONG[curDate.getMonth()]} ${curDate.getFullYear()}`;
+  } else if (curView === 'week') {
+    const mon = weekStart(curDate);
+    const sun = addDays(mon, 6);
+    if (mon.getMonth() === sun.getMonth()) el.textContent = `${MONTHS_SHORT[mon.getMonth()]} ${mon.getDate()}–${sun.getDate()}, ${mon.getFullYear()}`;
+    else el.textContent = `${MONTHS_SHORT[mon.getMonth()]} ${mon.getDate()} – ${MONTHS_SHORT[sun.getMonth()]} ${sun.getDate()}`;
+  } else if (curView === 'day') {
+    el.textContent = `${MONTHS_SHORT[curDate.getMonth()]} ${curDate.getDate()}, ${curDate.getFullYear()}`;
+  } else {
+    el.textContent = `Agenda — ${MONTHS_LONG[curDate.getMonth()]} ${curDate.getFullYear()}`;
+  }
+}
+
+// ── Month View ──────────────────────────────────────────────────────
+function renderMonth() {
+  const evs = Arc.Events.getAll();
+  const today = todayDs();
+  const y = curDate.getFullYear(), m = curDate.getMonth();
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const daysInPrev  = new Date(y, m, 0).getDate();
+
+  const hdrs = DAYS_SHORT.map(d => `<div class="day-hdr">${d}</div>`).join('');
+
+  const cells = [];
+  // Leading prev-month cells
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = new Date(y, m-1, daysInPrev - i);
+    cells.push(dayCell(d, evs, today, true));
+  }
+  // Current month
+  for (let i = 1; i <= daysInMonth; i++) {
+    const d = new Date(y, m, i);
+    cells.push(dayCell(d, evs, today, false));
+  }
+  // Trailing next-month
+  const total = cells.length;
+  const rows = Math.ceil(total / 7);
+  for (let i = 1; cells.length < rows * 7; i++) {
+    const d = new Date(y, m+1, i);
+    cells.push(dayCell(d, evs, today, true));
+  }
+
+  return `<div class="month-grid">${hdrs}${cells.join('')}</div>`;
+}
+
+function dayCell(d, evs, today, otherMonth) {
+  const dStr = ds(d);
+  const isToday = dStr === today;
+  const dayEvs = evs.filter(ev => ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr));
+  const MAX = 3;
+  const shown = dayEvs.slice(0, MAX);
+  const more  = dayEvs.length - MAX;
+
+  const pills = shown.map(ev => {
+    const clr = ev.color || '#7b79f7';
+    return `<div class="ev-pill" style="background:${clr}22;color:${clr};border:1px solid ${clr}44"
+      onclick="event.stopPropagation();editEvent('${ev.id}')" title="${Arc.esc(ev.title)}">${Arc.esc(ev.title)}</div>`;
+  }).join('');
+
+  const morePill = more > 0 ? `<div class="more-pill" onclick="event.stopPropagation();setView('day');curDate=new Date('${dStr}');render()">+${more} more</div>` : '';
+
+  return `<div class="day-cell ${otherMonth?'other-month':''} ${isToday?'is-today':''}"
+    onclick="clickDay('${dStr}')">
+    <div class="day-num">${d.getDate()}</div>
+    ${pills}${morePill}
+  </div>`;
+}
+
+// ── Week View ───────────────────────────────────────────────────────
+function weekStart(d) {
+  const r = new Date(d);
+  r.setDate(r.getDate() - r.getDay());
+  return r;
+}
+
+function renderWeekView(container) {
+  const evs = Arc.Events.getAll();
+  const today = todayDs();
+  const mon = weekStart(curDate);
+  const days = Array.from({length:7}, (_,i) => addDays(mon, i));
+
+  const hdrCells = days.map(d => {
+    const dStr = ds(d);
+    const isTd = dStr === today;
+    return `<div class="week-hdr-cell ${isTd?'is-today':''}">
+      <span>${DAYS_SHORT[d.getDay()]}</span>
+      <span class="week-hdr-date">${d.getDate()}</span>
+    </div>`;
+  }).join('');
+
+  // All-day events row
+  const allDayRow = days.map(d => {
+    const dStr = ds(d);
+    const adevs = evs.filter(ev => ev.allDay && (ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr)));
+    return `<div style="padding:3px;border-right:1px solid var(--border);min-height:24px">${
+      adevs.map(ev => `<div class="ev-pill" style="background:${(ev.color||'#7b79f7')}22;color:${ev.color||'#7b79f7'}" onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}</div>`).join('')
+    }</div>`;
+  }).join('');
+
+  // Hours
+  const hours = Array.from({length:24}, (_,i) => i);
+  const timeLbls = hours.map(h => {
+    const lbl = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h-12} PM`;
+    return `<div class="week-hour-lbl">${lbl}</div>`;
+  }).join('');
+
+  const dayCols = days.map(d => {
+    const dStr = ds(d);
+    const dayEvs = evs.filter(ev => !ev.allDay && ev.startDate === dStr && ev.startTime);
+    const hourLines = hours.map(h =>
+      `<div class="week-hour-line" onclick="newEventModal('${dStr}','${String(h).padStart(2,'0')}:00')"></div>`
+    ).join('');
+    const blocks = dayEvs.map(ev => {
+      const [sh, sm] = (ev.startTime||'00:00').split(':').map(Number);
+      const [eh, em] = (ev.endTime  ||String(Math.min(sh+1,23)).padStart(2,'0')+':00').split(':').map(Number);
+      const top  = (sh * 52) + (sm / 60 * 52);
+      const dur  = Math.max(((eh*60+em)-(sh*60+sm))/60, 0.5);
+      const ht   = dur * 52;
+      const clr  = ev.color || '#7b79f7';
+      return `<div class="week-ev-block" style="top:${top}px;height:${ht}px;background:${clr}22;color:${clr};border-left:3px solid ${clr}"
+        onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}<br><span style="font-weight:400;font-size:9px">${fmt12(ev.startTime)}</span></div>`;
+    }).join('');
+    return `<div class="week-day-col" style="position:relative">${hourLines}${blocks}</div>`;
+  }).join('');
+
+  container.innerHTML = `<div class="week-grid">
+    <div class="week-hdr-row">
+      <div class="week-hdr-cell" style="font-size:10px;color:var(--dim)">GMT</div>
+      ${hdrCells}
+    </div>
+    <div style="display:grid;grid-template-columns:52px repeat(7,1fr);background:var(--s1);border-bottom:1px solid var(--border)">
+      <div style="padding:4px 6px;font-size:10px;color:var(--dim);display:flex;align-items:center;justify-content:flex-end">ALL DAY</div>
+      ${allDayRow}
+    </div>
+    <div class="week-body">
+      <div class="week-time-col">${timeLbls}</div>
+      ${dayCols}
+    </div>
+  </div>`;
+  // Scroll to 8am
+  const wb = container.querySelector('.week-body');
+  if (wb) wb.scrollTop = 8 * 52;
+}
+
+// ── Day View ────────────────────────────────────────────────────────
+function renderDayView(container) {
+  const evs = Arc.Events.getAll();
+  const dStr = ds(curDate);
+  const today = todayDs();
+  const isToday = dStr === today;
+  const dayEvs = evs.filter(ev => ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr));
+  const allDayEvs = dayEvs.filter(ev => ev.allDay);
+  const timedEvs  = dayEvs.filter(ev => !ev.allDay && ev.startTime);
+
+  const hours = Array.from({length:24}, (_,i) => i);
+  const timeLbls = hours.map(h => {
+    const lbl = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h-12} PM`;
+    return `<div class="week-hour-lbl">${lbl}</div>`;
+  }).join('');
+
+  const hourLines = hours.map(h =>
+    `<div class="week-hour-line" onclick="newEventModal('${dStr}','${String(h).padStart(2,'0')}:00')"></div>`
+  ).join('');
+
+  const blocks = timedEvs.map(ev => {
+    const [sh, sm] = (ev.startTime||'00:00').split(':').map(Number);
+    const [eh, em] = (ev.endTime||String(Math.min(sh+1,23)).padStart(2,'0')+':00').split(':').map(Number);
+    const top = (sh * 52) + (sm / 60 * 52);
+    const dur = Math.max(((eh*60+em)-(sh*60+sm))/60, 0.5);
+    const clr = ev.color || '#7b79f7';
+    return `<div class="week-ev-block" style="top:${top}px;height:${dur*52}px;background:${clr}22;color:${clr};border-left:3px solid ${clr}"
+      onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}<br><span style="font-weight:400;font-size:9px">${fmt12(ev.startTime)}${ev.endTime?' – '+fmt12(ev.endTime):''}</span></div>`;
+  }).join('');
+
+  const allDayPills = allDayEvs.map(ev =>
+    `<div class="ev-pill" style="background:${(ev.color||'#7b79f7')}22;color:${ev.color||'#7b79f7'};border:1px solid ${(ev.color||'#7b79f7')}44;cursor:pointer" onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}</div>`
+  ).join('');
+
+  container.innerHTML = `<div class="day-view">
+    <div class="day-view-hdr">
+      <div class="day-view-title ${isToday?'':''}">
+        ${isToday?'<span style="color:var(--accent)">Today — </span>':''}${fmtDateFull(curDate)}
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="newEventModal('${dStr}')">＋ Add Event</button>
+    </div>
+    ${allDayEvs.length>0?`<div class="day-allday-bar"><span class="day-allday-lbl">ALL DAY</span>${allDayPills}</div>`:''}
+    <div style="flex:1;overflow-y:auto;display:grid;grid-template-columns:52px 1fr">
+      <div class="week-time-col">${timeLbls}</div>
+      <div style="position:relative">${hourLines}${blocks}</div>
+    </div>
+  </div>`;
+
+  const dv = container.querySelector('.day-view');
+  if (dv) { const sc = dv.querySelector('[style*="overflow-y:auto"]'); if(sc) sc.scrollTop = 8*52; }
+}
+
+// ── Agenda View ─────────────────────────────────────────────────────
+function renderAgenda() {
+  const evs = Arc.Events.getAll();
+  const today = todayDs();
+  const y = curDate.getFullYear(), m = curDate.getMonth();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+
+  const days = Array.from({length: daysInMonth}, (_,i) => {
+    const d = new Date(y, m, i+1);
+    return ds(d);
+  });
+
+  const groups = days.map(dStr => {
+    const dayEvs = evs.filter(ev => ev.startDate === dStr || (ev.endDate && ev.startDate <= dStr && ev.endDate >= dStr));
+    if (!dayEvs.length) return '';
+    const d = new Date(dStr + 'T12:00:00');
+    const isToday = dStr === today;
+    const rows = dayEvs.sort((a,b) => {
+      if (a.allDay && !b.allDay) return -1;
+      if (!a.allDay && b.allDay) return 1;
+      return (a.startTime||'').localeCompare(b.startTime||'');
+    }).map(ev => {
+      const clr = ev.color || '#7b79f7';
+      const timeStr = ev.allDay ? 'All day' : fmt12(ev.startTime) + (ev.endTime ? ' – '+fmt12(ev.endTime) : '');
+      return `<div class="agenda-ev-row" onclick="editEvent('${ev.id}')">
+        <div class="agenda-ev-dot" style="background:${clr}"></div>
+        <div class="agenda-ev-time">${timeStr}</div>
+        <div style="flex:1;min-width:0">
+          <div class="agenda-ev-title">${Arc.esc(ev.title)}</div>
+          ${ev.description?`<div class="agenda-ev-desc">${Arc.esc(ev.description.slice(0,80))}</div>`:''}
+        </div>
+        <span class="ev-type-badge" style="background:${clr}22;color:${clr};flex-shrink:0">${Arc.esc(ev.type||'Event')}</span>
+      </div>`;
+    }).join('');
+    return `<div class="agenda-day-group">
+      <div class="agenda-day-hdr ${isToday?'is-today':''}">${DAYS_LONG[d.getDay()]}, ${MONTHS_SHORT[m]} ${d.getDate()}</div>
+      ${rows}
+    </div>`;
+  }).filter(Boolean).join('');
+
+  if (!groups) return `<div class="agenda-empty">No events this month.<br><span style="color:var(--accent);cursor:pointer" onclick="newEventModal(null)">+ Add an event</span></div>`;
+  return `<div class="agenda-list">${groups}</div>`;
+}
+
+// ── Click handlers ──────────────────────────────────────────────────
+function clickDay(dStr) {
+  curDate = new Date(dStr + 'T12:00:00');
+  setView('day');
+}
+
+// ── Event Modal ─────────────────────────────────────────────────────
+function newEventModal(dateStr, timeStr) {
+  const today = todayDs();
+  eventModal(null, dateStr || today, timeStr || '');
+}
+
+function editEvent(id) {
+  const ev = Arc.Events.getAll().find(x => x.id === id);
+  if (ev) eventModal(ev, ev.startDate, ev.startTime || '');
+}
+
+function eventModal(ev, prefillDate, prefillTime) {
+  const isEdit = !!ev;
+  const e = ev || {
+    title:'', description:'', type:'Event',
+    startDate: prefillDate || todayDs(), startTime: prefillTime || '',
+    endDate: prefillDate || todayDs(), endTime: '',
+    allDay: !prefillTime, color: EV_COLORS[0], reminder: 30, createdAt: new Date().toISOString()
+  };
+
+  const colorSwatches = EV_COLORS.map(c =>
+    `<div class="cswatch ${c===e.color?'sel':''}" style="background:${c}" onclick="evPickColor(this,'${c}')"></div>`
+  ).join('');
+
+  const typeOpts = EV_TYPES.map(t =>
+    `<option value="${t}" ${t===e.type?'selected':''}>${t}</option>`
+  ).join('');
+
+  const reminderOpts = [
+    {v:0,l:'None'},{v:5,l:'5 min before'},{v:10,l:'10 min before'},{v:15,l:'15 min before'},
+    {v:30,l:'30 min before'},{v:60,l:'1 hour before'},{v:120,l:'2 hours before'},
+    {v:1440,l:'1 day before'},{v:2880,l:'2 days before'}
+  ].map(r => `<option value="${r.v}" ${r.v===e.reminder?'selected':''}>${r.l}</option>`).join('');
+
+  showModal(`<div class="modal wide">
+    <div class="modal-hdr">
+      <div><div class="modal-title">${isEdit?'Edit':'New'} Event</div><div class="modal-sub">${isEdit?'Update this event or reminder':'Create an event, meeting, or reminder'}</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Title *</label><input class="form-inp" id="em-title" placeholder="e.g. Director meeting prep" maxlength="80" value="${Arc.esc(e.title)}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-lbl">Type</label><select class="form-inp" id="em-type">${typeOpts}</select></div>
+      <div class="form-group"><label class="form-lbl">Color</label><div class="color-picker" id="em-cp">${colorSwatches}</div><input type="hidden" id="em-color" value="${e.color}"></div>
+    </div>
+    <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="em-desc" rows="2" placeholder="Notes or context…">${Arc.esc(e.description||'')}</textarea></div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s3);border:1px solid var(--border);border-radius:8px">
+      <input type="checkbox" id="em-allday" ${e.allDay?'checked':''} onchange="toggleAllDay(this.checked)" style="width:16px;height:16px;accent-color:var(--accent)">
+      <label for="em-allday" style="font-size:13px;cursor:pointer">All-day event</label>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-lbl">Start Date *</label><input type="date" class="form-inp" id="em-sdate" value="${e.startDate}"></div>
+      <div class="form-group" id="em-stime-grp" ${e.allDay?'style="opacity:.4;pointer-events:none"':''}><label class="form-lbl">Start Time</label><input type="time" class="form-inp" id="em-stime" value="${e.startTime||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-lbl">End Date</label><input type="date" class="form-inp" id="em-edate" value="${e.endDate||e.startDate}"></div>
+      <div class="form-group" id="em-etime-grp" ${e.allDay?'style="opacity:.4;pointer-events:none"':''}><label class="form-lbl">End Time</label><input type="time" class="form-inp" id="em-etime" value="${e.endTime||''}"></div>
+    </div>
+    <div class="form-group"><label class="form-lbl">Reminder</label><select class="form-inp" id="em-reminder">${reminderOpts}</select></div>
+    <div class="modal-foot">
+      ${isEdit?`<button class="btn btn-danger" style="margin-right:auto" onclick="confirmDelEvent('${e.id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent(${isEdit?`'${e.id}'`:'null'})">${isEdit?'Save':'Create Event'}</button>
+    </div>
+  </div>`);
+}
+
+function toggleAllDay(checked) {
+  document.getElementById('em-stime-grp').style.cssText = checked ? 'opacity:.4;pointer-events:none' : '';
+  document.getElementById('em-etime-grp').style.cssText = checked ? 'opacity:.4;pointer-events:none' : '';
+}
+
+function evPickColor(el, c) {
+  el.closest('#em-cp').querySelectorAll('.cswatch').forEach(s => s.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('em-color').value = c;
+}
+
+function saveEvent(id) {
+  const title = document.getElementById('em-title').value.trim();
+  if (!title) { document.getElementById('em-title').style.borderColor='var(--red)'; document.getElementById('em-title').focus(); return; }
+  const sDate = document.getElementById('em-sdate').value;
+  if (!sDate) { alert('Please set a start date.'); return; }
+  const allDay = document.getElementById('em-allday').checked;
+  const ev = {
+    id: id || Arc.uid(),
+    title,
+    description: document.getElementById('em-desc').value.trim(),
+    type:        document.getElementById('em-type').value,
+    color:       document.getElementById('em-color').value || EV_COLORS[0],
+    allDay,
+    startDate:   sDate,
+    startTime:   allDay ? '' : (document.getElementById('em-stime').value || ''),
+    endDate:     document.getElementById('em-edate').value || sDate,
+    endTime:     allDay ? '' : (document.getElementById('em-etime').value || ''),
+    reminder:    parseInt(document.getElementById('em-reminder').value) || 0,
+    createdAt:   id ? (Arc.Events.getAll().find(x=>x.id===id)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+  };
+  if (id) Arc.Events.update(ev); else Arc.Events.add(ev);
+  closeModal();
+  render();
+}
+
+function confirmDelEvent(id) {
+  const ev = Arc.Events.getAll().find(x => x.id === id);
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr"><div class="modal-title">Delete Event?</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <p style="color:var(--muted);font-size:13px">Delete <strong style="color:var(--text)">${Arc.esc(ev?.title)}</strong>? This cannot be undone.</p>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="doDelEvent('${id}')">Delete</button></div>
+  </div>`);
+}
+
+function doDelEvent(id) { Arc.Events.delete(id); closeModal(); render(); }
+
+function onDataImported() { window.location.reload(); }
+function onProfileSaved() { document.getElementById('nav-container').innerHTML = Arc.navHtml('events'); }
+
+init();
+</script>
+</body>
+</html>

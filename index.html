@@ -119,6 +119,20 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     </div>
   </div>
 
+  <!-- Upcoming Events -->
+  <div class="focus-panel" style="margin-bottom:20px">
+    <div class="focus-panel-hdr">
+      <div class="section-title">
+        Upcoming Events
+        <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="location.href='events.html?new=1'">＋ Event</button>
+          <span class="section-title-action" style="margin-left:0" onclick="location.href='events.html'">Open Calendar →</span>
+        </span>
+      </div>
+    </div>
+    <div class="focus-items" id="events-upcoming"></div>
+  </div>
+
   <!-- Today's Journal -->
   <div class="focus-panel">
     <div class="focus-panel-hdr">
@@ -151,6 +165,7 @@ function init() {
   renderStats();
   renderGoalsToday();
   renderTasksToday();
+  renderEventsUpcoming();
   renderJournalToday();
 }
 
@@ -247,6 +262,48 @@ function renderTasksToday() {
           <span class="focus-badge" style="background:${pri.color}20;color:${pri.color}">${pri.label}</span>
         </div>
       </div>
+    </div>`;
+  }).join('');
+}
+
+const EV_COLORS = ['#7b79f7','#60a5fa','#3ec97a','#f5c542','#f06f6f','#f472b6','#fb923c','#2dd4bf'];
+
+function fmtEvDate(ds) {
+  const [y,m,d] = ds.split('-').map(Number);
+  return `${MONTHS_SHORT[m-1]} ${d}`;
+}
+
+function fmt12(t) {
+  if (!t) return '';
+  const [h,m] = t.split(':').map(Number);
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+}
+
+function renderEventsUpcoming() {
+  const evs = Arc.Events.upcoming(14);
+  const el = document.getElementById('events-upcoming');
+  if (!el) return;
+  if (evs.length === 0) {
+    el.innerHTML = `<div class="focus-empty">No upcoming events — <span class="focus-link" onclick="location.href='events.html?new=1'">add one</span></div>`;
+    return;
+  }
+  const today = Arc.today();
+  el.innerHTML = evs.map(ev => {
+    const clr = ev.color || '#7b79f7';
+    const isToday = ev.startDate === today;
+    const dateLabel = isToday ? 'Today' : fmtEvDate(ev.startDate);
+    const timeLabel = ev.allDay ? 'All day' : fmt12(ev.startTime);
+    return `<div class="focus-item" onclick="location.href='events.html'" style="cursor:pointer">
+      <div class="focus-dot" style="background:${clr}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="focus-title">${Arc.esc(ev.title)}</div>
+        <div class="focus-meta">
+          <span style="font-weight:600;color:${isToday?'var(--accent)':'inherit'}">${dateLabel}</span>
+          ${timeLabel?`<span>${timeLabel}</span>`:''}
+          ${ev.description?`<span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${Arc.esc(ev.description.slice(0,50))}</span>`:''}
+        </div>
+      </div>
+      <div style="color:var(--muted);font-size:16px;flex-shrink:0;margin-left:6px">›</div>
     </div>`;
   }).join('');
 }
