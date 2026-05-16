@@ -428,6 +428,8 @@ const Arc = (() => {
           </div>
           <div style="padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);line-height:1.8">
             <div>© 2025 Arcus Labs, Inc. All rights reserved.</div>
+            <div>Developer: Sravan Jaggala</div>
+            <div>Follow on LinkedIn: <i>linkedin.com/in/sravan-jaggala/</i></div>
             <div>Hosted on GitHub Pages &nbsp;·&nbsp; Built with vanilla HTML, CSS &amp; JavaScript</div>
           </div>
         </div>
