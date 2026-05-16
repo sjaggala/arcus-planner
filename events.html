@@ -147,7 +147,7 @@ function getGoalTaskItems(dStr) {
 
 function gtPillHtml(item) {
   const icon = item.kind === 'goal' ? '🎯' : '✓';
-  return `<div class="ev-pill" style="background:transparent;color:${item.color};border:1px dashed ${item.color}"
+  return `<div class="ev-pill" style="background:var(--s3);color:var(--muted);border:1px solid var(--border)"
     title="${item.kind==='goal'?'Goal due':'Task due'}: ${Arc.esc(item.title)}">${icon} ${Arc.esc(item.title)}</div>`;
 }
 
@@ -435,15 +435,14 @@ function renderAgenda() {
 
     const gtRows = gtItems.map(item => {
       const icon = item.kind === 'goal' ? '🎯' : '✓';
-      const clr  = item.color;
       const lbl  = item.kind === 'goal' ? 'Goal due' : 'Task due';
-      return `<div class="agenda-ev-row" style="opacity:.88">
-        <div class="agenda-ev-dot" style="background:transparent;border:2px solid ${clr}"></div>
-        <div class="agenda-ev-time" style="font-style:italic;color:var(--dim)">Due</div>
+      return `<div class="agenda-ev-row" style="opacity:.8">
+        <div class="agenda-ev-dot" style="background:var(--border2)"></div>
+        <div class="agenda-ev-time" style="color:var(--dim)">Due</div>
         <div style="flex:1;min-width:0">
-          <div class="agenda-ev-title">${icon} ${Arc.esc(item.title)}</div>
+          <div class="agenda-ev-title" style="color:var(--muted)">${icon} ${Arc.esc(item.title)}</div>
         </div>
-        <span class="ev-type-badge" style="background:${clr}22;color:${clr};border:1px dashed ${clr};flex-shrink:0">${lbl}</span>
+        <span class="ev-type-badge" style="background:var(--s3);color:var(--dim);border:1px solid var(--border);flex-shrink:0">${lbl}</span>
       </div>`;
     }).join('');
 
