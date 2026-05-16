@@ -142,8 +142,18 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 [data-theme="light"] .overdue-today-pip { background:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(220,38,38,.12) 3px,rgba(220,38,38,.12) 6px); border-color:rgba(220,38,38,.38); }
 
 /* ── Dropdown filters ──────────────────────────────────── */
-.dd-filter { background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:4px 9px;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:border-color .15s; }
-.dd-filter:focus { outline:none;border-color:var(--accent); }
+.ms-wrap { position:relative; }
+.ms-btn { background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:4px 9px;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:border-color .15s;display:flex;align-items:center;gap:6px;white-space:nowrap; }
+.ms-btn:hover { border-color:var(--accent); }
+.ms-btn.has-filter { border-color:var(--accent);color:var(--accent); }
+.ms-btn-arr { font-size:9px; color:var(--muted); }
+.ms-dropdown { position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:var(--s2);border:1px solid var(--border);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.22);min-width:160px;padding:5px 0;display:none; }
+.ms-dropdown.open { display:block; }
+.ms-opt { display:flex;align-items:center;gap:9px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--text);transition:background .1s; }
+.ms-opt:hover { background:var(--s3); }
+.ms-chk { width:13px;height:13px;border-radius:3px;border:1.5px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center; }
+.ms-chk.checked { background:var(--accent);border-color:var(--accent); }
+.ms-chk.checked::after { content:'✓';font-size:9px;color:#fff;line-height:1; }
 .od-pill { padding:3px 11px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid var(--red);color:var(--red);cursor:pointer;background:rgba(240,111,111,.08);white-space:nowrap; }
 .od-pill:hover,.od-pill.active { background:rgba(240,111,111,.18); }
 
@@ -187,8 +197,8 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 const PS = {
   pid:             new URLSearchParams(location.search).get('pid'),
-  filterPid:       new URLSearchParams(location.search).get('pid') || '',
-  filterStatus:    '',
+  filterPids:      new URLSearchParams(location.search).get('pid') ? new Set([new URLSearchParams(location.search).get('pid')]) : new Set(),
+  filterStatuses:  new Set(),
   showOverdueOnly: false,
   mode:            'twoweek',
   anchor:          new Date(),
@@ -197,13 +207,13 @@ const PS = {
   get project()       { return Arc.Projects.getById(this.pid); },
   get allGoals()      {
     const all = Arc.Goals.getAll();
-    if (this.filterPid) return all.filter(g => g.projectId === this.filterPid);
+    if (this.filterPids.size) return all.filter(g => this.filterPids.has(g.projectId));
     return all;
   },
   get filteredGoals() {
     let gs = this.allGoals;
     if (this.showOverdueOnly) return gs.filter(g => Arc.Goals.isOverdue(g));
-    if (this.filterStatus) gs = gs.filter(g => g.status === this.filterStatus);
+    if (this.filterStatuses.size) gs = gs.filter(g => this.filterStatuses.has(g.status));
     return gs;
   },
 };
@@ -246,9 +256,19 @@ function navigate(dir) {
 
 function goToday() { PS.anchor = new Date(); render(); }
 function setMode(m) { PS.mode = m; render(); }
-function setProjectFilter(pid) { PS.filterPid = pid; PS.showOverdueOnly = false; render(); }
-function setStatusFilter(st)   { PS.filterStatus = st; PS.showOverdueOnly = false; render(); }
-function toggleOverdue() { PS.showOverdueOnly = !PS.showOverdueOnly; if (PS.showOverdueOnly) PS.filterStatus = ''; render(); }
+function toggleProjectFilter(pid) {
+  if (PS.filterPids.has(pid)) PS.filterPids.delete(pid); else PS.filterPids.add(pid);
+  PS.showOverdueOnly = false; render();
+}
+function toggleStatusFilter(st) {
+  if (PS.filterStatuses.has(st)) PS.filterStatuses.delete(st); else PS.filterStatuses.add(st);
+  PS.showOverdueOnly = false; render();
+}
+function toggleOverdue() { PS.showOverdueOnly = !PS.showOverdueOnly; if (PS.showOverdueOnly) PS.filterStatuses.clear(); render(); }
+function toggleMsDropdown(id) {
+  document.querySelectorAll('.ms-dropdown').forEach(d => { if (d.id !== id) d.classList.remove('open'); });
+  document.getElementById(id).classList.toggle('open');
+}
 function toggleCat(c) { PS.collapsedCats.has(c) ? PS.collapsedCats.delete(c) : PS.collapsedCats.add(c); render(); }
 
 // =====================================================================
@@ -271,7 +291,7 @@ function render() {
 
 // ── Toolbar ──────────────────────────────────────────────────────────
 function renderToolbar(allProjects, dates) {
-  const proj = PS.filterPid ? Arc.Projects.getById(PS.filterPid) : null;
+  const proj = PS.pid ? Arc.Projects.getById(PS.pid) : null;
   const projLabel = proj ? `${Arc.esc(proj.emoji||'📁')} ${Arc.esc(proj.name)}` : 'All Projects';
   document.getElementById('planner-toolbar').innerHTML = `
     <button class="back-btn" onclick="location.href='projects.html'">
@@ -299,19 +319,43 @@ function renderToolbar(allProjects, dates) {
 // ── Filter Bar ───────────────────────────────────────────────────────
 function renderFilterBar(allProjects) {
   const overdueCount = PS.allGoals.filter(g => Arc.Goals.isOverdue(g)).length;
-  const projOpts = `<option value="">All Projects</option>` +
-    allProjects.map(p => `<option value="${p.id}" ${p.id===PS.filterPid?'selected':''}>${Arc.esc(p.name)}</option>`).join('');
-  const statusOpts = `<option value="">All Statuses</option>` +
-    Arc.STATUSES.map(s => `<option value="${s.val}" ${s.val===PS.filterStatus?'selected':''}>${s.label}</option>`).join('');
+
+  const projCount = PS.filterPids.size;
+  const projLabel = projCount === 0 ? 'All Projects' : projCount === 1
+    ? Arc.esc(allProjects.find(p => PS.filterPids.has(p.id))?.name || 'Project')
+    : `${projCount} Projects`;
+  const projOpts = allProjects.map(p => {
+    const chk = PS.filterPids.has(p.id);
+    return `<div class="ms-opt" onclick="toggleProjectFilter('${p.id}')">
+      <div class="ms-chk ${chk?'checked':''}"></div>${Arc.esc(p.name)}</div>`;
+  }).join('');
+
+  const stCount = PS.filterStatuses.size;
+  const stLabel = stCount === 0 ? 'All Statuses' : stCount === 1
+    ? Arc.esc(Arc.STATUSES.find(s => PS.filterStatuses.has(s.val))?.label || 'Status')
+    : `${stCount} Statuses`;
+  const stOpts = Arc.STATUSES.map(s => {
+    const chk = PS.filterStatuses.has(s.val);
+    return `<div class="ms-opt" onclick="toggleStatusFilter('${s.val}')">
+      <div class="ms-chk ${chk?'checked':''}"></div>${Arc.esc(s.label)}</div>`;
+  }).join('');
+
   const odBtn = overdueCount > 0
     ? `<div class="filter-sep"></div><button class="od-pill ${PS.showOverdueOnly?'active':''}" onclick="toggleOverdue()">⚠ Overdue (${overdueCount})</button>`
     : '';
+
   document.getElementById('filter-bar').innerHTML = `
     <span class="filter-lbl">Project:</span>
-    <select class="dd-filter" onchange="setProjectFilter(this.value)">${projOpts}</select>
+    <div class="ms-wrap">
+      <button class="ms-btn ${projCount?'has-filter':''}" onclick="toggleMsDropdown('ms-proj-dd')">${projLabel} <span class="ms-btn-arr">▾</span></button>
+      <div class="ms-dropdown" id="ms-proj-dd">${projOpts}</div>
+    </div>
     <div class="filter-sep"></div>
     <span class="filter-lbl">Status:</span>
-    <select class="dd-filter" onchange="setStatusFilter(this.value)">${statusOpts}</select>
+    <div class="ms-wrap">
+      <button class="ms-btn ${stCount?'has-filter':''}" onclick="toggleMsDropdown('ms-st-dd')">${stLabel} <span class="ms-btn-arr">▾</span></button>
+      <div class="ms-dropdown" id="ms-st-dd">${stOpts}</div>
+    </div>
     ${odBtn}`;
 }
 
@@ -322,7 +366,7 @@ function renderGantt(dates) {
   const headerHtml = renderGanttHeader(dates);
 
   if (goals.length === 0) {
-    const msg = (PS.filterStatus || PS.showOverdueOnly)
+    const msg = (PS.filterStatuses.size || PS.showOverdueOnly)
       ? 'No goals match this filter.'
       : 'No goals yet — click "+ Add Goal" to create your first goal.';
     gi.innerHTML = headerHtml + `<div class="gantt-empty">
@@ -333,7 +377,7 @@ function renderGantt(dates) {
   }
 
   let bodyHtml;
-  if (PS.filterPid) {
+  if (PS.pid) {
     // Single project: group by category only
     bodyHtml = renderGoalsByCategory(goals, dates);
   } else {
@@ -655,6 +699,12 @@ function init() {
   }
 
   render();
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.ms-wrap')) {
+      document.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
+    }
+  });
 }
 
 init();
