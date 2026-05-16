@@ -9,127 +9,126 @@
 <link rel="stylesheet" href="style.css">
 <style>
 body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-.page-body { flex: 1; overflow-y: auto; padding: 36px 44px 60px; }
-.greeting-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 32px; }
-.greeting-text h1 { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 600; letter-spacing: -.5px; margin-bottom: 4px; }
+.page-body { flex: 1; overflow-y: auto; padding: 32px 40px 60px; }
+
+/* Greeting */
+.greeting-row { margin-bottom: 28px; }
+.greeting-row h1 { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; letter-spacing: -.5px; margin-bottom: 3px; }
 .greeting-date { font-size: 13px; color: var(--muted); }
 .greeting-role { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 /* Stats */
-.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
-.stat-card { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
-.stat-card.accent-card { border-color: var(--accent); background: rgba(123,121,247,.08); }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+.stat-card { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; cursor: pointer; transition: border-color .15s; }
+.stat-card:hover { border-color: var(--border2); }
+.stat-card.accent-card { border-color: var(--accent); background: rgba(123,121,247,.07); }
 .stat-card.warn-card { border-color: var(--red); background: rgba(240,111,111,.07); }
 .stat-num { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
 .stat-lbl { font-size: 12px; color: var(--muted); font-weight: 500; }
 
-/* Nav cards */
-.nav-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
-.nav-card { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; cursor: pointer; transition: border-color .2s, transform .15s, box-shadow .2s; display: flex; align-items: center; gap: 16px; }
-.nav-card:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
-.nav-card-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
-.nav-card-title { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
-.nav-card-desc { font-size: 12px; color: var(--muted); }
-.nav-card-arrow { margin-left: auto; color: var(--muted); font-size: 18px; flex-shrink: 0; }
-
-/* Main layout */
-.main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
-.section-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+/* Section title */
+.section-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
 .section-title-action { margin-left: auto; font-size: 12px; color: var(--accent); cursor: pointer; letter-spacing: 0; text-transform: none; font-weight: 600; }
 
-/* Projects */
-.projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.project-card { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; cursor: pointer; position: relative; overflow: hidden; transition: border-color .2s, transform .15s; }
-.project-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background: var(--card-color,var(--accent)); }
-.project-card:hover { border-color: var(--border2); transform: translateY(-1px); }
-.card-emoji { font-size: 22px; margin-bottom: 8px; }
-.card-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card-desc { font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 34px; }
-.card-meta { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
-.cbadge { font-size: 10px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); background: var(--s3); }
-.cbadge.warn { border-color: var(--red); color: var(--red); }
-.cbadge.ok { border-color: var(--accent); color: var(--accent); background: rgba(123,121,247,.1); }
-/* Progress bar */
-.prog-bar { height: 3px; border-radius: 2px; background: var(--s3); margin-top: 10px; overflow: hidden; }
-.prog-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width .3s; }
-.add-project-card { background: transparent; border: 2px dashed var(--border2); border-radius: 10px; padding: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); min-height: 100px; font-size: 13px; font-weight: 500; transition: border-color .2s, color .2s; }
-.add-project-card:hover { border-color: var(--accent); color: var(--accent); }
+/* Main grid */
+.main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
 
-/* Today panel */
-.today-panel { display: flex; flex-direction: column; gap: 14px; }
-.today-card { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-.today-card-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
-.today-item { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
-.today-item:last-child { border-bottom: none; }
-.today-item-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
-.today-item-title { font-size: 12px; font-weight: 500; line-height: 1.4; }
-.today-item-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
-.empty-state { color: var(--muted); font-size: 12px; text-align: center; padding: 12px 0; }
+/* Focus panels */
+.focus-panel { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.focus-panel-hdr { padding: 14px 16px 0; }
+.focus-items { padding: 8px 16px 14px; display: flex; flex-direction: column; gap: 1px; }
+.focus-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.focus-item:last-child { border-bottom: none; }
+.focus-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.focus-title { font-size: 13px; font-weight: 500; line-height: 1.4; }
+.focus-meta { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; }
+.focus-badge { font-size: 10px; padding: 1px 7px; border-radius: 10px; font-weight: 600; }
+.focus-empty { padding: 20px 16px; text-align: center; color: var(--muted); font-size: 12px; }
+.focus-link { font-size: 11px; color: var(--accent); font-weight: 600; cursor: pointer; }
+.focus-link:hover { opacity: .8; }
 
-/* Responsive */
-@media(max-width: 900px) {
+/* Quick task add */
+.quick-add { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
+.quick-add input { flex: 1; background: var(--s3); border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; color: var(--text); font-size: 12px; }
+.quick-add input:focus { border-color: var(--accent); outline: none; }
+.quick-add input::placeholder { color: var(--dim); }
+
+/* Journal strip */
+.journal-strip { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: flex-start; }
+.journal-strip-icon { font-size: 22px; flex-shrink: 0; }
+.journal-strip-content { flex: 1; min-width: 0; }
+.journal-strip-date { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.journal-strip-text { font-size: 13px; color: var(--muted); line-height: 1.5; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.journal-strip-empty { font-size: 13px; color: var(--dim); font-style: italic; }
+
+@media(max-width:900px) {
   .main-grid { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: repeat(2,1fr); }
-  .page-body { padding: 24px 24px 40px; }
-  .today-panel { display: none; }
+  .page-body { padding: 20px 20px 40px; }
 }
-@media(max-width:600px) { .nav-cards { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
 <div id="nav-container"></div>
 <div class="page-body">
+
   <div class="greeting-row">
-    <div class="greeting-text">
-      <h1 id="greeting-h1">Welcome back!</h1>
-      <div class="greeting-date" id="greeting-date"></div>
-      <div class="greeting-role" id="greeting-role"></div>
-    </div>
-    <div id="greeting-avatar"></div>
+    <h1 id="greeting-h1">Welcome back!</h1>
+    <div class="greeting-date" id="greeting-date"></div>
+    <div class="greeting-role" id="greeting-role"></div>
   </div>
 
   <div class="stats-row" id="stats-row"></div>
 
-  <div class="nav-cards">
-    <div class="nav-card" onclick="window.location.href='planner.html'">
-      <div class="nav-card-icon" style="background:rgba(123,121,247,.15)">📅</div>
-      <div>
-        <div class="nav-card-title">Planner</div>
-        <div class="nav-card-desc">Gantt-style timeline for goals &amp; projects</div>
+  <div class="main-grid">
+    <!-- Active Goals Today -->
+    <div class="focus-panel">
+      <div class="focus-panel-hdr">
+        <div class="section-title">
+          Active Goals Today
+          <span class="section-title-action" onclick="location.href='projects.html'">View Projects →</span>
+        </div>
       </div>
-      <div class="nav-card-arrow">›</div>
+      <div class="focus-items" id="goals-today"></div>
     </div>
-    <div class="nav-card" onclick="window.location.href='tasks.html'">
-      <div class="nav-card-icon" style="background:rgba(62,201,122,.12)">📋</div>
-      <div>
-        <div class="nav-card-title">Task Board</div>
-        <div class="nav-card-desc">Kanban board for goals &amp; daily tasks</div>
+
+    <!-- Tasks & Due -->
+    <div class="focus-panel">
+      <div class="focus-panel-hdr">
+        <div class="section-title">
+          Tasks Due
+          <span class="section-title-action" onclick="location.href='tasks.html'">Open Board →</span>
+        </div>
       </div>
-      <div class="nav-card-arrow">›</div>
+      <div class="focus-items" id="tasks-today"></div>
+      <div class="quick-add">
+        <input id="quick-task-inp" placeholder="Quick add task… (press Enter)" maxlength="80"
+               onkeydown="if(event.key==='Enter')quickAddTask()">
+        <button class="btn btn-primary btn-sm" onclick="quickAddTask()">Add</button>
+      </div>
     </div>
   </div>
 
-  <div class="main-grid">
-    <div>
-      <div class="section-title">
-        Projects
-        <span class="section-title-action" onclick="newProjectModal()">+ New Project</span>
-      </div>
-      <div class="projects-grid" id="projects-grid"></div>
+  <!-- Today's Journal -->
+  <div class="section-title">Today's Journal</div>
+  <div class="journal-strip" id="journal-strip" onclick="location.href='journal.html'" style="cursor:pointer">
+    <div class="journal-strip-icon">📓</div>
+    <div class="journal-strip-content">
+      <div class="journal-strip-date" id="journal-strip-date"></div>
+      <div id="journal-strip-body"></div>
     </div>
-    <div class="today-panel" id="today-panel"></div>
+    <div style="color:var(--muted);font-size:18px;flex-shrink:0;align-self:center">›</div>
   </div>
+
 </div>
 
 <div id="modal-overlay" onclick="overlayClick(event)"></div>
 <div id="modal-wrap"></div>
 <script src="data.js"></script>
 <script>
-// ============================================================
-// PAGE INIT
-// ============================================================
 const DAYS_LONG   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function init() {
   Arc.Settings.load();
@@ -137,8 +136,9 @@ function init() {
   document.getElementById('nav-container').innerHTML = Arc.navHtml('home');
   renderGreeting();
   renderStats();
-  renderProjects();
-  renderToday();
+  renderGoalsToday();
+  renderTasksToday();
+  renderJournalStrip();
 }
 
 function renderGreeting() {
@@ -149,7 +149,6 @@ function renderGreeting() {
   document.getElementById('greeting-date').textContent =
     `${DAYS_LONG[now.getDay()]}, ${MONTHS_LONG[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
   document.getElementById('greeting-role').textContent = p.role || '';
-  document.getElementById('greeting-avatar').innerHTML = Arc.avatarHtml(54);
 }
 
 function renderStats() {
@@ -158,176 +157,122 @@ function renderStats() {
   const active = gs.filter(g => g.status === 'in_progress').length;
   const overdue = Arc.Goals.overdue().length;
   const tasks = Arc.Tasks.pending().length;
-
   document.getElementById('stats-row').innerHTML = `
-    <div class="stat-card">
+    <div class="stat-card" onclick="location.href='projects.html'">
       <div class="stat-num">${ps.length}</div>
       <div class="stat-lbl">Projects</div>
     </div>
-    <div class="stat-card ${active>0?'accent-card':''}">
+    <div class="stat-card ${active>0?'accent-card':''}" onclick="location.href='projects.html'">
       <div class="stat-num" style="color:var(--accent)">${active}</div>
       <div class="stat-lbl">Active Goals</div>
     </div>
-    <div class="stat-card ${overdue>0?'warn-card':''}">
+    <div class="stat-card ${overdue>0?'warn-card':''}" onclick="location.href='projects.html'">
       <div class="stat-num" style="color:${overdue>0?'var(--red)':'var(--text)'}">${overdue}</div>
       <div class="stat-lbl">Overdue Goals</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card" onclick="location.href='tasks.html'">
       <div class="stat-num">${tasks}</div>
       <div class="stat-lbl">Pending Tasks</div>
     </div>`;
 }
 
-function renderProjects() {
-  const ps = Arc.Projects.getAll();
-  const gs = Arc.Goals.getAll();
-  const grid = document.getElementById('projects-grid');
+function renderGoalsToday() {
+  const todayGoals = Arc.Goals.activeToday();
+  const overdueGoals = Arc.Goals.overdue().filter(g => !Arc.Goals.activeToday().find(x=>x.id===g.id));
+  const all = [...todayGoals, ...overdueGoals].slice(0, 8);
+  const el = document.getElementById('goals-today');
+  if (all.length === 0) {
+    el.innerHTML = `<div class="focus-empty">No goals active today — <span class="focus-link" onclick="location.href='projects.html'">view projects</span></div>`;
+    return;
+  }
+  el.innerHTML = all.map(g => {
+    const proj = Arc.Projects.getById(g.projectId);
+    const st   = Arc.Goals.statusInfo(g.status);
+    const od   = Arc.Goals.isOverdue(g);
+    const clr  = g.labelColor || st.color;
+    return `<div class="focus-item">
+      <div class="focus-dot" style="background:${clr}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="focus-title">${Arc.esc(g.title)}${od?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
+        <div class="focus-meta">
+          ${proj?`<span>${Arc.esc(proj.name)}</span>`:''}
+          <span class="focus-badge" style="background:${st.color}20;color:${st.color}">${st.label}</span>
+          <span class="focus-link" onclick="location.href='planner.html?pid=${g.projectId}'">Open →</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-  if (ps.length === 0) {
-    grid.innerHTML = `<div class="add-project-card" onclick="newProjectModal()">＋ Create your first project</div>`;
+function renderTasksToday() {
+  const overdue  = Arc.Tasks.overdue();
+  const dueToday = Arc.Tasks.dueToday();
+  const all = [...new Map([...overdue,...dueToday].map(t=>[t.id,t])).values()].slice(0, 8);
+  const pending  = Arc.Tasks.pending();
+  const el = document.getElementById('tasks-today');
+
+  if (all.length === 0 && pending.length === 0) {
+    el.innerHTML = `<div class="focus-empty">Nothing due today 🎉</div>`;
+    return;
+  }
+  if (all.length === 0) {
+    el.innerHTML = `<div class="focus-empty">No tasks due today — ${pending.length} task${pending.length!==1?'s':''} pending</div>`;
     return;
   }
 
-  const cards = ps.map(p => {
-    const pgs = gs.filter(g => g.projectId === p.id);
-    const done = pgs.filter(g => g.status === 'completed').length;
-    const od = pgs.filter(g => Arc.Goals.isOverdue(g)).length;
-    const pct = pgs.length ? Math.round(done/pgs.length*100) : 0;
-    return `<div class="project-card" style="--card-color:${p.color||'#7b79f7'}" onclick="openProject('${p.id}')">
-      <div class="card-emoji">${p.emoji||'📁'}</div>
-      <div class="card-name">${Arc.esc(p.name)}</div>
-      <div class="card-desc">${Arc.esc(p.description||'No description')}</div>
-      <div class="card-meta">
-        <span class="cbadge">${pgs.length} goal${pgs.length!==1?'s':''}</span>
-        ${pgs.length>0?`<span class="cbadge ${done===pgs.length&&pgs.length>0?'ok':''}">${pct}% done</span>`:''}
-        ${od>0?`<span class="cbadge warn">⚠ ${od}</span>`:''}
+  el.innerHTML = all.map(t => {
+    const pri  = Arc.PRIORITIES.find(p=>p.val===t.priority)||Arc.PRIORITIES[1];
+    const isOd = t.dueDate && t.dueDate < Arc.today();
+    const proj = t.projectId ? Arc.Projects.getById(t.projectId) : null;
+    return `<div class="focus-item">
+      <div class="focus-dot" style="background:${pri.color}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="focus-title">${Arc.esc(t.title)}${isOd?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
+        <div class="focus-meta">
+          ${proj?`<span>${Arc.esc(proj.name)}</span>`:''}
+          ${t.dueDate?`<span>${t.dueDate}</span>`:''}
+          <span class="focus-badge" style="background:${pri.color}20;color:${pri.color}">${pri.label}</span>
+        </div>
       </div>
-      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
     </div>`;
   }).join('');
-
-  grid.innerHTML = cards + `<div class="add-project-card" onclick="newProjectModal()">＋ New Project</div>`;
 }
 
-function renderToday() {
-  const todayGoals = Arc.Goals.activeToday().slice(0, 6);
-  const overdueTasks = Arc.Tasks.overdue().slice(0, 4);
-  const todayTasks = Arc.Tasks.dueToday().slice(0, 4);
-  const panel = document.getElementById('today-panel');
-  let html = '';
-
-  // Active goals today
-  html += `<div class="today-card">
-    <div class="today-card-title">Active Goals Today</div>
-    ${todayGoals.length === 0 ? '<div class="empty-state">No goals active today</div>' :
-      todayGoals.map(g => {
-        const proj = Arc.Projects.getById(g.projectId);
-        const st = Arc.Goals.statusInfo(g.status);
-        const od = Arc.Goals.isOverdue(g);
-        return `<div class="today-item">
-          <div class="today-item-dot" style="background:${g.labelColor||st.color}"></div>
-          <div>
-            <div class="today-item-title">${Arc.esc(g.title)}${od?' <span style="color:var(--red)">⚠</span>':''}</div>
-            <div class="today-item-meta">${Arc.esc(proj?.name||'')}</div>
-          </div>
-        </div>`;
-      }).join('')
-    }
-  </div>`;
-
-  // Tasks due today + overdue
-  const allDueTasks = [...new Map([...overdueTasks,...todayTasks].map(t=>[t.id,t])).values()];
-  if (allDueTasks.length > 0) {
-    html += `<div class="today-card">
-      <div class="today-card-title">Tasks Due Today</div>
-      ${allDueTasks.map(t => {
-        const pri = Arc.PRIORITIES.find(p=>p.val===t.priority)||Arc.PRIORITIES[1];
-        const isOd = t.dueDate && t.dueDate < Arc.today();
-        return `<div class="today-item">
-          <div class="today-item-dot" style="background:${pri.color}"></div>
-          <div>
-            <div class="today-item-title">${Arc.esc(t.title)}${isOd?' <span style="color:var(--red);font-size:10px">overdue</span>':''}</div>
-            <div class="today-item-meta">${t.dueDate||''}</div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
+function renderJournalStrip() {
+  const today = Arc.today();
+  const now   = new Date();
+  const journals = JSON.parse(localStorage.getItem('arc_j') || '{}');
+  const entry = journals[today] || '';
+  document.getElementById('journal-strip-date').textContent =
+    `${DAYS_LONG[now.getDay()]}, ${MONTHS_LONG[now.getMonth()]} ${now.getDate()}`;
+  const bodyEl = document.getElementById('journal-strip-body');
+  if (entry) {
+    bodyEl.className = 'journal-strip-text';
+    bodyEl.textContent = entry;
+  } else {
+    bodyEl.className = 'journal-strip-empty';
+    bodyEl.textContent = 'No entry yet — click to write today\'s journal…';
   }
-
-  panel.innerHTML = html || '<div class="empty-state" style="color:var(--muted);font-size:13px;padding:20px">Nothing due today 🎉</div>';
 }
 
-function openProject(id) {
-  window.location.href = `planner.html?pid=${id}`;
+function quickAddTask() {
+  const inp = document.getElementById('quick-task-inp');
+  const title = inp.value.trim();
+  if (!title) return;
+  Arc.Tasks.add({
+    id: Arc.uid(), title,
+    priority: 'medium', dueDate: Arc.today(),
+    bucketId: 'b_todo', projectId: '',
+    createdAt: new Date().toISOString(),
+  });
+  inp.value = '';
+  renderStats();
+  renderTasksToday();
 }
 
 function onProfileSaved() { renderGreeting(); }
 function onDataImported() { window.location.reload(); }
 
-// ============================================================
-// PROJECT MODAL (inline on landing page)
-// ============================================================
-function newProjectModal() { projectModal(null); }
-
-function projectModal(project) {
-  const ie = !!project;
-  const p = project || { name:'', description:'', color: Arc.PROJ_COLORS[0], emoji:'📁' };
-  const cSw = Arc.PROJ_COLORS.map(c =>
-    `<div class="cswatch ${c===p.color?'sel':''}" style="background:${c}" onclick="pickPC(this,'${c}')"></div>`
-  ).join('');
-  const eOpts = Arc.EMOJIS.map(e =>
-    `<div class="emoji-opt ${e===p.emoji?'sel':''}" onclick="pickE(this,'${Arc.esc(e)}')">${e}</div>`
-  ).join('');
-
-  showModal(`<div class="modal">
-    <div class="modal-hdr">
-      <div><div class="modal-title">${ie?'Edit':'New'} Project</div><div class="modal-sub">${ie?'Update details':'Create a new project to organise your goals'}</div></div>
-      <button class="close-btn" onclick="closeModal()">✕</button>
-    </div>
-    <div class="form-group"><label class="form-lbl">Project Name</label><input class="form-inp" id="pm-n" placeholder="e.g. Product Launch" value="${Arc.esc(p.name)}" maxlength="60"></div>
-    <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="pm-d" rows="2" placeholder="What is this project about?">${Arc.esc(p.description||'')}</textarea></div>
-    <div class="form-group"><label class="form-lbl">Icon</label><div class="emoji-grid" id="pm-eg">${eOpts}</div><input type="hidden" id="pm-e" value="${Arc.esc(p.emoji||'📁')}"></div>
-    <div class="form-group"><label class="form-lbl">Color</label><div class="color-picker" id="pm-cp">${cSw}</div><input type="hidden" id="pm-c" value="${p.color}"></div>
-    <div class="modal-foot">
-      ${ie?`<button class="btn btn-danger" style="margin-right:auto" onclick="confirmDelProject('${p.id}')">Delete</button>`:''}
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveProject(${ie?`'${p.id}'`:'null'})">${ie?'Save':'Create Project'}</button>
-    </div>
-  </div>`);
-}
-
-function pickPC(el, c) { el.closest('#pm-cp').querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel')); el.classList.add('sel'); document.getElementById('pm-c').value=c; }
-function pickE(el, e) { el.closest('#pm-eg').querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); document.getElementById('pm-e').value=e; }
-
-function saveProject(id) {
-  const name = document.getElementById('pm-n').value.trim();
-  if (!name) { document.getElementById('pm-n').style.borderColor='var(--red)'; document.getElementById('pm-n').focus(); return; }
-  const ps = Arc.Projects.getAll();
-  const existing = id ? ps.find(x=>x.id===id) : null;
-  const p = { id:id||Arc.uid(), name, description:document.getElementById('pm-d').value.trim(), emoji:document.getElementById('pm-e').value||'📁', color:document.getElementById('pm-c').value||Arc.PROJ_COLORS[0], createdAt:existing?.createdAt||new Date().toISOString() };
-  if (id) { const updated = ps.map(x=>x.id===id?p:x); localStorage.setItem('arc_p',JSON.stringify(updated)); }
-  else { ps.push(p); localStorage.setItem('arc_p',JSON.stringify(ps)); }
-  closeModal(); renderProjects(); renderStats();
-}
-
-function confirmDelProject(id) {
-  const p = Arc.Projects.getById(id);
-  showModal(`<div class="modal narrow">
-    <div class="modal-hdr"><div class="modal-title">Delete Project?</div><button class="close-btn" onclick="closeModal()">✕</button></div>
-    <p style="color:var(--muted);font-size:13px">Delete <strong style="color:var(--text)">${Arc.esc(p?.name)}</strong> and all its goals? This cannot be undone.</p>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="doDelProject('${id}')">Delete</button></div>
-  </div>`);
-}
-
-function doDelProject(id) {
-  const ps = JSON.parse(localStorage.getItem('arc_p')||'[]').filter(p=>p.id!==id);
-  const gs = JSON.parse(localStorage.getItem('arc_g')||'[]').filter(g=>g.projectId!==id);
-  localStorage.setItem('arc_p',JSON.stringify(ps));
-  localStorage.setItem('arc_g',JSON.stringify(gs));
-  closeModal(); renderProjects(); renderStats();
-}
-
-// Start
 init();
 </script>
 </body>
