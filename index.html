@@ -68,6 +68,16 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   .stats-row { grid-template-columns: repeat(2,1fr); }
   .page-body { padding: 20px 20px 40px; }
 }
+/* Recent Activity */
+.activity-list { display:flex; flex-direction:column; gap:1px; }
+.act-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+.act-item:last-child { border-bottom:none; }
+.act-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+.act-body { flex:1; min-width:0; }
+.act-title { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.act-meta { font-size:11px; color:var(--muted); margin-top:1px; }
+.act-time { font-size:11px; color:var(--dim); white-space:nowrap; flex-shrink:0; }
+.act-empty { font-size:13px; color:var(--dim); padding:16px 0; text-align:center; }
 /* Status grid (goal modal from home) */
 .status-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
 .status-opt { padding:7px 8px; border-radius:7px; border:1px solid var(--border); background:var(--s3); cursor:pointer; text-align:center; font-size:12px; font-weight:500; color:var(--muted); transition:all .15s; }
@@ -147,6 +157,14 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     <div class="focus-items" id="journal-items-today"></div>
   </div>
 
+  <!-- Recent Activity -->
+  <div class="focus-panel" style="min-height:200px;margin-top:20px">
+    <div class="focus-panel-hdr">
+      <div class="focus-panel-title">Recent Activity</div>
+    </div>
+    <div class="focus-items" id="activity-list"></div>
+  </div>
+
 </div>
 
 <div id="modal-overlay" onclick="overlayClick(event)"></div>
@@ -167,6 +185,7 @@ function init() {
   renderTasksToday();
   renderEventsUpcoming();
   renderJournalToday();
+  renderActivity();
 }
 
 function renderGreeting() {
@@ -340,6 +359,48 @@ function renderJournalToday() {
 }
 
 function newJournalEntry() { location.href = 'journal.html?new=1'; }
+
+function renderActivity() {
+  const el = document.getElementById('activity-list');
+  if (!el) return;
+  const items = Arc.Activity.getAll().slice(0, 20);
+  if (!items.length) { el.innerHTML = '<div class="act-empty">No activity yet — start by creating a goal or task.</div>'; return; }
+
+  const TYPE_META = {
+    project: { icon: '📁', color: '#7b79f7', label: 'Project' },
+    goal:    { icon: '🎯', color: '#3ec97a', label: 'Goal'    },
+    task:    { icon: '✓',  color: '#f5c542', label: 'Task'    },
+    event:   { icon: '📅', color: '#60a5fa', label: 'Event'   },
+    journal: { icon: '📝', color: '#a78bfa', label: 'Journal' },
+  };
+  const ACTION_LABEL = { created: 'Created', updated: 'Updated', deleted: 'Deleted' };
+
+  function timeAgo(ts) {
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins  = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days  = Math.floor(diff / 86400000);
+    if (mins < 1)   return 'Just now';
+    if (mins < 60)  return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return 'Yesterday';
+    if (days < 7)   return `${days}d ago`;
+    const d = new Date(ts);
+    return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getDate()}`;
+  }
+
+  el.innerHTML = items.map(item => {
+    const m = TYPE_META[item.type] || { icon: '•', color: 'var(--muted)', label: item.type };
+    return `<div class="act-item">
+      <div class="act-icon" style="background:${m.color}18;color:${m.color}">${m.icon}</div>
+      <div class="act-body">
+        <div class="act-title">${Arc.esc(item.title)}</div>
+        <div class="act-meta">${ACTION_LABEL[item.action] || item.action} · ${m.label}</div>
+      </div>
+      <div class="act-time">${timeAgo(item.timestamp)}</div>
+    </div>`;
+  }).join('');
+}
 
 function newGoalModal() {
   const ps = Arc.Projects.getAll();

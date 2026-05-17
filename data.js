@@ -143,9 +143,9 @@ const Arc = (() => {
   const Events = {
     getAll()   { return DB.get('arc_ev') || []; },
     save(evs)  { DB.set('arc_ev', evs); },
-    add(ev)    { const evs = this.getAll(); evs.push(ev); this.save(evs); },
-    update(ev) { this.save(this.getAll().map(x => x.id === ev.id ? ev : x)); },
-    delete(id) { this.save(this.getAll().filter(x => x.id !== id)); },
+    add(ev)    { const evs = this.getAll(); evs.push(ev); this.save(evs); Activity.log('created', 'event', ev.title, ev.id); },
+    update(ev) { this.save(this.getAll().map(x => x.id === ev.id ? ev : x)); Activity.log('updated', 'event', ev.title, ev.id); },
+    delete(id) { const ev = this.getAll().find(x => x.id === id); this.save(this.getAll().filter(x => x.id !== id)); if (ev) Activity.log('deleted', 'event', ev.title, id); },
     upcoming(days = 14) {
       const t = today();
       const lim = dateStr(new Date(Date.now() + days * 86400000));
@@ -156,13 +156,26 @@ const Arc = (() => {
     onDate(ds) { return this.getAll().filter(ev => ev.startDate === ds || (ev.endDate && ev.startDate <= ds && ev.endDate >= ds)); },
   };
 
+  // ── Activity Log ─────────────────────────────────────────────────────
+  const Activity = {
+    MAX: 100,
+    getAll()  { return DB.get('arc_activity') || []; },
+    log(action, type, title, entityId) {
+      const entries = this.getAll();
+      entries.unshift({ id: uid(), action, type, title: title || 'Untitled', entityId: entityId || '', timestamp: new Date().toISOString() });
+      if (entries.length > this.MAX) entries.length = this.MAX;
+      DB.set('arc_activity', entries);
+    },
+    clear()   { DB.set('arc_activity', []); },
+  };
+
   // ── Tasks (standalone, non-goal tasks) ──────────────────────────────
   const Tasks = {
     getAll()     { return DB.get('arc_tasks') || []; },
     save(ts)     { DB.set('arc_tasks', ts); },
-    add(t)       { const ts = this.getAll(); ts.push(t); this.save(ts); },
-    update(t)    { this.save(this.getAll().map(x => x.id === t.id ? t : x)); },
-    delete(id)   { this.save(this.getAll().filter(t => t.id !== id)); },
+    add(t)       { const ts = this.getAll(); ts.push(t); this.save(ts); Activity.log('created', 'task', t.title, t.id); },
+    update(t)    { this.save(this.getAll().map(x => x.id === t.id ? t : x)); Activity.log('updated', 'task', t.title, t.id); },
+    delete(id)   { const t = this.getAll().find(x => x.id === id); this.save(this.getAll().filter(x => x.id !== id)); if (t) Activity.log('deleted', 'task', t.title, id); },
     pending()    { return this.getAll().filter(t => t.bucketId !== 'b_done'); },
     dueToday()   { const t = today(); return this.getAll().filter(x => x.dueDate === t && x.bucketId !== 'b_done'); },
     overdue()    { const t = today(); return this.getAll().filter(x => x.dueDate && x.dueDate < t && x.bucketId !== 'b_done'); },
@@ -466,7 +479,7 @@ const Arc = (() => {
   }
 
   return { uid, esc, dateStr, today, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
-           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, FolderSave,
+           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, FolderSave,
            avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal };
 })();
 

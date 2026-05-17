@@ -201,6 +201,7 @@ function saveProject(id) {
   const p = { id:id||Arc.uid(), name, description:document.getElementById('pm-d').value.trim(), emoji:document.getElementById('pm-e').value||'📁', color:document.getElementById('pm-c').value||Arc.PROJ_COLORS[0], createdAt:existing?.createdAt||new Date().toISOString() };
   if (id) localStorage.setItem('arc_p', JSON.stringify(ps.map(x=>x.id===id?p:x)));
   else { ps.push(p); localStorage.setItem('arc_p', JSON.stringify(ps)); }
+  Arc.Activity.log(id ? 'updated' : 'created', 'project', name, p.id);
   closeModal(); render();
 }
 
@@ -214,6 +215,8 @@ function confirmDelProject(id) {
 }
 
 function doDelProject(id) {
+  const _delP = Arc.Projects.getAll().find(p => p.id === id);
+  if (_delP) Arc.Activity.log('deleted', 'project', _delP.name, id);
   localStorage.setItem('arc_p', JSON.stringify(JSON.parse(localStorage.getItem('arc_p')||'[]').filter(p=>p.id!==id)));
   localStorage.setItem('arc_g', JSON.stringify(JSON.parse(localStorage.getItem('arc_g')||'[]').filter(g=>g.projectId!==id)));
   closeModal(); render();
