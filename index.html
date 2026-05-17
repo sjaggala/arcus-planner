@@ -20,20 +20,22 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .greeting-role { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 /* Stats */
-.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
-.stat-card { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; cursor: pointer; transition: border-color .15s; }
-.stat-card:hover { border-color: var(--border2); }
+.stats-row { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }
+.stat-card { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; padding: 13px 18px; cursor: pointer; transition: border-color .15s, background .15s; display: flex; align-items: center; gap: 13px; }
+.stat-card:hover { border-color: var(--border2); background: var(--s2); }
 .stat-card.accent-card { border-color: var(--accent); background: rgba(123,121,247,.07); }
 .stat-card.warn-card { border-color: var(--red); background: rgba(240,111,111,.07); }
-.stat-num { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
-.stat-lbl { font-size: 12px; color: var(--muted); font-weight: 500; }
+.stat-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.stat-num { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; line-height: 1; }
+.stat-lbl { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 3px; }
 
 /* Section title */
 .section-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
 .section-title-action { margin-left: auto; font-size: 12px; color: var(--accent); cursor: pointer; letter-spacing: 0; text-transform: none; font-weight: 600; }
 
 /* Main grid */
-.main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+.main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
 
 /* Focus panels */
 .focus-panel { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display:flex; flex-direction:column; }
@@ -65,7 +67,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 @media(max-width:900px) {
   .main-grid { grid-template-columns: 1fr; }
-  .stats-row { grid-template-columns: repeat(2,1fr); }
+  .bottom-grid { grid-template-columns: 1fr; }
   .page-body { padding: 20px 20px 40px; }
 }
 /* Recent Activity */
@@ -143,26 +145,31 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     <div class="focus-items" id="events-upcoming"></div>
   </div>
 
-  <!-- Today's Journal -->
-  <div class="focus-panel">
-    <div class="focus-panel-hdr">
-      <div class="section-title">
-        Today's Journal
-        <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
-          <button class="btn btn-primary btn-sm" onclick="newJournalEntry()">＋ New Entry</button>
-          <span class="section-title-action" style="margin-left:0" onclick="location.href='journal.html'">Open Journal</span>
-        </span>
-      </div>
-    </div>
-    <div class="focus-items" id="journal-items-today"></div>
-  </div>
+  <!-- Journal + Activity side by side -->
+  <div class="bottom-grid">
 
-  <!-- Recent Activity -->
-  <div class="focus-panel" style="min-height:200px;margin-top:20px">
-    <div class="focus-panel-hdr">
-      <div class="focus-panel-title">Recent Activity</div>
+    <!-- Today's Journal -->
+    <div class="focus-panel">
+      <div class="focus-panel-hdr">
+        <div class="section-title">
+          Today's Journal
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="newJournalEntry()">＋ New Entry</button>
+            <span class="section-title-action" style="margin-left:0" onclick="location.href='journal.html'">Open Journal</span>
+          </span>
+        </div>
+      </div>
+      <div class="focus-items" id="journal-items-today"></div>
     </div>
-    <div class="focus-items" id="activity-list"></div>
+
+    <!-- Recent Activity -->
+    <div class="focus-panel">
+      <div class="focus-panel-hdr">
+        <div class="section-title">Recent Activity</div>
+      </div>
+      <div class="focus-items" id="activity-list"></div>
+    </div>
+
   </div>
 
 </div>
@@ -206,20 +213,20 @@ function renderStats() {
   const tasks = Arc.Tasks.pending().length;
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card" onclick="location.href='projects.html'">
-      <div class="stat-num">${ps.length}</div>
-      <div class="stat-lbl">Projects</div>
+      <div class="stat-icon" style="background:rgba(123,121,247,.15);color:#7b79f7">📁</div>
+      <div><div class="stat-num">${ps.length}</div><div class="stat-lbl">Projects</div></div>
     </div>
     <div class="stat-card ${active>0?'accent-card':''}" onclick="location.href='projects.html'">
-      <div class="stat-num" style="color:var(--accent)">${active}</div>
-      <div class="stat-lbl">Active Goals</div>
+      <div class="stat-icon" style="background:rgba(62,201,122,.15);color:#3ec97a">🎯</div>
+      <div><div class="stat-num" style="color:var(--accent)">${active}</div><div class="stat-lbl">Active Goals</div></div>
     </div>
     <div class="stat-card ${overdue>0?'warn-card':''}" onclick="location.href='projects.html'">
-      <div class="stat-num" style="color:${overdue>0?'var(--red)':'var(--text)'}">${overdue}</div>
-      <div class="stat-lbl">Overdue Goals</div>
+      <div class="stat-icon" style="background:rgba(240,111,111,.15);color:#f06f6f">⚠</div>
+      <div><div class="stat-num" style="color:${overdue>0?'var(--red)':'var(--text)'}">${overdue}</div><div class="stat-lbl">Overdue Goals</div></div>
     </div>
     <div class="stat-card" onclick="location.href='tasks.html'">
-      <div class="stat-num">${tasks}</div>
-      <div class="stat-lbl">Pending Tasks</div>
+      <div class="stat-icon" style="background:rgba(245,197,66,.15);color:#f5c542">✓</div>
+      <div><div class="stat-num">${tasks}</div><div class="stat-lbl">Pending Tasks</div></div>
     </div>`;
 }
 
