@@ -238,8 +238,7 @@ function init() {
   if (tid) setTimeout(() => editTaskModal(tid), 200);
 }
 
-const _tasksCloseModal = closeModal;
-function closeModal() { _tasksCloseModal(); setUrlParam('tid', null); }
+window.closeModal = (orig => () => { orig(); setUrlParam('tid', null); })(window.closeModal);
 
 // ======================================================
 // FILTER

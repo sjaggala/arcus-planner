@@ -146,11 +146,12 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .ms-btn { background:var(--s3);border:1px solid var(--border);border-radius:7px;padding:4px 9px;color:var(--text);font-size:12px;font-weight:500;cursor:pointer;transition:border-color .15s;display:flex;align-items:center;gap:6px;white-space:nowrap; }
 .ms-btn:hover { border-color:var(--accent); }
 .ms-btn.has-filter { border-color:var(--accent);color:var(--accent); }
-.ms-btn-arr { font-size:9px; color:var(--muted); }
+.ms-btn-arr { font-size:13px; color:var(--muted); line-height:1; }
 .ms-dropdown { position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:var(--s2);border:1px solid var(--border);border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.22);min-width:160px;padding:5px 0;display:none; }
 .ms-dropdown.open { display:block; }
 .ms-opt { display:flex;align-items:center;gap:9px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--text);transition:background .1s; }
 .ms-opt:hover { background:var(--s3); }
+.ms-opt-all { border-bottom:1px solid var(--border);margin-bottom:3px;padding-bottom:9px; }
 .ms-chk { width:13px;height:13px;border-radius:3px;border:1.5px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center; }
 .ms-chk.checked { background:var(--accent);border-color:var(--accent); }
 .ms-chk.checked::after { content:'✓';font-size:9px;color:#fff;line-height:1; }
@@ -260,8 +261,18 @@ function toggleProjectFilter(pid) {
   if (PS.filterPids.has(pid)) PS.filterPids.delete(pid); else PS.filterPids.add(pid);
   PS.showOverdueOnly = false; render();
 }
+function toggleAllProjects() {
+  if (PS.filterPids.size === 0) Arc.Projects.getAll().forEach(p => PS.filterPids.add(p.id));
+  else PS.filterPids.clear();
+  PS.showOverdueOnly = false; render();
+}
 function toggleStatusFilter(st) {
   if (PS.filterStatuses.has(st)) PS.filterStatuses.delete(st); else PS.filterStatuses.add(st);
+  PS.showOverdueOnly = false; render();
+}
+function toggleAllStatuses() {
+  if (PS.filterStatuses.size === 0) Arc.STATUSES.forEach(s => PS.filterStatuses.add(s.val));
+  else PS.filterStatuses.clear();
   PS.showOverdueOnly = false; render();
 }
 function toggleOverdue() { PS.showOverdueOnly = !PS.showOverdueOnly; if (PS.showOverdueOnly) PS.filterStatuses.clear(); render(); }
@@ -324,7 +335,10 @@ function renderFilterBar(allProjects) {
   const projLabel = projCount === 0 ? 'All Projects' : projCount === 1
     ? Arc.esc(allProjects.find(p => PS.filterPids.has(p.id))?.name || 'Project')
     : `${projCount} Projects`;
-  const projOpts = allProjects.map(p => {
+  const allProjChk = projCount === 0;
+  const projAllOpt = `<div class="ms-opt ms-opt-all" onclick="toggleAllProjects()">
+    <div class="ms-chk ${allProjChk?'checked':''}"></div><strong>All Projects</strong></div>`;
+  const projOpts = projAllOpt + allProjects.map(p => {
     const chk = PS.filterPids.has(p.id);
     return `<div class="ms-opt" onclick="toggleProjectFilter('${p.id}')">
       <div class="ms-chk ${chk?'checked':''}"></div>${Arc.esc(p.name)}</div>`;
@@ -334,7 +348,10 @@ function renderFilterBar(allProjects) {
   const stLabel = stCount === 0 ? 'All Statuses' : stCount === 1
     ? Arc.esc(Arc.STATUSES.find(s => PS.filterStatuses.has(s.val))?.label || 'Status')
     : `${stCount} Statuses`;
-  const stOpts = Arc.STATUSES.map(s => {
+  const allStChk = stCount === 0;
+  const stAllOpt = `<div class="ms-opt ms-opt-all" onclick="toggleAllStatuses()">
+    <div class="ms-chk ${allStChk?'checked':''}"></div><strong>All Statuses</strong></div>`;
+  const stOpts = stAllOpt + Arc.STATUSES.map(s => {
     const chk = PS.filterStatuses.has(s.val);
     return `<div class="ms-opt" onclick="toggleStatusFilter('${s.val}')">
       <div class="ms-chk ${chk?'checked':''}"></div>${Arc.esc(s.label)}</div>`;
@@ -710,8 +727,7 @@ function init() {
   if (gid) setTimeout(() => editGoalModal(gid), 200);
 }
 
-const _plannerCloseModal = closeModal;
-function closeModal() { _plannerCloseModal(); setUrlParam('gid', null); }
+window.closeModal = (orig => () => { orig(); setUrlParam('gid', null); })(window.closeModal);
 
 init();
 </script>
