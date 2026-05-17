@@ -270,8 +270,7 @@ function init() {
   if (eid) setTimeout(() => editEvent(eid), 200);
 }
 
-const _eventsCloseModal = closeModal;
-function closeModal() { _eventsCloseModal(); setUrlParam('eid', null); }
+window.closeModal = (orig => () => { orig(); setUrlParam('eid', null); })(window.closeModal);
 
 function render() {
   updateTitle();
@@ -511,11 +510,9 @@ function renderAgenda() {
       if (!a.allDay && b.allDay) return 1;
       return (a.startTime||'').localeCompare(b.startTime||'');
     }).map(ev => {
-      const clr     = ev.color || '#7b79f7';
       const timeStr = ev.allDay ? 'All day' : fmt12(ev.startTime) + (ev.endTime ? ' – '+fmt12(ev.endTime) : '');
       const typeSuffix = ev.type && ev.type !== 'Event' ? ` · ${Arc.esc(ev.type)}` : '';
       return `<div class="agr-ev" onclick="editEvent('${ev.id}')">
-        <div class="agr-stripe" style="background:${clr}"></div>
         <div class="agr-ev-body">
           <div class="agr-ev-title">${Arc.esc(ev.title)}</div>
           <div class="agr-ev-meta">${timeStr}${typeSuffix}</div>
@@ -528,9 +525,8 @@ function renderAgenda() {
       const icon = item.kind === 'goal' ? '🎯' : '✓';
       const nav = item.kind === 'goal' ? `location.href='planner.html?pid=${item.projectId}'` : `location.href='tasks.html'`;
       return `<div class="agr-ev" onclick="${nav}" style="cursor:pointer">
-        <div class="agr-stripe" style="background:${item.color}"></div>
         <div class="agr-ev-body">
-          <div class="agr-ev-title" style="color:${item.color}">${icon} ${Arc.esc(item.title)}</div>
+          <div class="agr-ev-title">${icon} ${Arc.esc(item.title)}</div>
           <div class="agr-ev-meta">Due · ${item.kind === 'goal' ? 'Goal' : 'Task'}</div>
         </div>
       </div>`;
