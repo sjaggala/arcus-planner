@@ -627,6 +627,7 @@ function newEntry() {
   };
   const all = getEntries(); all.push(entry); saveEntries(all);
   currentEntryId = entry.id;
+  Arc.Activity.log('created', 'journal', entry.title, entry.id);
   renderEntrySidebar(); renderEditor();
   setTimeout(() => { const ti = document.getElementById('entry-title-inp'); if (ti) { ti.focus(); ti.select(); } }, 50);
 }
@@ -640,6 +641,8 @@ function confirmDelEntry(id) {
   </div>`);
 }
 function doDelEntry(id) {
+  const _delE = getEntries().find(e => e.id === id);
+  if (_delE) Arc.Activity.log('deleted', 'journal', _delE.title, id);
   const remaining = getEntries().filter(e=>e.id!==id); saveEntries(remaining);
   if (currentEntryId === id) {
     const sib = entriesForDate(currentDate).find(e=>e.id!==id);

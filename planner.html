@@ -607,6 +607,7 @@ function saveGoal(id) {
   const gs = Arc.Goals.getAll();
   if (id) { Arc.Goals.save(gs.map(x => x.id === id ? g : x)); }
   else    { gs.push(g); Arc.Goals.save(gs); }
+  Arc.Activity.log(id ? 'updated' : 'created', 'goal', title, g.id);
   closeModal(); render();
 }
 
@@ -619,6 +620,8 @@ function confirmDelGoal(id) {
   </div>`);
 }
 function doDelGoal(id) {
+  const _delG = Arc.Goals.getAll().find(g => g.id === id);
+  if (_delG) Arc.Activity.log('deleted', 'goal', _delG.title, id);
   Arc.Goals.save(Arc.Goals.getAll().filter(g => g.id !== id));
   closeModal(); render();
 }
