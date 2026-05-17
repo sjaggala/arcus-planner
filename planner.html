@@ -41,10 +41,10 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 /* ── Filter Bar ────────────────────────────────────────── */
 .filter-bar {
   display:flex; align-items:center; gap:7px; padding:0 18px;
-  height:44px; flex-shrink:0; border-bottom:1px solid var(--border);
-  background:var(--s2); overflow-x:auto; transition:background .2s;
+  min-height:44px; flex-shrink:0; border-bottom:1px solid var(--border);
+  background:var(--s2); overflow:visible; transition:background .2s;
+  position:relative; z-index:50;
 }
-.filter-bar::-webkit-scrollbar { height:0; }
 .filter-lbl { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
 .fpill {
   padding:3px 11px; border-radius:20px; font-size:12px; font-weight:500;
@@ -158,7 +158,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .od-pill:hover,.od-pill.active { background:rgba(240,111,111,.18); }
 
 /* ── Project group header (all-projects view) ───────────── */
-.proj-grp-hdr { display:flex; border-top:2px solid var(--border2); }
+.proj-grp-hdr { display:flex; border-top:1px solid var(--border); }
 .proj-grp-left { width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0; padding:9px 14px; display:flex; align-items:center; gap:8px; border-right:1px solid var(--border); background:var(--s2); }
 .proj-grp-fill { flex:1; background:var(--s2); border-bottom:1px solid var(--border); }
 
@@ -519,7 +519,7 @@ function saveJournal(ds, txt) {
 function newGoalModal(dc) { goalModal(null, dc); }
 function editGoalModal(id) {
   const g = Arc.Goals.getAll().find(x => x.id === id);
-  if (g) goalModal(g);
+  if (g) { setUrlParam('gid', id); goalModal(g); }
 }
 
 function goalModal(goal, dc) {
@@ -705,7 +705,13 @@ function init() {
       document.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
     }
   });
+
+  const gid = new URLSearchParams(location.search).get('gid');
+  if (gid) setTimeout(() => editGoalModal(gid), 200);
 }
+
+const _plannerCloseModal = closeModal;
+function closeModal() { _plannerCloseModal(); setUrlParam('gid', null); }
 
 init();
 </script>

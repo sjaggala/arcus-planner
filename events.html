@@ -185,7 +185,7 @@ function getGoalTaskItems(dStr) {
 function gtPillHtml(item) {
   const icon = item.kind === 'goal' ? '🎯' : '✓';
   const nav = item.kind === 'goal' ? `location.href='planner.html?pid=${item.projectId}'` : `location.href='tasks.html'`;
-  return `<div class="ev-pill" style="background:${item.color}20;color:${item.color};border:1px solid ${item.color}44;cursor:pointer"
+  return `<div class="ev-pill" style="background:var(--s3);color:var(--muted);border:1px solid var(--border);cursor:pointer"
     onclick="event.stopPropagation();${nav}"
     title="${item.kind==='goal'?'Goal due':'Task due'}: ${Arc.esc(item.title)}">${icon} ${Arc.esc(item.title)}</div>`;
 }
@@ -266,7 +266,12 @@ function init() {
     history.replaceState({}, '', 'events.html');
     setTimeout(() => newEventModal(null), 150);
   }
+  const eid = p.get('eid');
+  if (eid) setTimeout(() => editEvent(eid), 200);
 }
+
+const _eventsCloseModal = closeModal;
+function closeModal() { _eventsCloseModal(); setUrlParam('eid', null); }
 
 function render() {
   updateTitle();
@@ -559,7 +564,7 @@ function newEventModal(dateStr, timeStr) {
 
 function editEvent(id) {
   const ev = Arc.Events.getAll().find(x => x.id === id);
-  if (ev) eventModal(ev, ev.startDate, ev.startTime || '');
+  if (ev) { setUrlParam('eid', id); eventModal(ev, ev.startDate, ev.startTime || ''); }
 }
 
 function eventModal(ev, prefillDate, prefillTime) {

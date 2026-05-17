@@ -364,11 +364,18 @@ function init() {
   document.getElementById('nav-container').innerHTML = Arc.navHtml('journal');
   currentDate = Arc.today();
   renderAll();
-  const todayEntries = entriesForDate(currentDate);
-  if (todayEntries.length > 0) { currentEntryId = todayEntries[0].id; renderEntrySidebar(); renderEditor(); }
 
-  // Auto-create new entry when navigated from home page via "＋ New Entry"
-  if (new URLSearchParams(location.search).get('new') === '1') {
+  const p = new URLSearchParams(location.search);
+  const jid = p.get('jid');
+  if (jid) {
+    const entry = getEntries().find(e => e.id === jid);
+    if (entry) { currentDate = entry.date; currentEntryId = jid; renderAll(); renderEditor(); }
+  } else {
+    const todayEntries = entriesForDate(currentDate);
+    if (todayEntries.length > 0) { currentEntryId = todayEntries[0].id; renderEntrySidebar(); renderEditor(); }
+  }
+
+  if (p.get('new') === '1') {
     history.replaceState({}, '', 'journal.html');
     newEntry();
   }
@@ -393,7 +400,7 @@ function selectDate(ds) {
 }
 
 function selectEntry(id) {
-  currentEntryId = id; renderEntrySidebar(); renderEditor();
+  currentEntryId = id; setUrlParam('jid', id); renderEntrySidebar(); renderEditor();
 }
 
 function setRange(r) {

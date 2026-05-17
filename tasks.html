@@ -233,7 +233,13 @@ function init() {
       openDropdown = null;
     }
   });
+
+  const tid = new URLSearchParams(location.search).get('tid');
+  if (tid) setTimeout(() => editTaskModal(tid), 200);
 }
+
+const _tasksCloseModal = closeModal;
+function closeModal() { _tasksCloseModal(); setUrlParam('tid', null); }
 
 // ======================================================
 // FILTER
@@ -501,7 +507,7 @@ function newTaskModal(bucketId) {
 
 function editTaskModal(id) {
   const task = Arc.Tasks.getAll().find(t => t.id === id);
-  if (task) taskModal(task, task.bucketId);
+  if (task) { setUrlParam('tid', id); taskModal(task, task.bucketId); }
 }
 
 function taskModal(task, defaultBucketId) {
