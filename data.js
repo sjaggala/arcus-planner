@@ -32,6 +32,13 @@ function closeModal() {
 function _arcEsc(e) { if (e.key === 'Escape') closeModal(); }
 function overlayClick(e) { if (e.target.id === 'modal-overlay') closeModal(); }
 
+function setUrlParam(key, val) {
+  const p = new URLSearchParams(location.search);
+  if (val) p.set(key, val); else p.delete(key);
+  const qs = p.toString();
+  history.replaceState({}, '', location.pathname + (qs ? '?' + qs : ''));
+}
+
 // =====================================================================
 // ARC NAMESPACE
 // =====================================================================
