@@ -576,18 +576,26 @@ function renderDependencyLines(goals, dates) {
     const x2 = gLeft + goalStartIdx * cellW;
     const y2 = goalRect.top - giRect.top + goalRect.height / 2;
 
-    // L-shaped smooth curve: goes down from A, turns and arrives horizontally at B
-    // C x1 y2  — pull straight down to B's y level
-    // x2 y2    — then arrive at B from the left
-
+    // Rounded elbow: straight down → rounded 90° corner → straight across to B
     const allDepsComplete = !(goal.dependsOn || []).some(id => {
       const d = allGoals.find(g => g.id === id);
       return d && !['completed','cancelled'].includes(d.status);
     });
     const stroke = allDepsComplete ? 'rgba(62,201,122,.55)' : 'rgba(123,121,247,.45)';
 
+    const r = 10;
+    const goingDown  = y2 >= y1;
+    const goingRight = x2 >= x1;
+    const yBeforeCorner = goingDown  ? y2 - r : y2 + r;
+    const xAfterCorner  = goingRight ? x1 + r : x1 - r;
+
+    // If rows are very close vertically, fall back to a simple S-curve
+    const dPath = Math.abs(y2 - y1) > r * 2
+      ? `M ${x1} ${y1} L ${x1} ${yBeforeCorner} Q ${x1} ${y2} ${xAfterCorner} ${y2} L ${x2} ${y2}`
+      : `M ${x1} ${y1} C ${x1} ${y2} ${x2} ${y1} ${x2} ${y2}`;
+
     const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${y2}, ${x2} ${y2}, ${x2} ${y2}`);
+    path.setAttribute('d', dPath);
     path.setAttribute('stroke', stroke);
     path.setAttribute('stroke-width', '1.5');
     path.setAttribute('fill', 'none');
@@ -655,8 +663,13 @@ function goalModal(goal, dc) {
     }
     forbidden.delete(g.id); // g itself is already excluded by x.id !== g.id below
   }
-  const otherGoals = allGoalsForDep.filter(x => x.projectId === projId && x.id !== g.id && !forbidden.has(x.id));
   const currentDeps = g.dependsOn || [];
+  // Always show goals that are already saved as deps (so existing links are always visible
+  // and editable), plus other same-project goals that don't create a circular reference.
+  const otherGoals = allGoalsForDep.filter(x =>
+    x.id !== g.id &&
+    (currentDeps.includes(x.id) || (x.projectId === projId && !forbidden.has(x.id)))
+  );
   let depsInner = '';
   if (otherGoals.length === 0) {
     depsInner = `<div style="font-size:11px;color:var(--dim);padding:8px 10px">No other goals in this project yet.</div>`;
