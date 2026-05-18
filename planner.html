@@ -211,7 +211,7 @@ const PS = {
   filterPids:      new URLSearchParams(location.search).get('pid') ? new Set([new URLSearchParams(location.search).get('pid')]) : new Set(),
   filterStatuses:  new Set(),
   showOverdueOnly: false,
-  mode:            'twoweek',
+  mode:            'all',
   anchor:          new Date(),
   collapsedCats:   new Set(),
 
@@ -233,6 +233,22 @@ const PS = {
 // VIEW RANGE
 // =====================================================================
 function getViewDates() {
+  if (PS.mode === 'all') {
+    const gs = PS.filteredGoals;
+    let minD, maxD;
+    if (gs.length) {
+      minD = gs.reduce((m, g) => g.dateFrom < m ? g.dateFrom : m, gs[0].dateFrom);
+      maxD = gs.reduce((m, g) => g.dateTo   > m ? g.dateTo   : m, gs[0].dateTo);
+    } else {
+      const now = new Date();
+      minD = Arc.dateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+      maxD = Arc.dateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    }
+    const start = new Date(minD + 'T00:00:00'); start.setDate(start.getDate() - 14);
+    const end   = new Date(maxD + 'T00:00:00'); end.setDate(end.getDate() + 14);
+    const count = Math.round((end - start) / 86400000) + 1;
+    return Array.from({ length: count }, (_, i) => addDays(start, i));
+  }
   const a = PS.anchor;
   let start, count;
   if (PS.mode === 'week') {
@@ -252,12 +268,18 @@ function isToday(d) { return Arc.dateStr(d) === Arc.today(); }
 
 function getViewLabel() {
   const d = getViewDates(), f = d[0], l = d[d.length - 1];
+  if (PS.mode === 'all') {
+    if (f.getFullYear() === l.getFullYear())
+      return `${MONTHS[f.getMonth()]} ${f.getDate()} – ${MONTHS[l.getMonth()]} ${l.getDate()}, ${f.getFullYear()}`;
+    return `${MONTHS[f.getMonth()]} ${f.getDate()}, ${f.getFullYear()} – ${MONTHS[l.getMonth()]} ${l.getDate()}, ${l.getFullYear()}`;
+  }
   if (PS.mode === 'month') return `${MONTHS[f.getMonth()]} ${f.getFullYear()}`;
   if (f.getMonth() === l.getMonth()) return `${MONTHS[f.getMonth()]} ${f.getDate()}–${l.getDate()}, ${f.getFullYear()}`;
   return `${MONTHS[f.getMonth()]} ${f.getDate()} – ${MONTHS[l.getMonth()]} ${l.getDate()}`;
 }
 
 function navigate(dir) {
+  if (PS.mode === 'all') return; // no fixed window to navigate in All mode
   const d = new Date(PS.anchor);
   if (PS.mode === 'week')    d.setDate(d.getDate() + dir * 7);
   else if (PS.mode === 'twoweek') d.setDate(d.getDate() + dir * 14);
@@ -301,7 +323,7 @@ function render() {
   if (allProjects.length === 0) { location.href = 'projects.html'; return; }
 
   const dates = getViewDates();
-  const cellW = PS.mode === 'month' ? 38 : PS.mode === 'week' ? 84 : 60;
+  const cellW = PS.mode === 'all' ? 38 : PS.mode === 'month' ? 38 : PS.mode === 'week' ? 84 : 60;
   document.documentElement.style.setProperty('--gCell', cellW + 'px');
   document.documentElement.style.setProperty('--gLeft', '260px');
 
@@ -323,12 +345,15 @@ function renderToolbar(allProjects, dates) {
     <div class="proj-name">${projLabel}</div>
     <div class="tb-right">
       <div class="date-nav">
-        <button class="nav-arrow" onclick="navigate(-1)">‹</button>
-        <span class="date-nav-label">${getViewLabel()}</span>
-        <button class="nav-arrow" onclick="navigate(1)">›</button>
+        ${PS.mode !== 'all' ? `<button class="nav-arrow" onclick="navigate(-1)">‹</button>` : ''}
+        <span class="date-nav-label" style="${PS.mode==='all'?'color:var(--muted);font-size:11px;font-weight:400':''}">
+          ${getViewLabel()}
+        </span>
+        ${PS.mode !== 'all' ? `<button class="nav-arrow" onclick="navigate(1)">›</button>` : ''}
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="goToday()">Today</button>
+      ${PS.mode !== 'all' ? `<button class="btn btn-ghost btn-sm" onclick="goToday()">Today</button>` : ''}
       <div class="view-toggle">
+        <button class="view-btn ${PS.mode==='all'?'active':''}" onclick="setMode('all')" title="Show all goals across their full date range">All</button>
         <button class="view-btn ${PS.mode==='week'?'active':''}" onclick="setMode('week')">Week</button>
         <button class="view-btn ${PS.mode==='twoweek'?'active':''}" onclick="setMode('twoweek')">2 Wk</button>
         <button class="view-btn ${PS.mode==='month'?'active':''}" onclick="setMode('month')">Month</button>
@@ -429,7 +454,56 @@ function renderGantt(dates) {
   }
 
   gi.innerHTML = headerHtml + bodyHtml;
-  requestAnimationFrame(() => renderDependencyLines(PS.filteredGoals, dates));
+  requestAnimationFrame(() => {
+    renderDependencyLines(PS.filteredGoals, dates);
+    // In All mode, scroll so today is visible near the left quarter of the viewport
+    if (PS.mode === 'all') {
+      const todayCol = document.querySelector('.g-date-col.is-today');
+      if (todayCol) todayCol.scrollIntoView({ inline: 'center', block: 'nearest' });
+    }
+  });
+}
+
+// =====================================================================
+// TOPOLOGICAL SORT — keeps dependency chains together
+// Independent goals keep date order; a goal's dependents are pulled
+// immediately after it (recursively) so connector lines don't cross.
+// =====================================================================
+function topoSortGoals(goals) {
+  const goalIds = new Set(goals.map(g => g.id));
+  const placed  = new Set();
+  const result  = [];
+
+  // Baseline order: by start date
+  const byDate = [...goals].sort((a, b) => a.dateFrom.localeCompare(b.dateFrom));
+
+  function canPlace(g) {
+    // All in-view dependencies must already be placed
+    return (g.dependsOn || []).every(id => !goalIds.has(id) || placed.has(id));
+  }
+
+  function place(g) {
+    if (placed.has(g.id)) return;
+    result.push(g);
+    placed.add(g.id);
+    // Immediately pull in dependents that are now unblocked, sorted by date
+    byDate
+      .filter(x => !placed.has(x.id) && (x.dependsOn || []).includes(g.id) && canPlace(x))
+      .forEach(place);
+  }
+
+  let guard = 0;
+  while (result.length < goals.length && guard++ < goals.length * 3) {
+    const next = byDate.find(g => !placed.has(g.id) && canPlace(g));
+    if (next) place(next);
+    else {
+      // Circular dep safeguard: force-place earliest unplaced goal
+      const stuck = byDate.find(g => !placed.has(g.id));
+      if (stuck) place(stuck); else break;
+    }
+  }
+
+  return result;
 }
 
 function renderGoalsByCategory(goals, dates) {
@@ -440,15 +514,15 @@ function renderGoalsByCategory(goals, dates) {
     cats[c].push(g);
   });
   return Object.entries(cats).map(([cat, cgs]) => {
-    cgs.sort((a, b) => a.dateFrom.localeCompare(b.dateFrom));
+    const sorted = topoSortGoals(cgs);
     const coll = PS.collapsedCats.has(cat);
-    const rows = coll ? '' : cgs.map(g => renderGoalRow(g, dates)).join('');
+    const rows = coll ? '' : sorted.map(g => renderGoalRow(g, dates)).join('');
     return `<div>
       <div class="cat-row">
         <div class="cat-left" onclick="toggleCat(${JSON.stringify(cat)})">
           <span class="cat-chev ${coll?'':'open'}">▶</span>
           <span class="cat-title">${Arc.esc(cat)}</span>
-          <span class="cat-badge">${cgs.length}</span>
+          <span class="cat-badge">${sorted.length}</span>
         </div>
         <div class="cat-filler"></div>
       </div>
