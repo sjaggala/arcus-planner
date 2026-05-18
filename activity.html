@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Activity Log</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{var __t=(JSON.parse(localStorage.getItem('arc_cfg')||'{}')).theme;if(__t)document.documentElement.setAttribute('data-theme',__t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.page-body { flex: 1; overflow-y: auto; padding: 32px 40px 60px; }
+
+/* Page header */
+.audit-hdr { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+.audit-back { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--s1); font-weight: 500; transition: border-color .15s, color .15s; flex-shrink: 0; }
+.audit-back:hover { border-color: var(--border2); color: var(--text); }
+.audit-title { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; letter-spacing: -.4px; flex: 1; }
+.audit-count { font-size: 12px; color: var(--muted); }
+
+/* Filters / controls */
+.audit-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.audit-type-pill { padding: 4px 13px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); background: var(--s3); color: var(--muted); cursor: pointer; transition: all .15s; }
+.audit-type-pill:hover { color: var(--text); border-color: var(--border2); }
+.audit-type-pill.on { background: var(--s2); color: var(--text); border-color: var(--accent); }
+.audit-sep { flex: 1; }
+.audit-clear-btn { font-size: 12px; color: var(--red); cursor: pointer; padding: 5px 12px; border-radius: 8px; border: 1px solid rgba(240,111,111,.3); background: rgba(240,111,111,.08); font-weight: 500; transition: all .15s; }
+.audit-clear-btn:hover { background: rgba(240,111,111,.16); border-color: rgba(240,111,111,.5); }
+
+/* Activity list panel */
+.audit-panel { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.audit-day-group { }
+.audit-day-label { padding: 10px 18px 8px; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); background: var(--s2); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2; }
+.act-item { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--border); transition: background .1s; }
+.act-item:last-child { border-bottom: none; }
+.act-item:hover { background: var(--s2); }
+.act-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.act-body { flex: 1; min-width: 0; }
+.act-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.act-action-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 6px; margin-right: 5px; letter-spacing: .3px; }
+.act-time { font-size: 11px; color: var(--dim); white-space: nowrap; flex-shrink: 0; }
+.audit-empty { padding: 48px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+
+/* Load more */
+.audit-load-more { display: flex; justify-content: center; padding: 16px; border-top: 1px solid var(--border); }
+
+@media(max-width:700px) {
+  .page-body { padding: 16px 16px 40px; }
+  .audit-hdr { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+<div id="nav-container"></div>
+<div class="page-body">
+
+  <!-- Header -->
+  <div class="audit-hdr">
+    <div class="audit-back" onclick="location.href='index.html'">← Back to Home</div>
+    <div>
+      <div class="audit-title">Activity Log</div>
+      <div class="audit-count" id="audit-count"></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="audit-controls" id="audit-controls">
+    <span class="audit-type-pill on" data-type="all" onclick="setTypeFilter('all')">All</span>
+    <span class="audit-type-pill" data-type="goal" onclick="setTypeFilter('goal')">Goals</span>
+    <span class="audit-type-pill" data-type="task" onclick="setTypeFilter('task')">Tasks</span>
+    <span class="audit-type-pill" data-type="project" onclick="setTypeFilter('project')">Projects</span>
+    <span class="audit-type-pill" data-type="event" onclick="setTypeFilter('event')">Events</span>
+    <span class="audit-type-pill" data-type="journal" onclick="setTypeFilter('journal')">Journal</span>
+    <div class="audit-sep"></div>
+    <div class="audit-clear-btn" onclick="confirmClear()">🗑 Clear All</div>
+  </div>
+
+  <!-- Activity panel -->
+  <div class="audit-panel" id="audit-panel"></div>
+
+</div>
+
+<div id="modal-overlay" onclick="overlayClick(event)"></div>
+<div id="modal-wrap"></div>
+<script src="data.js"></script>
+<script>
+const TYPE_META = {
+  project: { icon: '📁', color: '#7b79f7', label: 'Project' },
+  goal:    { icon: '🎯', color: '#3ec97a', label: 'Goal'    },
+  task:    { icon: '✓',  color: '#f5c542', label: 'Task'    },
+  event:   { icon: '📅', color: '#60a5fa', label: 'Event'   },
+  journal: { icon: '📝', color: '#a78bfa', label: 'Journal' },
+};
+const ACTION_BADGE = {
+  created: { label: 'Created', bg: 'rgba(62,201,122,.15)', color: '#3ec97a' },
+  updated: { label: 'Updated', bg: 'rgba(123,121,247,.15)', color: '#7b79f7' },
+  deleted: { label: 'Deleted', bg: 'rgba(240,111,111,.15)', color: '#f06f6f' },
+};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let typeFilter = 'all';
+
+function init() {
+  Arc.Settings.load();
+  Arc.applyTheme(Arc.Settings.get('theme', 'dark'));
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('');
+  render();
+}
+
+function setTypeFilter(type) {
+  typeFilter = type;
+  document.querySelectorAll('.audit-type-pill').forEach(p => {
+    p.classList.toggle('on', p.dataset.type === type);
+  });
+  render();
+}
+
+function fmtTimestamp(iso) {
+  const d = new Date(iso);
+  const h = d.getHours(), m = d.getMinutes();
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+}
+
+function dayLabel(iso) {
+  const d = new Date(iso);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dDay  = new Date(d); dDay.setHours(0,0,0,0);
+  const diff  = Math.round((today - dDay) / 86400000);
+  if (diff === 0)  return 'Today';
+  if (diff === 1)  return 'Yesterday';
+  if (diff < 7)    return `${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]}`;
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function render() {
+  const all = Arc.Activity.getAll();
+  const filtered = typeFilter === 'all' ? all : all.filter(x => x.type === typeFilter);
+
+  document.getElementById('audit-count').textContent =
+    `${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'}${typeFilter !== 'all' ? ' (filtered)' : ''}`;
+
+  const panel = document.getElementById('audit-panel');
+  if (!filtered.length) {
+    panel.innerHTML = `<div class="audit-empty">No activity recorded yet.<br><span style="font-size:12px;color:var(--dim)">Actions like creating goals, tasks, events, and journal entries will appear here.</span></div>`;
+    return;
+  }
+
+  // Group by calendar day
+  const groups = {};
+  filtered.forEach(item => {
+    const lbl = dayLabel(item.timestamp);
+    if (!groups[lbl]) groups[lbl] = [];
+    groups[lbl].push(item);
+  });
+
+  let html = '';
+  Object.entries(groups).forEach(([label, items]) => {
+    html += `<div class="audit-day-group">
+      <div class="audit-day-label">${Arc.esc(label)}</div>`;
+    items.forEach(item => {
+      const m  = TYPE_META[item.type] || { icon: '•', color: 'var(--muted)', label: item.type };
+      const ab = ACTION_BADGE[item.action] || { label: item.action, bg: 'var(--s3)', color: 'var(--muted)' };
+      html += `<div class="act-item">
+        <div class="act-icon" style="background:${m.color}18;color:${m.color}">${m.icon}</div>
+        <div class="act-body">
+          <div class="act-title">${Arc.esc(item.title)}</div>
+          <div class="act-meta">
+            <span class="act-action-badge" style="background:${ab.bg};color:${ab.color}">${ab.label}</span>${m.label}
+          </div>
+        </div>
+        <div class="act-time">${fmtTimestamp(item.timestamp)}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  panel.innerHTML = html;
+}
+
+function confirmClear() {
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr">
+      <div><div class="modal-title">Clear Activity Log?</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <p style="color:var(--muted);font-size:13px">This will permanently delete all ${Arc.Activity.getAll().length} activity entries. This cannot be undone.</p>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="doClear()">Clear All</button>
+    </div>
+  </div>`);
+}
+
+function doClear() {
+  Arc.Activity.clear();
+  closeModal();
+  render();
+}
+
+function onProfileSaved() { document.getElementById('nav-container').innerHTML = Arc.navHtml(''); }
+function onDataImported() { window.location.reload(); }
+
+init();
+</script>
+</body>
+</html>
