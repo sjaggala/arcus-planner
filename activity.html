@@ -36,11 +36,11 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .act-item { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--border); transition: background .1s; }
 .act-item:last-child { border-bottom: none; }
 .act-item:hover { background: var(--s2); }
-.act-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
 .act-body { flex: 1; min-width: 0; }
 .act-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.act-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.act-action-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 6px; margin-right: 5px; letter-spacing: .3px; }
+.act-meta { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+.act-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.act-action { font-size: 11px; font-weight: 500; }
 .act-time { font-size: 11px; color: var(--dim); white-space: nowrap; flex-shrink: 0; }
 .audit-empty { padding: 48px 20px; text-align: center; color: var(--muted); font-size: 14px; }
 
@@ -87,17 +87,14 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <div id="modal-wrap"></div>
 <script src="data.js"></script>
 <script>
-const TYPE_META = {
-  project: { icon: '📁', color: '#7b79f7', label: 'Project' },
-  goal:    { icon: '🎯', color: '#3ec97a', label: 'Goal'    },
-  task:    { icon: '✓',  color: '#f5c542', label: 'Task'    },
-  event:   { icon: '📅', color: '#60a5fa', label: 'Event'   },
-  journal: { icon: '📝', color: '#a78bfa', label: 'Journal' },
+const TYPE_LABEL = {
+  project: 'Project', goal: 'Goal', task: 'Task', event: 'Event', journal: 'Journal',
 };
-const ACTION_BADGE = {
-  created: { label: 'Created', bg: 'rgba(62,201,122,.15)', color: '#3ec97a' },
-  updated: { label: 'Updated', bg: 'rgba(123,121,247,.15)', color: '#7b79f7' },
-  deleted: { label: 'Deleted', bg: 'rgba(240,111,111,.15)', color: '#f06f6f' },
+// Muted action styles: dot color + label text color (no neon backgrounds)
+const ACTION_STYLE = {
+  created: { label: 'created', dot: 'rgba(62,201,122,.55)',   text: 'color:#5a8a6e' },
+  updated: { label: 'updated', dot: 'var(--border2)',          text: 'color:var(--muted)' },
+  deleted: { label: 'deleted', dot: 'rgba(240,111,111,.55)',  text: 'color:#9a6060' },
 };
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -161,14 +158,16 @@ function render() {
     html += `<div class="audit-day-group">
       <div class="audit-day-label">${Arc.esc(label)}</div>`;
     items.forEach(item => {
-      const m  = TYPE_META[item.type] || { icon: '•', color: 'var(--muted)', label: item.type };
-      const ab = ACTION_BADGE[item.action] || { label: item.action, bg: 'var(--s3)', color: 'var(--muted)' };
+      const typeLabel = TYPE_LABEL[item.type] || item.type;
+      const as = ACTION_STYLE[item.action] || { label: item.action, dot: 'var(--dim)', text: 'color:var(--dim)' };
       html += `<div class="act-item">
-        <div class="act-icon" style="background:${m.color}18;color:${m.color}">${m.icon}</div>
         <div class="act-body">
           <div class="act-title">${Arc.esc(item.title)}</div>
           <div class="act-meta">
-            <span class="act-action-badge" style="background:${ab.bg};color:${ab.color}">${ab.label}</span>${m.label}
+            <span class="act-dot" style="background:${as.dot}"></span>
+            <span class="act-action" style="${as.text}">${as.label}</span>
+            <span style="color:var(--dim)">·</span>
+            <span>${typeLabel}</span>
           </div>
         </div>
         <div class="act-time">${fmtTimestamp(item.timestamp)}</div>
