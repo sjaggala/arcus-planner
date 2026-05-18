@@ -244,14 +244,12 @@ function renderGoalsToday() {
     const proj = Arc.Projects.getById(g.projectId);
     const st   = Arc.Goals.statusInfo(g.status);
     const od   = Arc.Goals.isOverdue(g);
-    const clr  = g.labelColor || st.color;
-    return `<div class="focus-item">
+    return `<div class="focus-item" style="cursor:pointer" onclick="location.href='planner.html?pid=${g.projectId}&gid=${g.id}'" title="Edit goal">
       <div style="flex:1;min-width:0">
         <div class="focus-title">${Arc.esc(g.title)}${od?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
         <div class="focus-meta">
           ${proj?`<span>${Arc.esc(proj.name)}</span>`:''}
           <span class="focus-badge" style="background:${st.color}20;color:${st.color}">${st.label}</span>
-          <span class="focus-link" onclick="location.href='planner.html?pid=${g.projectId}'">Open</span>
         </div>
       </div>
     </div>`;
@@ -262,7 +260,7 @@ function taskFocusItem(t) {
   const pri  = Arc.PRIORITIES.find(p => p.val === t.priority) || Arc.PRIORITIES[1];
   const isOd = t.dueDate && t.dueDate < Arc.today();
   const proj = t.projectId ? Arc.Projects.getById(t.projectId) : null;
-  return `<div class="focus-item">
+  return `<div class="focus-item" style="cursor:pointer" onclick="location.href='tasks.html?tid=${t.id}'" title="Edit task">
     <div style="flex:1;min-width:0">
       <div class="focus-title">${Arc.esc(t.title)}${isOd?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
       <div class="focus-meta">
