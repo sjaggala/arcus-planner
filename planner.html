@@ -528,97 +528,76 @@ function renderDependencyLines(goals, dates) {
   const gi = document.getElementById('gantt-inner');
   if (!gi) return;
 
-  // Clean up previous overlay
   const old = document.getElementById('dep-lines-svg');
   if (old) old.remove();
-
-  // Collect dep pairs where both key dates fall within the current view
-  const firstDs = dates.length ? Arc.dateStr(dates[0]) : null;
-  const lastDs  = dates.length ? Arc.dateStr(dates[dates.length - 1]) : null;
-  if (!firstDs || !lastDs) return;
+  if (!dates.length) return;
 
   const allGoals = Arc.Goals.getAll();
+  const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gCell')) || 60;
+  const gLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gLeft')) || 260;
+  const firstDs = Arc.dateStr(dates[0]);
+  const lastDs  = Arc.dateStr(dates[dates.length - 1]);
+
+  // Return the center-x of a goal's bar within the current view (null if not visible)
+  function barCenterX(goal) {
+    if (goal.dateTo < firstDs || goal.dateFrom > lastDs) return null;
+    let si = 0;
+    while (si < dates.length - 1 && Arc.dateStr(dates[si]) < goal.dateFrom) si++;
+    let ei = dates.length - 1;
+    while (ei > 0 && Arc.dateStr(dates[ei]) > goal.dateTo) ei--;
+    return gLeft + ((si + ei) / 2 + 0.5) * cellW;
+  }
+
+  // Collect visible pairs
   const pairs = [];
   goals.forEach(goal => {
     (goal.dependsOn || []).forEach(depId => {
       const dep = allGoals.find(g => g.id === depId);
       if (!dep) return;
-      // Both connection points must be within the visible date range
-      if (dep.dateTo >= firstDs && dep.dateTo <= lastDs &&
-          goal.dateFrom >= firstDs && goal.dateFrom <= lastDs) {
+      if (barCenterX(dep) !== null && barCenterX(goal) !== null) {
         pairs.push({ dep, goal });
       }
     });
   });
   if (!pairs.length) return;
 
-  // Read layout constants from CSS
-  const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gCell')) || 60;
-  const gLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gLeft')) || 260;
-
   gi.style.position = 'relative';
   const giRect = gi.getBoundingClientRect();
 
-  // Build SVG
   const ns  = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.id = 'dep-lines-svg';
   svg.setAttribute('width',  gi.scrollWidth);
   svg.setAttribute('height', gi.scrollHeight);
 
-  // Arrow marker
-  const defs   = document.createElementNS(ns, 'defs');
-  const marker = document.createElementNS(ns, 'marker');
-  marker.setAttribute('id', 'dep-arr');
-  marker.setAttribute('markerWidth',  '7');
-  marker.setAttribute('markerHeight', '7');
-  marker.setAttribute('refX', '6');
-  marker.setAttribute('refY', '3.5');
-  marker.setAttribute('orient', 'auto');
-  const arrowPath = document.createElementNS(ns, 'path');
-  arrowPath.setAttribute('d', 'M0,0.5 L0,6.5 L6,3.5 z');
-  arrowPath.setAttribute('fill', 'rgba(123,121,247,.5)');
-  marker.appendChild(arrowPath);
-  defs.appendChild(marker);
-  svg.appendChild(defs);
-
   pairs.forEach(({ dep, goal }) => {
     const depRow  = gi.querySelector(`[data-gid="${dep.id}"]`);
     const goalRow = gi.querySelector(`[data-gid="${goal.id}"]`);
     if (!depRow || !goalRow) return;
 
-    const depEndIdx   = dates.findIndex(d => Arc.dateStr(d) === dep.dateTo);
-    const goalStartIdx = dates.findIndex(d => Arc.dateStr(d) === goal.dateFrom);
-    if (depEndIdx === -1 || goalStartIdx === -1) return;
+    const x1 = barCenterX(dep);
+    const x2 = barCenterX(goal);
+    if (x1 === null || x2 === null) return;
 
     const depRect  = depRow.getBoundingClientRect();
     const goalRect = goalRow.getBoundingClientRect();
-
-    // x: right edge of dep's end cell → left edge of goal's start cell
-    const x1 = gLeft + (depEndIdx + 1) * cellW;
     const y1 = depRect.top  - giRect.top  + depRect.height  / 2;
-    const x2 = gLeft + goalStartIdx * cellW;
     const y2 = goalRect.top - giRect.top + goalRect.height / 2;
 
-    // Bezier control point offset — curves gently outward
-    const dx = Math.abs(x2 - x1);
-    const cp = Math.max(28, dx * 0.38);
+    // Smooth S-curve: vertical tangents at both ends
+    const midY = (y1 + y2) / 2;
 
     const allDepsComplete = !(goal.dependsOn || []).some(id => {
       const d = allGoals.find(g => g.id === id);
       return d && !['completed','cancelled'].includes(d.status);
     });
-    const strokeColor = allDepsComplete
-      ? 'rgba(62,201,122,.45)'   // green — all done
-      : 'rgba(123,121,247,.45)'; // accent — still pending
+    const stroke = allDepsComplete ? 'rgba(62,201,122,.5)' : 'rgba(123,121,247,.4)';
 
     const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', `M ${x1} ${y1} C ${x1+cp} ${y1}, ${x2-cp} ${y2}, ${x2} ${y2}`);
-    path.setAttribute('stroke', strokeColor);
+    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`);
+    path.setAttribute('stroke', stroke);
     path.setAttribute('stroke-width', '1.5');
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke-dasharray', '5 3');
-    path.setAttribute('marker-end', 'url(#dep-arr)');
     svg.appendChild(path);
   });
 
@@ -667,9 +646,22 @@ function goalModal(goal, dc) {
   const allProjs  = Arc.Projects.getAll();
   const projOpts  = allProjs.map(p => `<option value="${Arc.esc(p.id)}" ${p.id===(g.projectId||PS.pid)?'selected':''}>${Arc.esc(p.name)}</option>`).join('');
 
-  // Dependencies: other goals in the same project
+  // Dependencies: other goals in the same project, excluding circular refs
   const projId     = g.projectId || PS.pid || '';
-  const otherGoals = Arc.Goals.getAll().filter(x => x.projectId === projId && x.id !== g.id);
+  const allGoalsForDep = Arc.Goals.getAll();
+  // Find every goal that (transitively) depends on g — these cannot be listed as options
+  const forbidden = new Set();
+  if (g.id) {
+    const queue = [g.id];
+    while (queue.length) {
+      const cur = queue.shift();
+      if (forbidden.has(cur)) continue;
+      forbidden.add(cur);
+      allGoalsForDep.forEach(x => { if ((x.dependsOn || []).includes(cur) && !forbidden.has(x.id)) queue.push(x.id); });
+    }
+    forbidden.delete(g.id); // g itself is already excluded by x.id !== g.id below
+  }
+  const otherGoals = allGoalsForDep.filter(x => x.projectId === projId && x.id !== g.id && !forbidden.has(x.id));
   const currentDeps = g.dependsOn || [];
   let depsInner = '';
   if (otherGoals.length === 0) {
