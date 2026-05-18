@@ -568,37 +568,59 @@ function renderDependencyLines(goals, dates) {
     const depRect  = depRow.getBoundingClientRect();
     const goalRect = goalRow.getBoundingClientRect();
 
-    // Start: bottom-center of dep's end-date cell
-    const x1 = gLeft + (depEndIdx + 0.5) * cellW;
-    const y1 = depRect.top - giRect.top + depRect.height - 2; // just above the row bottom border
+    // Start: right edge of dep's bar (end-date cell right side), at row mid-height
+    const x1 = gLeft + (depEndIdx + 1) * cellW - 5; // -5 matches .g-cell.re right padding
+    const y1 = depRect.top - giRect.top + depRect.height / 2;
 
-    // End: left-center of goal's start-date cell
-    const x2 = gLeft + goalStartIdx * cellW;
+    // End: left edge of goal's bar (start-date cell left side), at row mid-height
+    const x2 = gLeft + goalStartIdx * cellW + 5; // +5 matches .g-cell.rs left padding
     const y2 = goalRect.top - giRect.top + goalRect.height / 2;
 
-    // Rounded elbow: straight down → rounded 90° corner → straight across to B
+    // Color: sharper opacity so lines are clearly visible
     const allDepsComplete = !(goal.dependsOn || []).some(id => {
       const d = allGoals.find(g => g.id === id);
       return d && !['completed','cancelled'].includes(d.status);
     });
-    const stroke = allDepsComplete ? 'rgba(62,201,122,.55)' : 'rgba(123,121,247,.45)';
+    const stroke = allDepsComplete ? 'rgba(62,201,122,.85)' : 'rgba(123,121,247,.75)';
 
-    const r = 10;
-    const goingDown  = y2 >= y1;
-    const goingRight = x2 >= x1;
-    const yBeforeCorner = goingDown  ? y2 - r : y2 + r;
-    const xAfterCorner  = goingRight ? x1 + r : x1 - r;
+    // Classic Gantt double-elbow:
+    //   dep bar right ──┐
+    //                   │  (vertical drop)
+    //             ┌─────┘
+    //             └──── goal bar left
+    const r      = 7;
+    const margin = 14; // how far right to step before turning vertically
+    const xElbow = x1 + margin;
+    const dy     = y2 - y1;
+    const down   = dy >= 0;
 
-    // If rows are very close vertically, fall back to a simple S-curve
-    const dPath = Math.abs(y2 - y1) > r * 2
-      ? `M ${x1} ${y1} L ${x1} ${yBeforeCorner} Q ${x1} ${y2} ${xAfterCorner} ${y2} L ${x2} ${y2}`
-      : `M ${x1} ${y1} C ${x1} ${y2} ${x2} ${y1} ${x2} ${y2}`;
+    let dPath;
+    if (Math.abs(dy) < 4) {
+      // Same row — straight horizontal
+      dPath = `M ${x1} ${y1} L ${x2} ${y2}`;
+    } else if (Math.abs(dy) > r * 2 && xElbow + r <= x2) {
+      // Full double-elbow: right → corner-down → vertical → corner-right → goal
+      const vy1 = y1 + (down ?  r : -r);
+      const vy2 = y2 + (down ? -r :  r);
+      dPath =
+        `M ${x1} ${y1} ` +
+        `L ${xElbow - r} ${y1} ` +
+        `Q ${xElbow} ${y1} ${xElbow} ${vy1} ` +
+        `L ${xElbow} ${vy2} ` +
+        `Q ${xElbow} ${y2} ${xElbow + r} ${y2} ` +
+        `L ${x2} ${y2}`;
+    } else {
+      // Fallback S-curve for tight spaces
+      dPath = `M ${x1} ${y1} C ${x1 + 28} ${y1} ${x2 - 28} ${y2} ${x2} ${y2}`;
+    }
 
     const path = document.createElementNS(ns, 'path');
     path.setAttribute('d', dPath);
     path.setAttribute('stroke', stroke);
     path.setAttribute('stroke-width', '1.5');
     path.setAttribute('fill', 'none');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(path);
   });
 
