@@ -66,6 +66,10 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   .home-grid { grid-template-columns: 1fr; }
   .page-body { padding: 20px 20px 40px; }
 }
+/* Task group sub-headers inside tasks due panel */
+.task-group-hdr { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--dim); padding:10px 0 4px; border-top:1px solid var(--border); margin-top:2px; }
+.task-group-hdr:first-child { border-top:none; margin-top:0; padding-top:2px; }
+
 /* Recent Activity */
 .activity-list { display:flex; flex-direction:column; gap:1px; }
 .act-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
@@ -161,7 +165,10 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     <!-- Col 2 Rows 2–3: Recent Activity (spans Upcoming Events + Journal height) -->
     <div class="focus-panel" style="grid-column:2;grid-row:2/4">
       <div class="focus-panel-hdr">
-        <div class="section-title">Recent Activity</div>
+        <div class="section-title">
+          Recent Activity
+          <span class="section-title-action" onclick="location.href='activity.html'">View all</span>
+        </div>
       </div>
       <div class="focus-items" id="activity-list"></div>
     </div>
@@ -249,37 +256,50 @@ function renderGoalsToday() {
   }).join('');
 }
 
+function taskFocusItem(t) {
+  const pri  = Arc.PRIORITIES.find(p => p.val === t.priority) || Arc.PRIORITIES[1];
+  const isOd = t.dueDate && t.dueDate < Arc.today();
+  const proj = t.projectId ? Arc.Projects.getById(t.projectId) : null;
+  return `<div class="focus-item">
+    <div style="flex:1;min-width:0">
+      <div class="focus-title">${Arc.esc(t.title)}${isOd?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
+      <div class="focus-meta">
+        ${proj?`<span>${Arc.esc(proj.name)}</span>`:''}
+        ${t.dueDate?`<span>${t.dueDate}</span>`:''}
+        <span class="focus-badge" style="background:${pri.color}20;color:${pri.color}">${pri.label}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderTasksToday() {
-  const overdue  = Arc.Tasks.overdue();
-  const dueToday = Arc.Tasks.dueToday();
-  const all = [...new Map([...overdue,...dueToday].map(t=>[t.id,t])).values()].slice(0, 8);
-  const pending  = Arc.Tasks.pending();
+  const urgentAll = [...new Map([...Arc.Tasks.overdue(), ...Arc.Tasks.dueToday()].map(t=>[t.id,t])).values()];
+  const thisWeek  = Arc.Tasks.dueThisWeek();
+  const nextWeek  = Arc.Tasks.dueNextWeek();
   const el = document.getElementById('tasks-today');
 
-  if (all.length === 0 && pending.length === 0) {
-    el.innerHTML = `<div class="focus-empty">Nothing due today 🎉</div>`;
-    return;
-  }
-  if (all.length === 0) {
-    el.innerHTML = `<div class="focus-empty">No tasks due today — ${pending.length} task${pending.length!==1?'s':''} pending</div>`;
+  if (!urgentAll.length && !thisWeek.length && !nextWeek.length) {
+    const pending = Arc.Tasks.pending();
+    el.innerHTML = pending.length === 0
+      ? `<div class="focus-empty">Nothing due — all caught up 🎉</div>`
+      : `<div class="focus-empty">No tasks due this week — ${pending.length} pending</div>`;
     return;
   }
 
-  el.innerHTML = all.map(t => {
-    const pri  = Arc.PRIORITIES.find(p=>p.val===t.priority)||Arc.PRIORITIES[1];
-    const isOd = t.dueDate && t.dueDate < Arc.today();
-    const proj = t.projectId ? Arc.Projects.getById(t.projectId) : null;
-    return `<div class="focus-item">
-      <div style="flex:1;min-width:0">
-        <div class="focus-title">${Arc.esc(t.title)}${isOd?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
-        <div class="focus-meta">
-          ${proj?`<span>${Arc.esc(proj.name)}</span>`:''}
-          ${t.dueDate?`<span>${t.dueDate}</span>`:''}
-          <span class="focus-badge" style="background:${pri.color}20;color:${pri.color}">${pri.label}</span>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  let html = '';
+  if (urgentAll.length) {
+    html += `<div class="task-group-hdr">Today &amp; Overdue</div>`;
+    html += urgentAll.slice(0, 5).map(taskFocusItem).join('');
+  }
+  if (thisWeek.length) {
+    html += `<div class="task-group-hdr">This Week</div>`;
+    html += thisWeek.slice(0, 5).map(taskFocusItem).join('');
+  }
+  if (nextWeek.length) {
+    html += `<div class="task-group-hdr">Next Week</div>`;
+    html += nextWeek.slice(0, 5).map(taskFocusItem).join('');
+  }
+  el.innerHTML = html;
 }
 
 const EV_COLORS = ['#7b79f7','#60a5fa','#3ec97a','#f5c542','#f06f6f','#f472b6','#fb923c','#2dd4bf'];
@@ -362,7 +382,7 @@ function newJournalEntry() { location.href = 'journal.html?new=1'; }
 function renderActivity() {
   const el = document.getElementById('activity-list');
   if (!el) return;
-  const items = Arc.Activity.getAll().slice(0, 20);
+  const items = Arc.Activity.getAll().slice(0, 10);
   if (!items.length) { el.innerHTML = '<div class="act-empty">No activity yet — start by creating a goal or task.</div>'; return; }
 
   const TYPE_META = {

@@ -176,9 +176,24 @@ const Arc = (() => {
     add(t)       { const ts = this.getAll(); ts.push(t); this.save(ts); Activity.log('created', 'task', t.title, t.id); },
     update(t)    { this.save(this.getAll().map(x => x.id === t.id ? t : x)); Activity.log('updated', 'task', t.title, t.id); },
     delete(id)   { const t = this.getAll().find(x => x.id === id); this.save(this.getAll().filter(x => x.id !== id)); if (t) Activity.log('deleted', 'task', t.title, id); },
-    pending()    { return this.getAll().filter(t => t.bucketId !== 'b_done'); },
-    dueToday()   { const t = today(); return this.getAll().filter(x => x.dueDate === t && x.bucketId !== 'b_done'); },
-    overdue()    { const t = today(); return this.getAll().filter(x => x.dueDate && x.dueDate < t && x.bucketId !== 'b_done'); },
+    pending()      { return this.getAll().filter(t => t.bucketId !== 'b_done'); },
+    dueToday()     { const t = today(); return this.getAll().filter(x => x.dueDate === t && x.bucketId !== 'b_done'); },
+    overdue()      { const t = today(); return this.getAll().filter(x => x.dueDate && x.dueDate < t && x.bucketId !== 'b_done'); },
+    dueThisWeek()  {
+      const t = today(); const d = new Date();
+      const daysUntilSunday = d.getDay() === 0 ? 0 : 7 - d.getDay();
+      const end = new Date(d); end.setDate(d.getDate() + daysUntilSunday);
+      const endStr = dateStr(end);
+      return this.getAll().filter(x => x.dueDate && x.dueDate > t && x.dueDate <= endStr && x.bucketId !== 'b_done');
+    },
+    dueNextWeek()  {
+      const d = new Date();
+      const daysUntilSunday = d.getDay() === 0 ? 0 : 7 - d.getDay();
+      const startNW = new Date(d); startNW.setDate(d.getDate() + daysUntilSunday + 1);
+      const endNW   = new Date(startNW); endNW.setDate(startNW.getDate() + 6);
+      const startStr = dateStr(startNW); const endStr = dateStr(endNW);
+      return this.getAll().filter(x => x.dueDate && x.dueDate >= startStr && x.dueDate <= endStr && x.bucketId !== 'b_done');
+    },
   };
 
   // ── Avatar HTML ──────────────────────────────────────────────────────
