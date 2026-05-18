@@ -175,11 +175,8 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .status-opt.sel { border-color:var(--oc); background:color-mix(in srgb,var(--oc) 14%,transparent); color:var(--text); }
 .st-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; vertical-align:middle; }
 
-/* ── Goal Dependencies ─────────────────────────────────── */
-.dep-indicator { font-size:10px; font-weight:600; padding:1px 6px; border-radius:4px; flex-shrink:0; white-space:nowrap; }
-.dep-indicator.blocked { background:rgba(240,111,111,.10); color:rgba(240,111,111,.85); border:1px solid rgba(240,111,111,.22); }
-.dep-indicator.clear   { background:var(--s3); color:var(--muted); border:1px solid var(--border); }
-.goal-row.is-blocked   { opacity:.75; }
+/* ── Goal Dependencies (SVG connector lines drawn in JS) ── */
+#dep-lines-svg { position:absolute; top:0; left:0; pointer-events:none; z-index:15; overflow:visible; }
 .dep-list { border:1px solid var(--border); border-radius:8px; overflow-y:auto; max-height:160px; margin-top:4px; }
 .dep-row  { display:flex; align-items:center; gap:8px; padding:7px 10px; cursor:pointer; border-bottom:1px solid var(--border); transition:background .1s; }
 .dep-row:last-child { border-bottom:none; }
@@ -432,6 +429,7 @@ function renderGantt(dates) {
   }
 
   gi.innerHTML = headerHtml + bodyHtml;
+  requestAnimationFrame(() => renderDependencyLines(PS.filteredGoals, dates));
 }
 
 function renderGoalsByCategory(goals, dates) {
@@ -485,22 +483,6 @@ function renderGoalRow(goal, dates) {
   const st    = Arc.Goals.statusInfo(goal.status);
   const od    = Arc.Goals.isOverdue(goal);
 
-  // Dependency indicator
-  const allGoals  = Arc.Goals.getAll();
-  const depIds    = goal.dependsOn || [];
-  const depGoals  = depIds.map(id => allGoals.find(g => g.id === id)).filter(Boolean);
-  const blockedBy = depGoals.filter(d => !['completed','cancelled'].includes(d.status));
-  const isBlocked = blockedBy.length > 0;
-  let depIndicator = '';
-  if (depGoals.length > 0) {
-    if (isBlocked) {
-      const names = blockedBy.map(d => Arc.esc(d.title)).join(', ');
-      depIndicator = `<span class="dep-indicator blocked" title="Waiting on: ${names}">⊘ ${blockedBy.length} blocked</span>`;
-    } else {
-      depIndicator = `<span class="dep-indicator clear" title="All dependencies complete (${depGoals.length})">🔗 ready</span>`;
-    }
-  }
-
   const cells = dates.map(d => {
     const ds    = Arc.dateStr(d);
     const inR   = ds >= goal.dateFrom && ds <= goal.dateTo;
@@ -529,15 +511,118 @@ function renderGoalRow(goal, dates) {
     return `<div class="g-cell ${tc ? 'is-today-col' : ''}"></div>`;
   }).join('');
 
-  return `<div class="goal-row ${od ? 'is-overdue' : ''} ${isBlocked ? 'is-blocked' : ''}">
+  return `<div class="goal-row ${od ? 'is-overdue' : ''}" data-gid="${goal.id}">
     <div class="goal-left" onclick="editGoalModal('${goal.id}')">
       <span class="goal-title" title="${Arc.esc(goal.title)}">${Arc.esc(goal.title)}</span>
-      ${depIndicator}
       ${od ? `<span class="overdue-icon" title="Overdue — was due ${goal.dateTo}">⚠</span>` : ''}
       <div class="status-dot" style="background:${st.color}" title="${st.label}"></div>
     </div>
     <div class="goal-cells">${cells}</div>
   </div>`;
+}
+
+// =====================================================================
+// DEPENDENCY CONNECTOR LINES (SVG overlay on Gantt)
+// =====================================================================
+function renderDependencyLines(goals, dates) {
+  const gi = document.getElementById('gantt-inner');
+  if (!gi) return;
+
+  // Clean up previous overlay
+  const old = document.getElementById('dep-lines-svg');
+  if (old) old.remove();
+
+  // Collect dep pairs where both key dates fall within the current view
+  const firstDs = dates.length ? Arc.dateStr(dates[0]) : null;
+  const lastDs  = dates.length ? Arc.dateStr(dates[dates.length - 1]) : null;
+  if (!firstDs || !lastDs) return;
+
+  const allGoals = Arc.Goals.getAll();
+  const pairs = [];
+  goals.forEach(goal => {
+    (goal.dependsOn || []).forEach(depId => {
+      const dep = allGoals.find(g => g.id === depId);
+      if (!dep) return;
+      // Both connection points must be within the visible date range
+      if (dep.dateTo >= firstDs && dep.dateTo <= lastDs &&
+          goal.dateFrom >= firstDs && goal.dateFrom <= lastDs) {
+        pairs.push({ dep, goal });
+      }
+    });
+  });
+  if (!pairs.length) return;
+
+  // Read layout constants from CSS
+  const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gCell')) || 60;
+  const gLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gLeft')) || 260;
+
+  gi.style.position = 'relative';
+  const giRect = gi.getBoundingClientRect();
+
+  // Build SVG
+  const ns  = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.id = 'dep-lines-svg';
+  svg.setAttribute('width',  gi.scrollWidth);
+  svg.setAttribute('height', gi.scrollHeight);
+
+  // Arrow marker
+  const defs   = document.createElementNS(ns, 'defs');
+  const marker = document.createElementNS(ns, 'marker');
+  marker.setAttribute('id', 'dep-arr');
+  marker.setAttribute('markerWidth',  '7');
+  marker.setAttribute('markerHeight', '7');
+  marker.setAttribute('refX', '6');
+  marker.setAttribute('refY', '3.5');
+  marker.setAttribute('orient', 'auto');
+  const arrowPath = document.createElementNS(ns, 'path');
+  arrowPath.setAttribute('d', 'M0,0.5 L0,6.5 L6,3.5 z');
+  arrowPath.setAttribute('fill', 'rgba(123,121,247,.5)');
+  marker.appendChild(arrowPath);
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
+  pairs.forEach(({ dep, goal }) => {
+    const depRow  = gi.querySelector(`[data-gid="${dep.id}"]`);
+    const goalRow = gi.querySelector(`[data-gid="${goal.id}"]`);
+    if (!depRow || !goalRow) return;
+
+    const depEndIdx   = dates.findIndex(d => Arc.dateStr(d) === dep.dateTo);
+    const goalStartIdx = dates.findIndex(d => Arc.dateStr(d) === goal.dateFrom);
+    if (depEndIdx === -1 || goalStartIdx === -1) return;
+
+    const depRect  = depRow.getBoundingClientRect();
+    const goalRect = goalRow.getBoundingClientRect();
+
+    // x: right edge of dep's end cell → left edge of goal's start cell
+    const x1 = gLeft + (depEndIdx + 1) * cellW;
+    const y1 = depRect.top  - giRect.top  + depRect.height  / 2;
+    const x2 = gLeft + goalStartIdx * cellW;
+    const y2 = goalRect.top - giRect.top + goalRect.height / 2;
+
+    // Bezier control point offset — curves gently outward
+    const dx = Math.abs(x2 - x1);
+    const cp = Math.max(28, dx * 0.38);
+
+    const allDepsComplete = !(goal.dependsOn || []).some(id => {
+      const d = allGoals.find(g => g.id === id);
+      return d && !['completed','cancelled'].includes(d.status);
+    });
+    const strokeColor = allDepsComplete
+      ? 'rgba(62,201,122,.45)'   // green — all done
+      : 'rgba(123,121,247,.45)'; // accent — still pending
+
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${x1+cp} ${y1}, ${x2-cp} ${y2}, ${x2} ${y2}`);
+    path.setAttribute('stroke', strokeColor);
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke-dasharray', '5 3');
+    path.setAttribute('marker-end', 'url(#dep-arr)');
+    svg.appendChild(path);
+  });
+
+  gi.appendChild(svg);
 }
 
 // =====================================================================
@@ -651,6 +736,20 @@ function saveGoal(id) {
   const existing = id ? Arc.Goals.getAll().find(x => x.id === id) : null;
   const depChecked = document.querySelectorAll('#gm-dep-list .dep-chk:checked');
   const dependsOn  = [...depChecked].map(cb => cb.value);
+
+  // Warn if user marks a dependency-blocked goal as In Progress
+  const newStatus = document.getElementById('gm-status').value;
+  if (newStatus === 'in_progress' && dependsOn.length > 0) {
+    const allGs = Arc.Goals.getAll();
+    const blockedDeps = dependsOn
+      .map(depId => allGs.find(g => g.id === depId))
+      .filter(d => d && !['completed','cancelled'].includes(d.status));
+    if (blockedDeps.length > 0) {
+      const names = blockedDeps.map(d => `"${d.title}"`).join(', ');
+      const ok = confirm(`This goal depends on ${blockedDeps.length} incomplete goal${blockedDeps.length > 1 ? 's' : ''}: ${names}.\n\nMark as In Progress anyway?`);
+      if (!ok) return;
+    }
+  }
   const g = {
     id: id || Arc.uid(), projectId: document.getElementById('gm-proj')?.value || PS.pid, title,
     description:  document.getElementById('gm-desc').value.trim(),
