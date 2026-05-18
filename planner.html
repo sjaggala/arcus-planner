@@ -174,6 +174,19 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .status-opt { padding:7px 8px; border-radius:7px; border:1px solid var(--border); background:var(--s3); cursor:pointer; text-align:center; font-size:12px; font-weight:500; color:var(--muted); transition:all .15s; }
 .status-opt.sel { border-color:var(--oc); background:color-mix(in srgb,var(--oc) 14%,transparent); color:var(--text); }
 .st-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+
+/* ── Goal Dependencies ─────────────────────────────────── */
+.dep-indicator { font-size:10px; font-weight:600; padding:1px 6px; border-radius:4px; flex-shrink:0; white-space:nowrap; }
+.dep-indicator.blocked { background:rgba(240,111,111,.10); color:rgba(240,111,111,.85); border:1px solid rgba(240,111,111,.22); }
+.dep-indicator.clear   { background:var(--s3); color:var(--muted); border:1px solid var(--border); }
+.goal-row.is-blocked   { opacity:.75; }
+.dep-list { border:1px solid var(--border); border-radius:8px; overflow-y:auto; max-height:160px; margin-top:4px; }
+.dep-row  { display:flex; align-items:center; gap:8px; padding:7px 10px; cursor:pointer; border-bottom:1px solid var(--border); transition:background .1s; }
+.dep-row:last-child { border-bottom:none; }
+.dep-row:hover { background:var(--s3); }
+.dep-row input[type=checkbox] { width:14px;height:14px;flex-shrink:0;accent-color:var(--accent);cursor:pointer; }
+.dep-title { flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.dep-st    { font-size:10px;padding:1px 7px;border-radius:8px;font-weight:600;flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -429,6 +442,7 @@ function renderGoalsByCategory(goals, dates) {
     cats[c].push(g);
   });
   return Object.entries(cats).map(([cat, cgs]) => {
+    cgs.sort((a, b) => a.dateFrom.localeCompare(b.dateFrom));
     const coll = PS.collapsedCats.has(cat);
     const rows = coll ? '' : cgs.map(g => renderGoalRow(g, dates)).join('');
     return `<div>
@@ -471,6 +485,22 @@ function renderGoalRow(goal, dates) {
   const st    = Arc.Goals.statusInfo(goal.status);
   const od    = Arc.Goals.isOverdue(goal);
 
+  // Dependency indicator
+  const allGoals  = Arc.Goals.getAll();
+  const depIds    = goal.dependsOn || [];
+  const depGoals  = depIds.map(id => allGoals.find(g => g.id === id)).filter(Boolean);
+  const blockedBy = depGoals.filter(d => !['completed','cancelled'].includes(d.status));
+  const isBlocked = blockedBy.length > 0;
+  let depIndicator = '';
+  if (depGoals.length > 0) {
+    if (isBlocked) {
+      const names = blockedBy.map(d => Arc.esc(d.title)).join(', ');
+      depIndicator = `<span class="dep-indicator blocked" title="Waiting on: ${names}">⊘ ${blockedBy.length} blocked</span>`;
+    } else {
+      depIndicator = `<span class="dep-indicator clear" title="All dependencies complete (${depGoals.length})">🔗 ready</span>`;
+    }
+  }
+
   const cells = dates.map(d => {
     const ds    = Arc.dateStr(d);
     const inR   = ds >= goal.dateFrom && ds <= goal.dateTo;
@@ -499,9 +529,10 @@ function renderGoalRow(goal, dates) {
     return `<div class="g-cell ${tc ? 'is-today-col' : ''}"></div>`;
   }).join('');
 
-  return `<div class="goal-row ${od ? 'is-overdue' : ''}">
+  return `<div class="goal-row ${od ? 'is-overdue' : ''} ${isBlocked ? 'is-blocked' : ''}">
     <div class="goal-left" onclick="editGoalModal('${goal.id}')">
       <span class="goal-title" title="${Arc.esc(goal.title)}">${Arc.esc(goal.title)}</span>
+      ${depIndicator}
       ${od ? `<span class="overdue-icon" title="Overdue — was due ${goal.dateTo}">⚠</span>` : ''}
       <div class="status-dot" style="background:${st.color}" title="${st.label}"></div>
     </div>
@@ -551,6 +582,26 @@ function goalModal(goal, dc) {
   const allProjs  = Arc.Projects.getAll();
   const projOpts  = allProjs.map(p => `<option value="${Arc.esc(p.id)}" ${p.id===(g.projectId||PS.pid)?'selected':''}>${Arc.esc(p.name)}</option>`).join('');
 
+  // Dependencies: other goals in the same project
+  const projId     = g.projectId || PS.pid || '';
+  const otherGoals = Arc.Goals.getAll().filter(x => x.projectId === projId && x.id !== g.id);
+  const currentDeps = g.dependsOn || [];
+  let depsInner = '';
+  if (otherGoals.length === 0) {
+    depsInner = `<div style="font-size:11px;color:var(--dim);padding:8px 10px">No other goals in this project yet.</div>`;
+  } else {
+    depsInner = otherGoals.map(og => {
+      const chk = currentDeps.includes(og.id);
+      const ost = Arc.Goals.statusInfo(og.status);
+      return `<label class="dep-row">
+        <input type="checkbox" class="dep-chk" value="${og.id}" ${chk?'checked':''}>
+        <span class="dep-title">${Arc.esc(og.title)}</span>
+        <span class="dep-st" style="background:${ost.color}20;color:${ost.color}">${ost.label}</span>
+      </label>`;
+    }).join('');
+  }
+  const depsHtml = `<div class="dep-list" id="gm-dep-list">${depsInner}</div>`;
+
   showModal(`<div class="modal wide">
     <div class="modal-hdr">
       <div><div class="modal-title">${ie ? 'Edit Goal' : 'New Goal'}</div><div class="modal-sub">${ie ? 'Update goal details' : 'Add a goal to your project timeline'}</div></div>
@@ -575,6 +626,10 @@ function goalModal(goal, dc) {
       <div class="form-group"><label class="form-lbl">End Date *</label><input type="date" class="form-inp" id="gm-to" value="${g.dateTo}"></div>
     </div>
     <div class="form-group"><label class="form-lbl">Status</label><div class="status-grid" id="gm-sw">${stOpts}</div><input type="hidden" id="gm-status" value="${g.status}"></div>
+    <div class="form-group">
+      <label class="form-lbl">Depends On <span style="font-weight:400;color:var(--dim);text-transform:none;letter-spacing:0;font-size:11px">(optional — goal can start only after these are completed)</span></label>
+      ${depsHtml}
+    </div>
     <div class="modal-foot">
       ${ie ? `<button class="btn btn-ghost" style="margin-right:auto;color:var(--red)" onclick="confirmDelGoal('${g.id}')">Delete Goal</button>` : ''}
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -594,6 +649,8 @@ function saveGoal(id) {
   if (!from || !to) { alert('Please set start and end dates.'); return; }
   if (from > to) { alert('End date must be on or after start date.'); return; }
   const existing = id ? Arc.Goals.getAll().find(x => x.id === id) : null;
+  const depChecked = document.querySelectorAll('#gm-dep-list .dep-chk:checked');
+  const dependsOn  = [...depChecked].map(cb => cb.value);
   const g = {
     id: id || Arc.uid(), projectId: document.getElementById('gm-proj')?.value || PS.pid, title,
     description:  document.getElementById('gm-desc').value.trim(),
@@ -602,6 +659,7 @@ function saveGoal(id) {
     labelColor:   document.getElementById('gm-color').value || Arc.COLORS[0],
     dateFrom: from, dateTo: to,
     status:       document.getElementById('gm-status').value || 'not_started',
+    dependsOn,
     createdAt:    existing?.createdAt || new Date().toISOString(),
   };
   const gs = Arc.Goals.getAll();
