@@ -535,27 +535,17 @@ function renderDependencyLines(goals, dates) {
   const allGoals = Arc.Goals.getAll();
   const cellW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gCell')) || 60;
   const gLeft = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gLeft')) || 260;
-  const firstDs = Arc.dateStr(dates[0]);
-  const lastDs  = Arc.dateStr(dates[dates.length - 1]);
 
-  // Return the center-x of a goal's bar within the current view (null if not visible)
-  function barCenterX(goal) {
-    if (goal.dateTo < firstDs || goal.dateFrom > lastDs) return null;
-    let si = 0;
-    while (si < dates.length - 1 && Arc.dateStr(dates[si]) < goal.dateFrom) si++;
-    let ei = dates.length - 1;
-    while (ei > 0 && Arc.dateStr(dates[ei]) > goal.dateTo) ei--;
-    return gLeft + ((si + ei) / 2 + 0.5) * cellW;
-  }
-
-  // Collect visible pairs
+  // Collect pairs where both the dep's end date AND goal's start date are in view
   const pairs = [];
   goals.forEach(goal => {
     (goal.dependsOn || []).forEach(depId => {
       const dep = allGoals.find(g => g.id === depId);
       if (!dep) return;
-      if (barCenterX(dep) !== null && barCenterX(goal) !== null) {
-        pairs.push({ dep, goal });
+      const depEndIdx    = dates.findIndex(d => Arc.dateStr(d) === dep.dateTo);
+      const goalStartIdx = dates.findIndex(d => Arc.dateStr(d) === goal.dateFrom);
+      if (depEndIdx !== -1 && goalStartIdx !== -1) {
+        pairs.push({ dep, goal, depEndIdx, goalStartIdx });
       }
     });
   });
@@ -570,31 +560,34 @@ function renderDependencyLines(goals, dates) {
   svg.setAttribute('width',  gi.scrollWidth);
   svg.setAttribute('height', gi.scrollHeight);
 
-  pairs.forEach(({ dep, goal }) => {
+  pairs.forEach(({ dep, goal, depEndIdx, goalStartIdx }) => {
     const depRow  = gi.querySelector(`[data-gid="${dep.id}"]`);
     const goalRow = gi.querySelector(`[data-gid="${goal.id}"]`);
     if (!depRow || !goalRow) return;
 
-    const x1 = barCenterX(dep);
-    const x2 = barCenterX(goal);
-    if (x1 === null || x2 === null) return;
-
     const depRect  = depRow.getBoundingClientRect();
     const goalRect = goalRow.getBoundingClientRect();
-    const y1 = depRect.top  - giRect.top  + depRect.height  / 2;
+
+    // Start: bottom-center of dep's end-date cell
+    const x1 = gLeft + (depEndIdx + 0.5) * cellW;
+    const y1 = depRect.top - giRect.top + depRect.height - 2; // just above the row bottom border
+
+    // End: left-center of goal's start-date cell
+    const x2 = gLeft + goalStartIdx * cellW;
     const y2 = goalRect.top - giRect.top + goalRect.height / 2;
 
-    // Smooth S-curve: vertical tangents at both ends
-    const midY = (y1 + y2) / 2;
+    // L-shaped smooth curve: goes down from A, turns and arrives horizontally at B
+    // C x1 y2  — pull straight down to B's y level
+    // x2 y2    — then arrive at B from the left
 
     const allDepsComplete = !(goal.dependsOn || []).some(id => {
       const d = allGoals.find(g => g.id === id);
       return d && !['completed','cancelled'].includes(d.status);
     });
-    const stroke = allDepsComplete ? 'rgba(62,201,122,.5)' : 'rgba(123,121,247,.4)';
+    const stroke = allDepsComplete ? 'rgba(62,201,122,.55)' : 'rgba(123,121,247,.45)';
 
     const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`);
+    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${y2}, ${x2} ${y2}, ${x2} ${y2}`);
     path.setAttribute('stroke', stroke);
     path.setAttribute('stroke-width', '1.5');
     path.setAttribute('fill', 'none');
@@ -647,7 +640,8 @@ function goalModal(goal, dc) {
   const projOpts  = allProjs.map(p => `<option value="${Arc.esc(p.id)}" ${p.id===(g.projectId||PS.pid)?'selected':''}>${Arc.esc(p.name)}</option>`).join('');
 
   // Dependencies: other goals in the same project, excluding circular refs
-  const projId     = g.projectId || PS.pid || '';
+  // Resolve project ID — fall back to first project so new-goal-all-projects view works
+  const projId     = g.projectId || PS.pid || (allProjs.length ? allProjs[0].id : '');
   const allGoalsForDep = Arc.Goals.getAll();
   // Find every goal that (transitively) depends on g — these cannot be listed as options
   const forbidden = new Set();
