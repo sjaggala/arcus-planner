@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Projects</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{var __t=(JSON.parse(localStorage.getItem('arc_cfg')||'{}')).theme;if(__t)document.documentElement.setAttribute('data-theme',__t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.page-body { flex: 1; overflow-y: auto; padding: 36px 44px 60px; }
+
+/* Page header */
+.page-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.page-hdr-left h1 { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; letter-spacing: -.4px; }
+.page-hdr-left p { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+/* Stats bar */
+.proj-stats { display: flex; gap: 24px; margin-bottom: 28px; padding: 14px 18px; background: var(--s1); border: 1px solid var(--border); border-radius: 10px; }
+.proj-stat { display: flex; flex-direction: column; gap: 2px; }
+.proj-stat-num { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; color: var(--accent); line-height: 1; }
+.proj-stat-lbl { font-size: 11px; color: var(--muted); }
+.proj-stat-sep { width: 1px; background: var(--border); align-self: stretch; }
+
+/* Projects grid */
+.projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+
+/* Project card */
+.project-card { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; padding: 18px; cursor: pointer; position: relative; overflow: hidden; transition: border-color .2s, transform .15s, box-shadow .15s; }
+.project-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--card-color, var(--accent)); }
+.project-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+.card-emoji { font-size: 24px; }
+.card-edit-btn { width: 26px; height: 26px; border-radius: 6px; background: var(--s3); border: 1px solid var(--border); color: var(--muted); font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s, color .15s; flex-shrink: 0; }
+.project-card:hover .card-edit-btn { opacity: 1; }
+.card-edit-btn:hover { color: var(--text); background: var(--s2); }
+.card-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-desc { font-size: 12px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 34px; margin-bottom: 12px; }
+.card-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.cbadge { font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); background: var(--s3); font-weight: 500; }
+.cbadge.warn { border-color: var(--red); color: var(--red); background: rgba(240,111,111,.08); }
+.cbadge.ok { border-color: var(--accent); color: var(--accent); background: rgba(123,121,247,.1); }
+.prog-bar { height: 4px; border-radius: 2px; background: var(--s3); overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width .3s; }
+
+/* Add card */
+.add-project-card { background: transparent; border: 2px dashed var(--border2); border-radius: 12px; padding: 18px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--muted); min-height: 130px; font-size: 13px; font-weight: 500; transition: border-color .2s, color .2s; }
+.add-project-card:hover { border-color: var(--accent); color: var(--accent); }
+.add-project-card .add-icon { font-size: 28px; opacity: .5; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 80px 20px; color: var(--muted); }
+.empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.empty-state p { font-size: 13px; margin-bottom: 20px; }
+
+@media(max-width:700px) { .page-body { padding: 20px 16px 40px; } }
+</style>
+</head>
+<body>
+<div id="nav-container"></div>
+<div class="page-body">
+
+  <div class="page-hdr">
+    <div class="page-hdr-left">
+      <h1>Projects</h1>
+      <p id="proj-subtitle">Organise your goals into projects</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="btn btn-ghost" onclick="location.href='planner.html'">View All Goals</button>
+      <button class="btn btn-primary" onclick="newProjectModal()">+ New Project</button>
+    </div>
+  </div>
+
+  <div class="proj-stats" id="proj-stats"></div>
+
+  <div class="projects-grid" id="projects-grid"></div>
+
+</div>
+
+<div id="modal-overlay" onclick="overlayClick(event)"></div>
+<div id="modal-wrap"></div>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="data.js?v=5"></script>
+<script>
+function init() {
+  Arc.Settings.load();
+  Arc.applyTheme(Arc.Settings.get('theme', 'dark'));
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('projects');
+  render();
+}
+
+function render() {
+  renderStats();
+  renderGrid();
+}
+
+function renderStats() {
+  const ps = Arc.Projects.getAll();
+  const gs = Arc.Goals.getAll();
+  const active  = gs.filter(g => g.status === 'in_progress').length;
+  const done    = gs.filter(g => g.status === 'completed').length;
+  const overdue = Arc.Goals.overdue().length;
+  document.getElementById('proj-stats').innerHTML = `
+    <div class="proj-stat"><div class="proj-stat-num">${ps.length}</div><div class="proj-stat-lbl">Projects</div></div>
+    <div class="proj-stat-sep"></div>
+    <div class="proj-stat"><div class="proj-stat-num">${gs.length}</div><div class="proj-stat-lbl">Total Goals</div></div>
+    <div class="proj-stat-sep"></div>
+    <div class="proj-stat"><div class="proj-stat-num" style="color:var(--accent)">${active}</div><div class="proj-stat-lbl">In Progress</div></div>
+    <div class="proj-stat-sep"></div>
+    <div class="proj-stat"><div class="proj-stat-num" style="color:var(--green)">${done}</div><div class="proj-stat-lbl">Completed</div></div>
+    <div class="proj-stat-sep"></div>
+    <div class="proj-stat"><div class="proj-stat-num" style="color:${overdue>0?'var(--red)':'var(--muted)'}">${overdue}</div><div class="proj-stat-lbl">Overdue</div></div>`;
+  const sub = ps.length === 0 ? 'No projects yet — create one to get started' : `${ps.length} project${ps.length!==1?'s':''}`;
+  document.getElementById('proj-subtitle').textContent = sub;
+}
+
+function renderGrid() {
+  const ps = Arc.Projects.getAll();
+  const gs = Arc.Goals.getAll();
+  const grid = document.getElementById('projects-grid');
+
+  if (ps.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state-icon">📁</div>
+      <h3>No projects yet</h3>
+      <p>Projects group your goals together so you can track progress on a Gantt timeline.</p>
+      <button class="btn btn-primary" onclick="newProjectModal()">Create First Project</button>
+    </div>`;
+    return;
+  }
+
+  const cards = ps.map(p => {
+    const pgs  = gs.filter(g => g.projectId === p.id);
+    const done = pgs.filter(g => g.status === 'completed').length;
+    const od   = pgs.filter(g => Arc.Goals.isOverdue(g)).length;
+    const pct  = pgs.length ? Math.round(done / pgs.length * 100) : 0;
+    const clr  = p.color || '#7b79f7';
+    return `<div class="project-card" style="--card-color:${clr}" onclick="openProject('${p.id}')">
+      <div class="card-top">
+        <div class="card-emoji">${p.emoji || '📁'}</div>
+        <div class="card-edit-btn" onclick="event.stopPropagation();editProject('${p.id}')" title="Edit project">✎</div>
+      </div>
+      <div class="card-name">${Arc.esc(p.name)}</div>
+      <div class="card-desc">${Arc.esc(p.description || 'No description')}</div>
+      <div class="card-meta">
+        <span class="cbadge">${pgs.length} goal${pgs.length!==1?'s':''}</span>
+        ${pgs.length > 0 ? `<span class="cbadge ${done===pgs.length&&pgs.length>0?'ok':''}">${pct}% done</span>` : ''}
+        ${od > 0 ? `<span class="cbadge warn">⚠ ${od} overdue</span>` : ''}
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+
+  grid.innerHTML = cards + `<div class="add-project-card" onclick="newProjectModal()">
+    <div class="add-icon">＋</div>
+    <span>New Project</span>
+  </div>`;
+}
+
+function openProject(id) { window.location.href = `planner.html?pid=${id}`; }
+function newProjectModal() { projectModal(null); }
+function editProject(id) { projectModal(Arc.Projects.getById(id)); }
+
+function projectModal(project) {
+  const ie = !!project;
+  const p = project || { name:'', description:'', color: Arc.PROJ_COLORS[0], emoji:'📁' };
+  const cSw = Arc.PROJ_COLORS.map(c =>
+    `<div class="cswatch ${c===p.color?'sel':''}" style="background:${c}" onclick="pickPC(this,'${c}')"></div>`
+  ).join('');
+  const eOpts = Arc.EMOJIS.map(e =>
+    `<div class="emoji-opt ${e===p.emoji?'sel':''}" onclick="pickE(this,'${Arc.esc(e)}')">${e}</div>`
+  ).join('');
+  showModal(`<div class="modal">
+    <div class="modal-hdr">
+      <div><div class="modal-title">${ie?'Edit':'New'} Project</div><div class="modal-sub">${ie?'Update project details':'Create a new project to organise your goals'}</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Project Name</label><input class="form-inp" id="pm-n" placeholder="e.g. Product Launch" value="${Arc.esc(p.name)}" maxlength="60"></div>
+    <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="pm-d" rows="2" placeholder="What is this project about?">${Arc.esc(p.description||'')}</textarea></div>
+    <div class="form-group"><label class="form-lbl">Icon</label><div class="emoji-grid" id="pm-eg">${eOpts}</div><input type="hidden" id="pm-e" value="${Arc.esc(p.emoji||'📁')}"></div>
+    <div class="form-group"><label class="form-lbl">Color</label><div class="color-picker" id="pm-cp">${cSw}</div><input type="hidden" id="pm-c" value="${p.color}"></div>
+    <div class="modal-foot">
+      ${ie?`<button class="btn btn-danger" style="margin-right:auto" onclick="confirmDelProject('${p.id}')">Delete</button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProject(${ie?`'${p.id}'`:'null'})">${ie?'Save':'Create Project'}</button>
+    </div>
+  </div>`);
+}
+
+function pickPC(el, c) { el.closest('#pm-cp').querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel')); el.classList.add('sel'); document.getElementById('pm-c').value=c; }
+function pickE(el, e)  { el.closest('#pm-eg').querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); document.getElementById('pm-e').value=e; }
+
+function saveProject(id) {
+  const name = document.getElementById('pm-n').value.trim();
+  if (!name) { document.getElementById('pm-n').style.borderColor='var(--red)'; document.getElementById('pm-n').focus(); return; }
+  const ps = Arc.Projects.getAll();
+  const existing = id ? ps.find(x=>x.id===id) : null;
+  const p = { id:id||Arc.uid(), name, description:document.getElementById('pm-d').value.trim(), emoji:document.getElementById('pm-e').value||'📁', color:document.getElementById('pm-c').value||Arc.PROJ_COLORS[0], createdAt:existing?.createdAt||new Date().toISOString() };
+  if (id) localStorage.setItem('arc_p', JSON.stringify(ps.map(x=>x.id===id?p:x)));
+  else { ps.push(p); localStorage.setItem('arc_p', JSON.stringify(ps)); }
+  Arc.Activity.log(id ? 'updated' : 'created', 'project', name, p.id);
+  closeModal(); render();
+}
+
+function confirmDelProject(id) {
+  const p = Arc.Projects.getById(id);
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr"><div class="modal-title">Delete Project?</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <p style="color:var(--muted);font-size:13px">Delete <strong style="color:var(--text)">${Arc.esc(p?.name)}</strong> and all its goals? This cannot be undone.</p>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="doDelProject('${id}')">Delete</button></div>
+  </div>`);
+}
+
+function doDelProject(id) {
+  const _delP = Arc.Projects.getAll().find(p => p.id === id);
+  if (_delP) Arc.Activity.log('deleted', 'project', _delP.name, id);
+  localStorage.setItem('arc_p', JSON.stringify(JSON.parse(localStorage.getItem('arc_p')||'[]').filter(p=>p.id!==id)));
+  localStorage.setItem('arc_g', JSON.stringify(JSON.parse(localStorage.getItem('arc_g')||'[]').filter(g=>g.projectId!==id)));
+  closeModal(); render();
+}
+
+function onDataImported() { window.location.reload(); }
+function onProfileSaved() { document.getElementById('nav-container').innerHTML = Arc.navHtml('projects'); }
+
+init();
+</script>
+</body>
+</html>

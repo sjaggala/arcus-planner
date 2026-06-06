@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Focus Board</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{var __t=(JSON.parse(localStorage.getItem('arc_cfg')||'{}')).theme;if(__t)document.documentElement.setAttribute('data-theme',__t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+
+/* ── Toolbar ── */
+.focus-toolbar {
+  padding:0 20px; height:50px; display:flex; align-items:center; gap:12px;
+  border-bottom:1px solid var(--border); flex-shrink:0; background:var(--s1);
+}
+.focus-title { font-family:'Fraunces',serif; font-size:16px; font-weight:600; flex:1; }
+.focus-count { font-size:12px; color:var(--muted); background:var(--s3); border:1px solid var(--border); border-radius:10px; padding:2px 10px; }
+
+/* ── Board canvas ── */
+.focus-canvas {
+  flex:1; position:relative; overflow:auto; background-color: var(--bg);
+}
+.focus-canvas.show-grid {
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(255,255,255,.025) 28px, rgba(255,255,255,.025) 29px),
+    repeating-linear-gradient(90deg, transparent, transparent 28px, rgba(255,255,255,.025) 28px, rgba(255,255,255,.025) 29px);
+}
+[data-theme="light"] .focus-canvas.show-grid {
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(0,0,0,.06) 28px, rgba(0,0,0,.06) 29px),
+    repeating-linear-gradient(90deg, transparent, transparent 28px, rgba(0,0,0,.06) 28px, rgba(0,0,0,.06) 29px);
+}
+[data-theme="light"] .focus-canvas { background-color: #f0f0f0; }
+
+/* ── Sticky Note ── */
+.sticky-note {
+  position:absolute;
+  width:220px;
+  border-radius:4px 4px 4px 12px;
+  box-shadow: 3px 5px 18px rgba(0,0,0,.28), 0 1px 3px rgba(0,0,0,.15);
+  cursor:grab;
+  user-select:none;
+  transition:box-shadow .15s, transform .1s;
+  z-index:10;
+}
+.sticky-note:active { cursor:grabbing; }
+.sticky-note.expanded { width:300px; z-index:20; }
+.sticky-note.dragging-note { opacity:.88; transform:rotate(1.5deg) scale(1.04); box-shadow:8px 12px 32px rgba(0,0,0,.4); z-index:99; }
+
+/* Note header bar */
+.sticky-hdr {
+  padding:8px 10px 6px;
+  display:flex; align-items:center; gap:6px;
+  border-radius:4px 4px 0 0;
+  background:rgba(0,0,0,.1);
+  flex-shrink:0;
+}
+.sticky-hdr-grip { flex:1; cursor:grab; height:12px; display:flex; align-items:center; gap:2px; }
+.sticky-hdr-grip::before { content:'⋮⋮'; font-size:11px; opacity:.4; letter-spacing:-1px; }
+.sticky-btn { width:22px;height:22px;border-radius:5px;border:none;background:rgba(0,0,0,.12);
+  cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;
+  color:inherit;transition:background .12s;flex-shrink:0; }
+.sticky-btn:hover { background:rgba(0,0,0,.22); }
+
+/* Note body */
+.sticky-body { padding:10px 12px 12px; }
+.sticky-title { font-weight:700; line-height:1.4; margin-bottom:6px; word-break:break-word; }
+.sticky-desc { font-size:11px; opacity:.72; line-height:1.5; margin-bottom:8px; word-break:break-word; display:none; }
+.sticky-note.expanded .sticky-desc { display:block; }
+.sticky-meta { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+.sticky-proj-pill { font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
+  background:rgba(0,0,0,.15);cursor:pointer;transition:background .12s; }
+.sticky-proj-pill:hover { background:rgba(0,0,0,.25); }
+.sticky-date { font-size:10px; opacity:.65; }
+.sticky-label-pill { font-size:10px;font-weight:600;padding:1px 7px;border-radius:8px;opacity:.85; }
+
+/* Style panel (appears below note on hover/click) */
+.sticky-style-panel {
+  position:absolute; left:0; top:calc(100% + 6px);
+  background:var(--s2); border:1px solid var(--border2);
+  border-radius:10px; padding:10px; z-index:50;
+  box-shadow:0 8px 24px rgba(0,0,0,.3);
+  display:none; min-width:240px;
+}
+.sticky-note.show-panel .sticky-style-panel { display:block; }
+.sp-row { display:flex; gap:6px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+.sp-row:last-child { margin-bottom:0; }
+.sp-lbl { font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);min-width:38px; }
+.sp-swatch { width:20px;height:20px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:transform .1s; }
+.sp-swatch:hover { transform:scale(1.2); }
+.sp-swatch.sel { border-color:#fff; box-shadow:0 0 0 1px rgba(0,0,0,.3); }
+.sp-select { background:var(--s3);border:1px solid var(--border);border-radius:5px;padding:3px 6px;color:var(--text);font-size:11px; }
+
+/* Note color swatches */
+.nc-yellow  { background:#fef08a; }
+.nc-pink    { background:#fda4af; }
+.nc-green   { background:#86efac; }
+.nc-blue    { background:#93c5fd; }
+.nc-orange  { background:#fdba74; }
+.nc-purple  { background:#c4b5fd; }
+.nc-white   { background:#ffffff; border:1px solid #e5e7eb; }
+.nc-mint    { background:#6ee7b7; }
+
+/* ── Empty state ── */
+.focus-empty {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  text-align:center; color:var(--muted); pointer-events:none;
+}
+.focus-empty h3 { font-size:18px; font-weight:600; color:var(--text); margin-bottom:10px; }
+.focus-empty p { font-size:13px; line-height:1.6; max-width:380px; margin:0 auto; }
+.focus-empty .arrow-hint { font-size:12px; color:var(--accent); margin-top:14px; font-weight:600; }
+
+/* Done overlay */
+.sticky-done-overlay { position:absolute;inset:0;border-radius:4px 4px 4px 12px;
+  background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;
+  font-size:32px;z-index:5;border-radius:inherit; }
+
+/* ── Completed badge ── */
+.sticky-done-badge { font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;
+  background:rgba(0,0,0,.18);letter-spacing:.5px; }
+</style>
+</head>
+<body>
+<div id="nav-container"></div>
+
+<div class="focus-toolbar">
+  <div class="focus-title">📌 Focus Board</div>
+  <span class="focus-count" id="focus-count">0 pinned</span>
+  <button class="btn btn-ghost btn-sm" id="grid-toggle-btn" onclick="toggleGrid()">⊞ Grid: On</button>
+  <button class="btn btn-ghost btn-sm" onclick="autoArrange()">↔ Auto-arrange</button>
+  <button class="btn btn-ghost btn-sm" onclick="window.location.href='tasks.html'">→ Task Board</button>
+</div>
+
+<div class="focus-canvas show-grid" id="focus-canvas">
+  <div class="focus-empty" id="focus-empty">
+    <div style="font-size:48px;margin-bottom:14px">📌</div>
+    <h3>Your Focus Board is empty</h3>
+    <p>Pin tasks from the Task Board to see them here as sticky notes. Focus only on what matters today.</p>
+    <div class="arrow-hint">Go to Tasks → hover a card → click 📌 to pin it here</div>
+    <button class="btn btn-primary" style="margin-top:18px;pointer-events:all" onclick="window.location.href='tasks.html'">Open Task Board</button>
+  </div>
+</div>
+
+<div id="modal-overlay" onclick="overlayClick(event)"></div>
+<div id="modal-wrap"></div>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="data.js?v=5"></script>
+<script>
+// ── Note color palette ────────────────────────────────────────────────
+const NOTE_COLORS = [
+  { key:'yellow', hex:'#fef08a', text:'#1a1a1a' },
+  { key:'pink',   hex:'#fda4af', text:'#1a1a1a' },
+  { key:'green',  hex:'#86efac', text:'#1a1a1a' },
+  { key:'blue',   hex:'#93c5fd', text:'#1a1a1a' },
+  { key:'orange', hex:'#fdba74', text:'#1a1a1a' },
+  { key:'purple', hex:'#c4b5fd', text:'#1a1a1a' },
+  { key:'mint',   hex:'#6ee7b7', text:'#1a1a1a' },
+  { key:'white',  hex:'#ffffff', text:'#1a1a1a' },
+];
+
+const FONT_FAMILIES = ['Outfit','Fraunces','Georgia','Arial','Courier New'];
+const FONT_SIZES    = [11, 12, 13, 14, 16, 18];
+
+// ── Drag state ────────────────────────────────────────────────────────
+let dragState = null; // { taskId, startX, startY, origX, origY }
+
+let showGrid = true;
+
+function toggleGrid() {
+  showGrid = !showGrid;
+  const canvas = document.getElementById('focus-canvas');
+  canvas.classList.toggle('show-grid', showGrid);
+  const btn = document.getElementById('grid-toggle-btn');
+  if (btn) btn.textContent = `⊞ Grid: ${showGrid ? 'On' : 'Off'}`;
+  Arc.Settings.set('focus_grid', showGrid);
+}
+
+function init() {
+  Arc.Settings.load();
+  Arc.applyTheme(Arc.Settings.get('theme','dark'));
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('focus');
+  // Restore grid preference
+  showGrid = Arc.Settings.get('focus_grid', true);
+  const canvas = document.getElementById('focus-canvas');
+  canvas.classList.toggle('show-grid', showGrid);
+  const btn = document.getElementById('grid-toggle-btn');
+  if (btn) btn.textContent = `⊞ Grid: ${showGrid ? 'On' : 'Off'}`;
+  renderBoard();
+}
+
+// ── Render all pinned notes ───────────────────────────────────────────
+function renderBoard() {
+  const canvas  = document.getElementById('focus-canvas');
+  const empty   = document.getElementById('focus-empty');
+  const pins    = Arc.PinnedTasks.getAll();
+  const allTasks = Arc.Tasks.getAll();
+
+  // Remove old notes (keep empty placeholder)
+  canvas.querySelectorAll('.sticky-note').forEach(n => n.remove());
+
+  const valid = pins.filter(p => allTasks.find(t => t.id === p.taskId));
+  document.getElementById('focus-count').textContent = `${valid.length} pinned`;
+  empty.style.display = valid.length ? 'none' : '';
+
+  valid.forEach(pin => {
+    const task = allTasks.find(t => t.id === pin.taskId);
+    if (!task) return;
+    canvas.appendChild(buildNote(pin, task));
+  });
+}
+
+function buildNote(pin, task) {
+  const nc = NOTE_COLORS.find(c => c.hex === pin.noteColor) || NOTE_COLORS[0];
+  const proj = task.projectId ? Arc.Projects.getById(task.projectId) : null;
+  const isDone = task.bucketId === 'b_done';
+
+  const noteEl = document.createElement('div');
+  noteEl.className = 'sticky-note';
+  noteEl.id = `note-${task.id}`;
+  noteEl.style.cssText = `left:${pin.x}px; top:${pin.y}px; background:${nc.hex}; color:${nc.text};
+    font-family:'${pin.fontFamily||'Outfit'}',sans-serif; font-size:${pin.fontSize||14}px;
+    ${pin.bold?'font-weight:800;':'font-weight:600;'}
+    ${pin.italic?'font-style:italic;':''}`;
+
+  // Label pills
+  const labelPills = (task.labels||[]).map(lid => {
+    const l = Arc.Labels.getById(lid); if (!l) return '';
+    return `<span class="sticky-label-pill" style="background:${l.color}33;color:${l.color}">${Arc.esc(l.name)}</span>`;
+  }).join('');
+
+  // Style panel swatches
+  const colorSwatches = NOTE_COLORS.map(c =>
+    `<div class="sp-swatch nc-${c.key} ${c.hex===pin.noteColor?'sel':''}"
+      onclick="setNoteColor('${task.id}','${c.hex}');event.stopPropagation()" title="${c.key}"></div>`
+  ).join('');
+
+  const fontFamilyOpts = FONT_FAMILIES.map(f =>
+    `<option value="${f}" ${(pin.fontFamily||'Outfit')===f?'selected':''}>${f}</option>`
+  ).join('');
+
+  const fontSizeOpts = FONT_SIZES.map(s =>
+    `<option value="${s}" ${(pin.fontSize||14)==s?'selected':''}>${s}px</option>`
+  ).join('');
+
+  noteEl.innerHTML = `
+    <div class="sticky-hdr">
+      <div class="sticky-hdr-grip" onmousedown="startDrag(event,'${task.id}')"></div>
+      <button class="sticky-btn" onclick="toggleExpand('${task.id}')" title="Expand/collapse">⤢</button>
+      <button class="sticky-btn" onclick="toggleStylePanel('${task.id}');event.stopPropagation()" title="Style">🎨</button>
+      <button class="sticky-btn" onclick="unpinNote('${task.id}')" title="Unpin">✕</button>
+    </div>
+    <div class="sticky-body" onclick="toggleExpand('${task.id}')">
+      <div class="sticky-title" style="${pin.bold?'font-weight:800':'font-weight:700'};${pin.italic?'font-style:italic':''}">
+        ${Arc.esc(task.title)}
+      </div>
+      ${task.description ? `<div class="sticky-desc">${Arc.esc(task.description)}</div>` : ''}
+      <div class="sticky-meta">
+        ${proj ? `<span class="sticky-proj-pill" onclick="event.stopPropagation();window.location.href='tasks.html?tid=${task.id}'" title="Open task">${Arc.esc(proj.name)}</span>` : ''}
+        ${task.dueDate ? `<span class="sticky-date">📅 ${fmtDate(task.dueDate)}</span>` : ''}
+        ${labelPills}
+        ${isDone ? `<span class="sticky-done-badge">✓ Done</span>` : ''}
+      </div>
+    </div>
+    <div class="sticky-style-panel" id="sp-${task.id}" onclick="event.stopPropagation()">
+      <div class="sp-row">
+        <div class="sp-lbl">Color</div>
+        ${colorSwatches}
+      </div>
+      <div class="sp-row">
+        <div class="sp-lbl">Font</div>
+        <select class="sp-select" onchange="setNoteFont('${task.id}',this.value)">${fontFamilyOpts}</select>
+        <select class="sp-select" onchange="setNoteFontSize('${task.id}',parseInt(this.value))">${fontSizeOpts}</select>
+      </div>
+      <div class="sp-row">
+        <div class="sp-lbl">Style</div>
+        <button class="sticky-btn" style="font-weight:800;${pin.bold?'background:rgba(0,0,0,.22)':''}" onclick="toggleNoteBold('${task.id}')">B</button>
+        <button class="sticky-btn" style="font-style:italic;${pin.italic?'background:rgba(0,0,0,.22)':''}" onclick="toggleNoteItalic('${task.id}')">I</button>
+      </div>
+      <div class="sp-row">
+        <div class="sp-lbl">Go to</div>
+        <button class="sticky-btn" style="width:auto;padding:0 10px;font-size:11px;font-weight:600"
+          onclick="window.location.href='tasks.html?tid=${task.id}'">Open Task ↗</button>
+      </div>
+    </div>
+    ${isDone ? `<div class="sticky-done-overlay">✓</div>` : ''}`;
+
+  // Close style panel when clicking outside
+  noteEl.addEventListener('click', e => e.stopPropagation());
+
+  return noteEl;
+}
+
+// ── Note actions ─────────────────────────────────────────────────────
+function toggleExpand(taskId) {
+  const el = document.getElementById(`note-${taskId}`);
+  if (el) el.classList.toggle('expanded');
+}
+
+function toggleStylePanel(taskId) {
+  const note = document.getElementById(`note-${taskId}`);
+  if (!note) return;
+  // Close all other panels
+  document.querySelectorAll('.sticky-note.show-panel').forEach(n => {
+    if (n !== note) n.classList.remove('show-panel');
+  });
+  note.classList.toggle('show-panel');
+}
+
+function unpinNote(taskId) {
+  Arc.PinnedTasks.unpin(taskId);
+  renderBoard();
+}
+
+function setNoteColor(taskId, hex) {
+  const pins = Arc.PinnedTasks.getAll();
+  const pin  = pins.find(p => p.taskId === taskId);
+  if (!pin) return;
+  pin.noteColor = hex;
+  Arc.PinnedTasks.save(pins);
+  renderBoard();
+}
+
+function setNoteFont(taskId, font) {
+  const pins = Arc.PinnedTasks.getAll();
+  const pin  = pins.find(p => p.taskId === taskId);
+  if (!pin) return;
+  pin.fontFamily = font;
+  Arc.PinnedTasks.save(pins);
+  rebuildNote(taskId);
+}
+
+function setNoteFontSize(taskId, size) {
+  const pins = Arc.PinnedTasks.getAll();
+  const pin  = pins.find(p => p.taskId === taskId);
+  if (!pin) return;
+  pin.fontSize = size;
+  Arc.PinnedTasks.save(pins);
+  rebuildNote(taskId);
+}
+
+function toggleNoteBold(taskId) {
+  const pins = Arc.PinnedTasks.getAll();
+  const pin  = pins.find(p => p.taskId === taskId);
+  if (!pin) return;
+  pin.bold = !pin.bold;
+  Arc.PinnedTasks.save(pins);
+  rebuildNote(taskId);
+}
+
+function toggleNoteItalic(taskId) {
+  const pins = Arc.PinnedTasks.getAll();
+  const pin  = pins.find(p => p.taskId === taskId);
+  if (!pin) return;
+  pin.italic = !pin.italic;
+  Arc.PinnedTasks.save(pins);
+  rebuildNote(taskId);
+}
+
+function rebuildNote(taskId) {
+  const pin  = Arc.PinnedTasks.getAll().find(p => p.taskId === taskId);
+  const task = Arc.Tasks.getAll().find(t => t.id === taskId);
+  if (!pin || !task) return;
+  const old = document.getElementById(`note-${taskId}`);
+  const wasExpanded = old?.classList.contains('expanded');
+  const wasPanel    = old?.classList.contains('show-panel');
+  const newNote = buildNote(pin, task);
+  if (wasExpanded) newNote.classList.add('expanded');
+  if (wasPanel)    newNote.classList.add('show-panel');
+  if (old) old.replaceWith(newNote);
+}
+
+// ── Auto-arrange ─────────────────────────────────────────────────────
+function autoArrange() {
+  const pins = Arc.PinnedTasks.getAll();
+  const cols = Math.max(1, Math.floor((window.innerWidth - 60) / 240));
+  pins.forEach((pin, i) => {
+    pin.x = 24 + (i % cols) * 240;
+    pin.y = 24 + Math.floor(i / cols) * 230;
+  });
+  Arc.PinnedTasks.save(pins);
+  renderBoard();
+}
+
+// ── Drag-to-reposition ────────────────────────────────────────────────
+function startDrag(e, taskId) {
+  e.preventDefault();
+  const noteEl = document.getElementById(`note-${taskId}`);
+  if (!noteEl) return;
+  const rect = noteEl.getBoundingClientRect();
+  const canvas = document.getElementById('focus-canvas');
+  const cRect  = canvas.getBoundingClientRect();
+
+  dragState = {
+    taskId,
+    startX: e.clientX,
+    startY: e.clientY,
+    origX: parseFloat(noteEl.style.left) || 0,
+    origY: parseFloat(noteEl.style.top)  || 0,
+    scrollLeft: canvas.scrollLeft,
+    scrollTop:  canvas.scrollTop,
+  };
+  noteEl.classList.add('dragging-note');
+  noteEl.style.zIndex = 99;
+
+  function onMove(ev) {
+    if (!dragState) return;
+    const dx = ev.clientX - dragState.startX;
+    const dy = ev.clientY - dragState.startY;
+    const newX = Math.max(0, dragState.origX + dx);
+    const newY = Math.max(0, dragState.origY + dy);
+    noteEl.style.left = newX + 'px';
+    noteEl.style.top  = newY + 'px';
+  }
+
+  function onUp(ev) {
+    if (!dragState) return;
+    const dx = ev.clientX - dragState.startX;
+    const dy = ev.clientY - dragState.startY;
+    const newX = Math.max(0, dragState.origX + dx);
+    const newY = Math.max(0, dragState.origY + dy);
+    Arc.PinnedTasks.updatePos(dragState.taskId, newX, newY);
+    noteEl.classList.remove('dragging-note');
+    noteEl.style.zIndex = '';
+    dragState = null;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// Close style panels on canvas click
+document.addEventListener('click', () => {
+  document.querySelectorAll('.sticky-note.show-panel').forEach(n => n.classList.remove('show-panel'));
+});
+
+function fmtDate(s) {
+  if (!s) return '';
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const d = new Date(s+'T00:00:00');
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
+function onDataImported() { window.location.reload(); }
+function onProfileSaved() { document.getElementById('nav-container').innerHTML = Arc.navHtml('focus'); }
+
+init();
+</script>
+</body>
+</html>

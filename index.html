@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Home</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{var __t=(JSON.parse(localStorage.getItem('arc_cfg')||'{}')).theme;if(__t)document.documentElement.setAttribute('data-theme',__t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.page-body { flex: 1; overflow-y: auto; padding: 32px 40px 60px; }
+
+/* Hero row: greeting left, stats right */
+.hero-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.greeting-row h1 { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; letter-spacing: -.5px; margin-bottom: 3px; }
+.greeting-date { font-size: 13px; color: var(--muted); }
+.greeting-role { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* Stats */
+.stats-row { display: flex; gap: 10px; flex-shrink: 0; align-self: flex-start; }
+.stat-card { background: var(--s1); border: 1px solid var(--border); border-radius: 10px; padding: 10px 18px; cursor: pointer; transition: border-color .15s; text-align: center; min-width: 88px; }
+.stat-card:hover { border-color: var(--border2); }
+.stat-num { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; line-height: 1; }
+.stat-lbl { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 3px; }
+
+/* Section title */
+.section-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+.section-title-action { margin-left: auto; font-size: 12px; color: var(--accent); cursor: pointer; letter-spacing: 0; text-transform: none; font-weight: 600; }
+
+/* Home grid — 2 columns, 3 rows */
+.home-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto; gap: 20px; }
+
+/* Focus panels */
+.focus-panel { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display:flex; flex-direction:column; }
+.focus-panel-hdr { padding: 14px 16px 0; flex-shrink:0; }
+.focus-items { padding: 8px 16px 14px; display: flex; flex-direction: column; gap: 1px; flex:1; overflow-y:auto; }
+.focus-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.focus-item:last-child { border-bottom: none; }
+.focus-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.focus-title { font-size: 13px; font-weight: 500; line-height: 1.4; }
+.focus-meta { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; }
+.focus-badge { font-size: 10px; padding: 1px 7px; border-radius: 10px; font-weight: 600; }
+.focus-empty { padding: 20px 16px; text-align: center; color: var(--muted); font-size: 12px; }
+.focus-link { font-size: 11px; color: var(--accent); font-weight: 600; cursor: pointer; }
+.focus-link:hover { opacity: .8; }
+
+/* Quick task add */
+.quick-add { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
+.quick-add input { flex: 1; background: var(--s3); border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; color: var(--text); font-size: 12px; }
+.quick-add input:focus { border-color: var(--accent); outline: none; }
+.quick-add input::placeholder { color: var(--dim); }
+
+/* Journal strip */
+.journal-strip { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: flex-start; }
+.journal-strip-icon { font-size: 22px; flex-shrink: 0; }
+.journal-strip-content { flex: 1; min-width: 0; }
+.journal-strip-date { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.journal-strip-text { font-size: 13px; color: var(--muted); line-height: 1.5; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.journal-strip-empty { font-size: 13px; color: var(--dim); font-style: italic; }
+
+@media(max-width:900px) {
+  .hero-row { flex-direction: column; }
+  .home-grid { grid-template-columns: 1fr; }
+  .page-body { padding: 20px 20px 40px; }
+}
+/* Task group sub-headers inside tasks due panel */
+.task-group-wrap + .task-group-wrap { border-top:1px solid var(--border); }
+.task-group-hdr { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--dim); padding:8px 0 4px; }
+.task-group-wrap:first-child .task-group-hdr { padding-top:2px; }
+.tg-count { font-size:10px; color:var(--dim); font-weight:500; letter-spacing:0; text-transform:none; background:var(--s3); padding:0px 6px; border-radius:8px; border:1px solid var(--border); margin-left:4px; }
+
+/* Recent Activity */
+.activity-list { display:flex; flex-direction:column; gap:1px; }
+.act-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+.act-item:last-child { border-bottom:none; }
+.act-icon { width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+.act-body { flex:1; min-width:0; }
+.act-title { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.act-meta { font-size:11px; color:var(--muted); margin-top:1px; }
+.act-time { font-size:11px; color:var(--dim); white-space:nowrap; flex-shrink:0; }
+.act-empty { font-size:13px; color:var(--dim); padding:16px 0; text-align:center; }
+/* Status grid (goal modal from home) */
+.status-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+.status-opt { padding:7px 8px; border-radius:7px; border:1px solid var(--border); background:var(--s3); cursor:pointer; text-align:center; font-size:12px; font-weight:500; color:var(--muted); transition:all .15s; }
+.status-opt.sel { border-color:var(--oc); background:color-mix(in srgb,var(--oc) 14%,transparent); color:var(--text); }
+.st-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+</style>
+</head>
+<body>
+<div id="nav-container"></div>
+<div class="page-body">
+
+  <!-- Hero: greeting left, stats right -->
+  <div class="hero-row">
+    <div class="greeting-row">
+      <h1 id="greeting-h1">Welcome back!</h1>
+      <div class="greeting-date" id="greeting-date"></div>
+      <div class="greeting-role" id="greeting-role"></div>
+    </div>
+    <div class="stats-row" id="stats-row"></div>
+  </div>
+
+  <!-- Two-column home grid -->
+  <div class="home-grid">
+
+    <!-- Col 1 Row 1: Upcoming Events -->
+    <div class="focus-panel" style="grid-column:1;grid-row:1">
+      <div class="focus-panel-hdr">
+        <div class="section-title">
+          Upcoming Events
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="location.href='events.html?new=1'">＋ Event</button>
+            <span class="section-title-action" style="margin-left:0" onclick="location.href='events.html'">Open Calendar</span>
+          </span>
+        </div>
+      </div>
+      <div class="focus-items" id="events-upcoming"></div>
+    </div>
+
+    <!-- Col 2 Rows 1–3: Tasks Due (spans full column height) -->
+    <div class="focus-panel" style="grid-column:2;grid-row:1/4">
+      <div class="focus-panel-hdr">
+        <div class="section-title">
+          Tasks Due
+          <span class="section-title-action" onclick="location.href='tasks.html'">Open Board</span>
+        </div>
+      </div>
+      <div class="focus-items" id="tasks-today"></div>
+      <div class="quick-add">
+        <input id="quick-task-inp" placeholder="Quick add task… (press Enter)" maxlength="80"
+               onkeydown="if(event.key==='Enter')quickAddTask()">
+        <button class="btn btn-primary btn-sm" onclick="quickAddTask()">Add</button>
+      </div>
+    </div>
+
+    <!-- Col 1 Row 2: Active Goals Today -->
+    <div class="focus-panel" style="grid-column:1;grid-row:2">
+      <div class="focus-panel-hdr">
+        <div class="section-title">
+          Active Goals Today
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="newGoalModal()">＋ Goal</button>
+            <span class="section-title-action" style="margin-left:0" onclick="location.href='projects.html'">View Projects</span>
+          </span>
+        </div>
+      </div>
+      <div class="focus-items" id="goals-today"></div>
+    </div>
+
+    <!-- Col 1 Row 3: Today's Journal -->
+    <div class="focus-panel" style="grid-column:1;grid-row:3">
+      <div class="focus-panel-hdr">
+        <div class="section-title">
+          Today's Journal
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="newJournalEntry()">＋ New Entry</button>
+            <span class="section-title-action" style="margin-left:0" onclick="location.href='journal.html'">Open Journal</span>
+          </span>
+        </div>
+      </div>
+      <div class="focus-items" id="journal-items-today"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="modal-overlay" onclick="overlayClick(event)"></div>
+<div id="modal-wrap"></div>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="data.js?v=5"></script>
+<script>
+const DAYS_LONG   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function init() {
+  Arc.Settings.load();
+  Arc.applyTheme(Arc.Settings.get('theme','dark'));
+  document.getElementById('nav-container').innerHTML = Arc.navHtml('home');
+  renderGreeting();
+  renderStats();
+  renderEventsUpcoming();
+  renderTasksToday();
+  renderGoalsToday();
+  renderJournalToday();
+}
+
+function renderGreeting() {
+  const p = Arc.Profile.get();
+  const now = new Date();
+  const name = p.firstName ? `, ${p.firstName}!` : '!';
+  document.getElementById('greeting-h1').textContent = `${Arc.Profile.greeting()}${name}`;
+  document.getElementById('greeting-date').textContent =
+    `${DAYS_LONG[now.getDay()]}, ${MONTHS_LONG[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+  document.getElementById('greeting-role').textContent = p.role || '';
+}
+
+function renderStats() {
+  const ps = Arc.Projects.getAll();
+  const gs = Arc.Goals.getAll();
+  const active = gs.filter(g => g.status === 'in_progress').length;
+  const overdue = Arc.Goals.overdue().length;
+  const tasks = Arc.Tasks.pending().length;
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card" onclick="location.href='projects.html'">
+      <div class="stat-num">${ps.length}</div><div class="stat-lbl">Projects</div>
+    </div>
+    <div class="stat-card" onclick="location.href='projects.html'">
+      <div class="stat-num">${active}</div><div class="stat-lbl">Active Goals</div>
+    </div>
+    <div class="stat-card" onclick="location.href='projects.html'">
+      <div class="stat-num">${overdue}</div><div class="stat-lbl">Overdue Goals</div>
+    </div>
+    <div class="stat-card" onclick="location.href='tasks.html'">
+      <div class="stat-num">${tasks}</div><div class="stat-lbl">Pending Tasks</div>
+    </div>`;
+}
+
+function renderGoalsToday() {
+  const todayGoals = Arc.Goals.activeToday();
+  const overdueGoals = Arc.Goals.overdue().filter(g => !Arc.Goals.activeToday().find(x=>x.id===g.id));
+  const all = [...todayGoals, ...overdueGoals].slice(0, 8);
+  const el = document.getElementById('goals-today');
+  if (all.length === 0) {
+    el.innerHTML = `<div class="focus-empty">No goals active today — <span class="focus-link" onclick="location.href='projects.html'">view projects</span></div>`;
+    return;
+  }
+  el.innerHTML = all.map(g => {
+    const proj = Arc.Projects.getById(g.projectId);
+    const st   = Arc.Goals.statusInfo(g.status);
+    const od   = Arc.Goals.isOverdue(g);
+    return `<div class="focus-item" style="cursor:pointer" onclick="location.href='planner.html?pid=${g.projectId}&gid=${g.id}'" title="Edit goal">
+      <div style="flex:1;min-width:0">
+        <div class="focus-title">${Arc.esc(g.title)}${od?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
+        <div class="focus-meta">
+          ${proj?`<span>${Arc.esc(proj.name)}</span>`:''}
+          <span class="focus-badge" style="background:${st.color}20;color:${st.color}">${st.label}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function taskFocusItem(t) {
+  const pri  = Arc.PRIORITIES.find(p => p.val === t.priority) || Arc.PRIORITIES[1];
+  const isOd = t.dueDate && t.dueDate < Arc.today();
+  const proj = t.projectId ? Arc.Projects.getById(t.projectId) : null;
+  return `<div class="focus-item" style="cursor:pointer" onclick="location.href='tasks.html?tid=${t.id}'" title="Edit task">
+    <div style="flex:1;min-width:0">
+      <div class="focus-title">${Arc.esc(t.title)}${isOd?' <span style="color:var(--red);font-size:10px">⚠ overdue</span>':''}</div>
+      <div class="focus-meta">
+        ${proj?`<span>${Arc.esc(proj.name)}</span>`:''}
+        ${t.dueDate?`<span>${t.dueDate}</span>`:''}
+        <span class="focus-badge" style="background:${pri.color}20;color:${pri.color}">${pri.label}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTasksToday() {
+  const urgentAll = [...new Map([...Arc.Tasks.overdue(), ...Arc.Tasks.dueToday()].map(t=>[t.id,t])).values()];
+  const thisWeek  = Arc.Tasks.dueThisWeek();
+  const nextWeek  = Arc.Tasks.dueNextWeek();
+  const el = document.getElementById('tasks-today');
+
+  let html = '';
+
+  // Always render Today & Overdue section
+  html += `<div class="task-group-wrap">`;
+  html += `<div class="task-group-hdr">Today &amp; Overdue <span class="tg-count">${urgentAll.length}</span></div>`;
+  if (urgentAll.length === 0) {
+    html += `<div style="font-size:12px;color:var(--dim);padding:8px 0">Nothing due today 🎉</div>`;
+  } else {
+    html += urgentAll.slice(0, 5).map(taskFocusItem).join('');
+  }
+  html += `</div>`;
+
+  if (thisWeek.length) {
+    html += `<div class="task-group-wrap">`;
+    html += `<div class="task-group-hdr">This Week <span class="tg-count">${thisWeek.length}</span></div>`;
+    html += thisWeek.slice(0, 5).map(taskFocusItem).join('');
+    html += `</div>`;
+  }
+  if (nextWeek.length) {
+    html += `<div class="task-group-wrap">`;
+    html += `<div class="task-group-hdr">Next Week <span class="tg-count">${nextWeek.length}</span></div>`;
+    html += nextWeek.slice(0, 5).map(taskFocusItem).join('');
+    html += `</div>`;
+  }
+  el.innerHTML = html;
+}
+
+const EV_COLORS = ['#7b79f7','#60a5fa','#3ec97a','#f5c542','#f06f6f','#f472b6','#fb923c','#2dd4bf'];
+
+function fmtEvDate(ds) {
+  const [y,m,d] = ds.split('-').map(Number);
+  return `${MONTHS_SHORT[m-1]} ${d}`;
+}
+
+function fmt12(t) {
+  if (!t) return '';
+  const [h,m] = t.split(':').map(Number);
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+}
+
+function renderEventsUpcoming() {
+  const evs = Arc.Events.upcoming(14);
+  const el = document.getElementById('events-upcoming');
+  if (!el) return;
+  if (evs.length === 0) {
+    el.innerHTML = `<div class="focus-empty">No upcoming events — <span class="focus-link" onclick="location.href='events.html?new=1'">add one</span></div>`;
+    return;
+  }
+  const today = Arc.today();
+  el.innerHTML = evs.map(ev => {
+    const clr = ev.color || '#7b79f7';
+    const isToday = ev.startDate === today;
+    const dateLabel = isToday ? 'Today' : fmtEvDate(ev.startDate);
+    const timeLabel = ev.allDay ? 'All day' : fmt12(ev.startTime);
+    return `<div class="focus-item" onclick="location.href='events.html'" style="cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div class="focus-title">${Arc.esc(ev.title)}</div>
+        <div class="focus-meta">
+          <span style="font-weight:600;color:${isToday?'var(--accent)':'inherit'}">${dateLabel}</span>
+          ${timeLabel?`<span>${timeLabel}</span>`:''}
+          ${ev.description?`<span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${Arc.esc(ev.description.slice(0,50))}</span>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  const h = d.getHours(), m = d.getMinutes();
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+}
+
+function renderJournalToday() {
+  const today = Arc.today();
+  const j2 = JSON.parse(localStorage.getItem('arc_j2') || 'null');
+  let todayEntries = [];
+  if (j2) {
+    todayEntries = j2.filter(e => e.date === today).sort((a,b) => a.createdAt.localeCompare(b.createdAt));
+  }
+  const el = document.getElementById('journal-items-today');
+  if (!el) return;
+  if (todayEntries.length === 0) {
+    el.innerHTML = `<div class="focus-empty">No journal entries today — <span class="focus-link" onclick="newJournalEntry()">write one now</span></div>`;
+    return;
+  }
+  el.innerHTML = todayEntries.map(e => {
+    const plain   = e.content.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    const title   = (e.title && e.title !== 'Journal Entry') ? e.title : 'Journal Entry';
+    const preview = plain.slice(0,90) + (plain.length>90?'…':'');
+    return `<div class="focus-item" onclick="location.href='journal.html'" style="cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div class="focus-title">${Arc.esc(title)}</div>
+        <div class="focus-meta" style="flex-wrap:nowrap;overflow:hidden">
+          <span style="flex-shrink:0">${fmtTime(e.createdAt)}</span>
+          ${preview?`<span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${Arc.esc(preview)}</span>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function newJournalEntry() { location.href = 'journal.html?new=1'; }
+
+function renderActivity() {
+  const el = document.getElementById('activity-list');
+  if (!el) return;
+  const items = Arc.Activity.getAll().slice(0, 10);
+  if (!items.length) { el.innerHTML = '<div class="act-empty">No activity yet — start by creating a goal or task.</div>'; return; }
+
+  const TYPE_META = {
+    project: { icon: '📁', color: '#7b79f7', label: 'Project' },
+    goal:    { icon: '🎯', color: '#3ec97a', label: 'Goal'    },
+    task:    { icon: '✓',  color: '#f5c542', label: 'Task'    },
+    event:   { icon: '📅', color: '#60a5fa', label: 'Event'   },
+    journal: { icon: '📝', color: '#a78bfa', label: 'Journal' },
+  };
+  const ACTION_LABEL = { created: 'Created', updated: 'Updated', deleted: 'Deleted' };
+
+  function timeAgo(ts) {
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins  = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days  = Math.floor(diff / 86400000);
+    if (mins < 1)   return 'Just now';
+    if (mins < 60)  return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return 'Yesterday';
+    if (days < 7)   return `${days}d ago`;
+    const d = new Date(ts);
+    return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getDate()}`;
+  }
+
+  el.innerHTML = items.map(item => {
+    const m = TYPE_META[item.type] || { icon: '•', color: 'var(--muted)', label: item.type };
+    return `<div class="act-item">
+      <div class="act-icon" style="background:${m.color}18;color:${m.color}">${m.icon}</div>
+      <div class="act-body">
+        <div class="act-title">${Arc.esc(item.title)}</div>
+        <div class="act-meta">${ACTION_LABEL[item.action] || item.action} · ${m.label}</div>
+      </div>
+      <div class="act-time">${timeAgo(item.timestamp)}</div>
+    </div>`;
+  }).join('');
+}
+
+function newGoalModal() {
+  const ps = Arc.Projects.getAll();
+  if (ps.length === 0) {
+    if (confirm('No projects yet. Create one first?')) location.href = 'projects.html';
+    return;
+  }
+  const today  = Arc.today();
+  const cSw    = Arc.COLORS.map(c => `<div class="cswatch ${c===Arc.COLORS[0]?'sel':''}" style="background:${c}" onclick="pgcH(this,'${c}')"></div>`).join('');
+  const stOpts = Arc.STATUSES.map(s => `<div class="status-opt ${s.val==='not_started'?'sel':''}" style="--oc:${s.color}" onclick="pstH(this,'${s.val}')"><span class="st-dot" style="background:${s.color}"></span>${s.label}</div>`).join('');
+  const projOpts = ps.map(p => `<option value="${Arc.esc(p.id)}">${Arc.esc(p.name)}</option>`).join('');
+  showModal(`<div class="modal wide">
+    <div class="modal-hdr">
+      <div><div class="modal-title">New Goal</div><div class="modal-sub">Add a goal to your project timeline</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-lbl">Project *</label>
+      <select class="form-inp" id="gm-proj">${projOpts}</select>
+    </div>
+    <div class="form-group"><label class="form-lbl">Goal Title *</label><input class="form-inp" id="gm-title" placeholder="e.g. Launch marketing campaign" maxlength="80"></div>
+    <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="gm-desc" rows="2" placeholder="What does success look like?"></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-lbl">Category</label><input class="form-inp" id="gm-cat" placeholder="e.g. Marketing, Design…"></div>
+      <div class="form-group"><label class="form-lbl">Label</label><input class="form-inp" id="gm-lbl" placeholder="e.g. High Priority, MVP…"></div>
+    </div>
+    <div class="form-group"><label class="form-lbl">Bar Color</label><div class="color-picker" id="gm-cp">${cSw}</div><input type="hidden" id="gm-color" value="${Arc.COLORS[0]}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-lbl">Start Date *</label><input type="date" class="form-inp" id="gm-from" value="${today}"></div>
+      <div class="form-group"><label class="form-lbl">End Date *</label><input type="date" class="form-inp" id="gm-to" value="${today}"></div>
+    </div>
+    <div class="form-group"><label class="form-lbl">Status</label><div class="status-grid" id="gm-sw">${stOpts}</div><input type="hidden" id="gm-status" value="not_started"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoalFromHome()">Add Goal</button>
+    </div>
+  </div>`);
+}
+
+function pgcH(el,c) { el.closest('#gm-cp').querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel')); el.classList.add('sel'); document.getElementById('gm-color').value=c; }
+function pstH(el,v) { el.closest('#gm-sw').querySelectorAll('.status-opt').forEach(s=>s.classList.remove('sel')); el.classList.add('sel'); document.getElementById('gm-status').value=v; }
+
+function saveGoalFromHome() {
+  const title = document.getElementById('gm-title').value.trim();
+  const pid   = document.getElementById('gm-proj').value;
+  const from  = document.getElementById('gm-from').value;
+  const to    = document.getElementById('gm-to').value;
+  if (!title) { document.getElementById('gm-title').style.borderColor='var(--red)'; document.getElementById('gm-title').focus(); return; }
+  if (!from || !to) { alert('Please set start and end dates.'); return; }
+  if (from > to) { alert('End date must be on or after start date.'); return; }
+  const g = {
+    id: Arc.uid(), projectId: pid, title,
+    description: document.getElementById('gm-desc').value.trim(),
+    category:    document.getElementById('gm-cat').value.trim() || 'Uncategorized',
+    label:       document.getElementById('gm-lbl').value.trim(),
+    labelColor:  document.getElementById('gm-color').value || Arc.COLORS[0],
+    dateFrom: from, dateTo: to,
+    status:      document.getElementById('gm-status').value || 'not_started',
+    createdAt:   new Date().toISOString(),
+  };
+  const gs = Arc.Goals.getAll(); gs.push(g); Arc.Goals.save(gs);
+  closeModal(); renderStats(); renderGoalsToday();
+}
+
+function quickAddTask() {
+  const inp = document.getElementById('quick-task-inp');
+  const title = inp.value.trim();
+  if (!title) return;
+  Arc.Tasks.add({
+    id: Arc.uid(), title,
+    priority: 'medium', dueDate: Arc.today(),
+    bucketId: 'b_todo', projectId: '',
+    createdAt: new Date().toISOString(),
+  });
+  inp.value = '';
+  renderStats();
+  renderTasksToday();
+}
+
+function onProfileSaved() { renderGreeting(); }
+function onDataImported() { window.location.reload(); }
+
+init();
+</script>
+</body>
+</html>
