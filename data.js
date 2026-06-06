@@ -352,6 +352,7 @@ const Arc = (() => {
     ).join('');
     const ava = avatarHtml(32);
     const p = Profile.get();
+    const isLocalMode = !window._arcUser && localStorage.getItem('arc_local_mode') === '1';
     const displayName = window._arcUser?.displayName || Profile.fullName() || Profile.displayName() || 'My Profile';
     const userEmail   = window._arcUser?.email || p.email || '';
     const userRole    = p.role || '';
@@ -363,9 +364,13 @@ const Arc = (() => {
           <button class="nav-avatar-btn" onclick="arcToggleProfileMenu(event)" title="Your Profile">${ava}</button>
           <div id="arc-pmenu" class="arc-pmenu">
             <div class="arc-pmenu-head">
-              <div class="arc-pmenu-name">${esc(displayName)}</div>
-              ${userEmail ? `<div class="arc-pmenu-role">${esc(userEmail)}</div>` : ''}
-              ${userRole  ? `<div class="arc-pmenu-role" style="margin-top:2px">${esc(userRole)}</div>`  : ''}
+              ${isLocalMode
+                ? `<div class="arc-pmenu-name">Local Mode</div>
+                   <div class="arc-pmenu-role">Not signed in — data is on this device only</div>`
+                : `<div class="arc-pmenu-name">${esc(displayName)}</div>
+                   ${userEmail ? `<div class="arc-pmenu-role">${esc(userEmail)}</div>` : ''}
+                   ${userRole  ? `<div class="arc-pmenu-role" style="margin-top:2px">${esc(userRole)}</div>` : ''}`
+              }
             </div>
             <div class="arc-pmenu-body">
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openProfileModal()">
@@ -383,9 +388,14 @@ const Arc = (() => {
                 <span class="apm-icon">⚙</span> Settings
               </button>
               <div class="arc-pmenu-div"></div>
-              <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();arcSignOut()" style="color:var(--red)">
-                <span class="apm-icon">↩</span> Sign Out
-              </button>
+              ${isLocalMode
+                ? `<button class="arc-pmenu-item" onclick="arcCloseProfileMenu();arcSignInFromLocal()" style="color:var(--accent)">
+                     <span class="apm-icon">☁</span> Sign in with Google
+                   </button>`
+                : `<button class="arc-pmenu-item" onclick="arcCloseProfileMenu();arcSignOut()" style="color:var(--red)">
+                     <span class="apm-icon">↩</span> Sign Out
+                   </button>`
+              }
             </div>
           </div>
         </div>
@@ -896,7 +906,12 @@ function arcFirebaseInit() {
       }
       if (typeof init === 'function') init();
     } else {
-      arcShowAuthOverlay();
+      // Not signed in — show auth overlay unless user explicitly chose local-only mode.
+      if (localStorage.getItem('arc_local_mode') === '1') {
+        arcHideAuthOverlay(); // ensure it stays hidden
+      } else {
+        arcShowAuthOverlay();
+      }
     }
   });
 }
@@ -973,8 +988,23 @@ function arcSignOut() {
     // Do NOT clear localStorage — it stays as a local backup.
     // On the next sign-in, Firestore data is loaded and overwrites localStorage,
     // so there is no risk of seeing another user's data.
+    // Clear local-mode flag so the auth screen shows (not local bypass) after sign-out.
+    localStorage.removeItem('arc_local_mode');
     window.location.reload();
   });
+}
+
+// Called when the user clicks "Continue locally" on the auth overlay.
+function arcContinueLocally() {
+  localStorage.setItem('arc_local_mode', '1');
+  arcHideAuthOverlay();
+  // The page's own init() already ran at load time — no re-render needed.
+}
+
+// Called from the profile menu "Sign in to sync" item (when in local mode).
+function arcSignInFromLocal() {
+  localStorage.removeItem('arc_local_mode');
+  arcShowAuthOverlay();
 }
 
 // ── Auth overlay (injected into DOM) ──────────────────────────────────
@@ -997,6 +1027,9 @@ function arcInjectAuthOverlay() {
         Sign in with Google
       </button>
       <div id="arc-auth-msg" style="font-size:12px;color:var(--red);margin-top:10px;min-height:16px"></div>
+      <div class="arc-auth-divider"><span>or</span></div>
+      <button class="arc-local-btn" onclick="arcContinueLocally()">Continue without signing in</button>
+      <div class="arc-auth-local-note">Data stays on this device only — no cloud backup</div>
     </div>`;
   document.body.appendChild(el);
 }
