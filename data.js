@@ -356,7 +356,7 @@ const Arc = (() => {
       { id: 'tasks',    label: 'Tasks',    href: 'tasks.html' },
       { id: 'events',   label: 'Events',   href: 'events.html' },
       { id: 'journal',  label: 'Journal',  href: 'journal.html' },
-      { id: 'focus',    label: '📌 Focus',  href: 'focus.html' },
+      { id: 'focus',    label: 'Focus',     href: 'focus.html' },
     ];
     const linksHtml = links.map(l =>
       `<a href="${l.href}" class="nav-link ${l.id === activePage ? 'active' : ''}">${l.label}</a>`
@@ -371,7 +371,7 @@ const Arc = (() => {
       <a href="index.html" class="nav-logo">Arc<span>us</span></a>
       <div class="nav-links">${linksHtml}</div>
       <div class="nav-right">
-        ${isLocalMode ? `<span class="nav-local-badge" title="Data is on this device only. Click your profile to sign in." onclick="arcToggleProfileMenu(event)">☁ Local</span>` : ''}
+        ${isLocalMode ? `<span class="nav-local-badge" title="Data is on this device only — click to sign in" onclick="arcToggleProfileMenu(event)"><span class="nlb-dot"></span>Local only</span>` : ''}
         <div class="nav-profile-wrap">
           <button class="nav-avatar-btn" onclick="arcToggleProfileMenu(event)" title="${isLocalMode ? 'Local mode — click to sign in with Google' : 'Your Profile'}">${ava}</button>
           <div id="arc-pmenu" class="arc-pmenu">
@@ -1074,7 +1074,14 @@ function arcSignOut() {
 function arcContinueLocally() {
   localStorage.setItem('arc_local_mode', '1');
   arcHideAuthOverlay();
-  // The page's own init() already ran at load time — no re-render needed.
+  // Re-render the nav immediately so the "Local only" badge and correct
+  // profile menu appear without needing a page reload.
+  const navEl = document.getElementById('nav-container');
+  if (navEl) {
+    const active = navEl.querySelector('.nav-link.active');
+    const page = active ? active.getAttribute('href').replace('.html','').replace('index','home') : 'home';
+    navEl.innerHTML = Arc.navHtml(page);
+  }
 }
 
 // Called from the profile menu "Sign in to sync" item (when in local mode).
@@ -1108,15 +1115,27 @@ function arcInjectAuthOverlay() {
       <div class="arc-auth-local-note">Data stays on this device only — no cloud backup</div>
     </div>`;
   document.body.appendChild(el);
+
+  // Immediately cover the page to prevent the flash of content before auth resolves.
+  // We show a plain blank overlay now; arcShowAuthOverlay() reveals the card if needed.
+  // Local-only users bypass auth entirely — don't block them.
+  if (localStorage.getItem('arc_local_mode') !== '1') {
+    el.classList.add('visible', 'arc-auth-loading');
+  }
 }
 
 function arcShowAuthOverlay() {
   const el = document.getElementById('arc-auth-overlay');
-  if (el) el.classList.add('visible');
+  if (!el) return;
+  // Remove loading state so the auth card is visible, then ensure overlay is shown.
+  el.classList.remove('arc-auth-loading');
+  el.classList.add('visible');
 }
+
 function arcHideAuthOverlay() {
   const el = document.getElementById('arc-auth-overlay');
-  if (el) el.classList.remove('visible');
+  if (!el) return;
+  el.classList.remove('visible', 'arc-auth-loading');
 }
 
 // ── Sync banner (brief "Syncing…" indicator on new device) ────────────
