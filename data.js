@@ -983,10 +983,12 @@ function arcFirebaseInit() {
       if (typeof init === 'function') init();
     } else {
       // Not signed in — show auth overlay unless user explicitly chose local-only mode.
+      // arcShowAuthOverlay() also clears the session stamp so the overlay will
+      // correctly re-block on the next cold load.
       if (localStorage.getItem('arc_local_mode') === '1') {
-        arcHideAuthOverlay(); // ensure it stays hidden
+        arcHideAuthOverlay(); // ensure it stays hidden (sets arc_auth_ok)
       } else {
-        arcShowAuthOverlay();
+        arcShowAuthOverlay(); // clears arc_auth_ok, reveals the sign-in card
       }
     }
   });
@@ -1064,7 +1066,8 @@ function arcSignOut() {
     // Do NOT clear localStorage — it stays as a local backup.
     // On the next sign-in, Firestore data is loaded and overwrites localStorage,
     // so there is no risk of seeing another user's data.
-    // Clear local-mode flag so the auth screen shows (not local bypass) after sign-out.
+    // Clear session + local-mode flags so the auth screen shows after sign-out.
+    sessionStorage.removeItem('arc_auth_ok');
     localStorage.removeItem('arc_local_mode');
     window.location.reload();
   });
@@ -1116,10 +1119,16 @@ function arcInjectAuthOverlay() {
     </div>`;
   document.body.appendChild(el);
 
-  // Immediately cover the page to prevent the flash of content before auth resolves.
-  // We show a plain blank overlay now; arcShowAuthOverlay() reveals the card if needed.
-  // Local-only users bypass auth entirely — don't block them.
-  if (localStorage.getItem('arc_local_mode') !== '1') {
+  // Block page content immediately to prevent a flash of unauthorised content,
+  // BUT only if we haven't already confirmed auth in this browser session.
+  // sessionStorage persists across page navigations in the same tab, so once
+  // Firebase confirms sign-in we set 'arc_auth_ok' and subsequent navigations
+  // skip the blocking overlay entirely — no more flash on tab switches.
+  // Exceptions: local-only mode users bypass auth, and returning sessions skip it.
+  if (
+    localStorage.getItem('arc_local_mode') !== '1' &&
+    !sessionStorage.getItem('arc_auth_ok')
+  ) {
     el.classList.add('visible', 'arc-auth-loading');
   }
 }
@@ -1127,7 +1136,9 @@ function arcInjectAuthOverlay() {
 function arcShowAuthOverlay() {
   const el = document.getElementById('arc-auth-overlay');
   if (!el) return;
-  // Remove loading state so the auth card is visible, then ensure overlay is shown.
+  // Auth came back as signed-out. Clear any stale session confirmation,
+  // remove loading state, and reveal the sign-in card.
+  sessionStorage.removeItem('arc_auth_ok');
   el.classList.remove('arc-auth-loading');
   el.classList.add('visible');
 }
@@ -1135,6 +1146,9 @@ function arcShowAuthOverlay() {
 function arcHideAuthOverlay() {
   const el = document.getElementById('arc-auth-overlay');
   if (!el) return;
+  // Auth confirmed (signed in or local mode) — stamp the session so future
+  // page navigations in this tab don't trigger the blocking overlay again.
+  sessionStorage.setItem('arc_auth_ok', '1');
   el.classList.remove('visible', 'arc-auth-loading');
 }
 
