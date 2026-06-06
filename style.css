@@ -86,6 +86,14 @@ a { text-decoration: none; color: inherit; }
 .nav-right { display: flex; align-items: center; gap: 8px; }
 .nav-avatar-btn { background: transparent; border: none; cursor: pointer; border-radius: 50%; display: flex; padding: 0; transition: opacity .15s; }
 .nav-avatar-btn:hover { opacity: .8; }
+/* Local-mode indicator badge shown next to the avatar */
+.nav-local-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px;
+  background: rgba(245,197,66,.12); color: var(--amber);
+  border: 1px solid rgba(245,197,66,.28); white-space: nowrap; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.nav-local-badge:hover { background: rgba(245,197,66,.2); border-color: rgba(245,197,66,.5); }
 .nav-gear { width: 32px; height: 32px; border-radius: 8px; background: var(--nav-gear-bg); border: 1px solid var(--nav-gear-bdr); color: var(--nav-gear-color); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: color .15s, background .15s; }
 .nav-gear:hover { color: var(--nav-gear-hover); background: rgba(128,128,128,.12); }
 
@@ -101,6 +109,9 @@ a { text-decoration: none; color: inherit; }
 .arc-pmenu-item:hover { background:var(--s3); }
 .arc-pmenu-item .apm-icon { width:20px; text-align:center; font-size:14px; flex-shrink:0; }
 .arc-pmenu-div { height:1px; background:var(--border); margin:4px 0; }
+/* Sign-in-with-Google item in local mode — slightly highlighted */
+.arc-pmenu-signin { color: var(--accent) !important; font-weight: 600 !important; }
+.arc-pmenu-signin:hover { background: rgba(123,121,247,.1) !important; }
 
 /* Shared utility */
 .focus-link { font-size:11px; color:var(--accent); font-weight:600; cursor:pointer; }

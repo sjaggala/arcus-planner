@@ -85,6 +85,7 @@ const Arc = (() => {
   const today   = () => dateStr(new Date());
 
   const DB = {
+    _localSaveTimer: null,
     get(k)    { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
     set(k, v) {
       localStorage.setItem(k, JSON.stringify(v));
@@ -101,6 +102,16 @@ const Arc = (() => {
           .collection('store').doc(k)
           .set({ value: fv, ts: Date.now() })
           .catch(e => console.warn('Arcus: sync failed for', k, e));
+      }
+      // Auto-backup for local mode: if a folder is configured, save after 2 s of inactivity.
+      // FolderSave is declared later in this closure but only referenced at call time — safe.
+      if (localStorage.getItem('arc_local_mode') === '1') {
+        clearTimeout(DB._localSaveTimer);
+        DB._localSaveTimer = setTimeout(() => {
+          FolderSave.folderName().then(fname => {
+            if (fname) FolderSave.saveNow().catch(() => {});
+          });
+        }, 2000);
       }
     },
   };
@@ -360,8 +371,9 @@ const Arc = (() => {
       <a href="index.html" class="nav-logo">Arc<span>us</span></a>
       <div class="nav-links">${linksHtml}</div>
       <div class="nav-right">
+        ${isLocalMode ? `<span class="nav-local-badge" title="Data is on this device only. Click your profile to sign in." onclick="arcToggleProfileMenu(event)">☁ Local</span>` : ''}
         <div class="nav-profile-wrap">
-          <button class="nav-avatar-btn" onclick="arcToggleProfileMenu(event)" title="Your Profile">${ava}</button>
+          <button class="nav-avatar-btn" onclick="arcToggleProfileMenu(event)" title="${isLocalMode ? 'Local mode — click to sign in with Google' : 'Your Profile'}">${ava}</button>
           <div id="arc-pmenu" class="arc-pmenu">
             <div class="arc-pmenu-head">
               ${isLocalMode
@@ -373,6 +385,12 @@ const Arc = (() => {
               }
             </div>
             <div class="arc-pmenu-body">
+              ${isLocalMode ? `
+              <button class="arc-pmenu-item arc-pmenu-signin" onclick="arcCloseProfileMenu();arcSignInFromLocal()">
+                <span class="apm-icon">☁</span> Sign in with Google
+              </button>
+              <div class="arc-pmenu-div"></div>
+              ` : ''}
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openProfileModal()">
                 <span class="apm-icon">✎</span> Edit Profile
               </button>
@@ -387,15 +405,11 @@ const Arc = (() => {
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();openSettings()">
                 <span class="apm-icon">⚙</span> Settings
               </button>
+              ${!isLocalMode ? `
               <div class="arc-pmenu-div"></div>
-              ${isLocalMode
-                ? `<button class="arc-pmenu-item" onclick="arcCloseProfileMenu();arcSignInFromLocal()" style="color:var(--accent)">
-                     <span class="apm-icon">☁</span> Sign in with Google
-                   </button>`
-                : `<button class="arc-pmenu-item" onclick="arcCloseProfileMenu();arcSignOut()" style="color:var(--red)">
-                     <span class="apm-icon">↩</span> Sign Out
-                   </button>`
-              }
+              <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();arcSignOut()" style="color:var(--red)">
+                <span class="apm-icon">↩</span> Sign Out
+              </button>` : ''}
             </div>
           </div>
         </div>
@@ -513,7 +527,7 @@ const Arc = (() => {
         `</div>`;
     }
     const PRESET = Labels.PRESET_COLORS;
-    const presetSwatches = PRESET.map((c,i) => `<div class="cswatch${i===0?' sel':''}" style="background:${c}" onclick="arcLmPickColor(this,'${c}')"></div>`).join('');
+    const presetSwatches = PRESET.map((c,i) => `<div class="cswatch${i===0?' sel':''}" data-color="${c}" style="background:${c}" onclick="arcLmPickColor(this,'${c}')"></div>`).join('');
     showModal(`<div class="modal" style="max-width:460px">
       <div class="modal-hdr">
         <div><div class="modal-title">Manage Labels</div><div class="modal-sub">Labels are shared across tasks and goals</div></div>
@@ -521,14 +535,16 @@ const Arc = (() => {
       </div>
       <div id="lm-list">${renderLabelList()}</div>
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Create New Label</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <input class="form-inp" id="lm-new-name" placeholder="Label name…" maxlength="32" onkeydown="if(event.key==='Enter')arcLmCreate()">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div class="color-picker" id="lm-cp" style="gap:5px">${presetSwatches}</div>
-            <input type="hidden" id="lm-color" value="${PRESET[0]}">
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="arcLmCreate()">Create Label</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div id="lm-form-title" style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)">New Label</div>
+          <button id="lm-cancel-btn" class="btn btn-ghost btn-sm" style="display:none;font-size:11px;padding:2px 8px" onclick="arcLmCancelEdit()">✕ Cancel</button>
+        </div>
+        <input type="hidden" id="lm-editing-id" value="">
+        <input class="form-inp" id="lm-new-name" placeholder="Label name…" maxlength="32" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')arcLmCreate()">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="color-picker" id="lm-cp" style="gap:4px;flex:1;flex-wrap:nowrap">${presetSwatches}</div>
+          <input type="hidden" id="lm-color" value="${PRESET[0]}">
+          <button id="lm-submit-btn" class="btn btn-primary btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="arcLmCreate()">＋ Create</button>
         </div>
       </div>
       <div class="modal-foot">
@@ -814,40 +830,98 @@ function arcLmPickColor(el, c) {
   el.classList.add('sel');
   document.getElementById('lm-color').value = c;
 }
-function arcLmCreate() {
-  const name = (document.getElementById('lm-new-name')?.value || '').trim();
-  const color = document.getElementById('lm-color')?.value || '#7b79f7';
-  if (!name) { document.getElementById('lm-new-name').style.borderColor = 'var(--red)'; document.getElementById('lm-new-name').focus(); return; }
-  Arc.Labels.add({ id: Arc.uid(), name, color });
-  // Re-render list
+
+// Shared list re-render (called after any create/edit/delete)
+function arcLmRenderList() {
   const listEl = document.getElementById('lm-list');
-  if (listEl) {
-    const ls = Arc.Labels.getAll();
-    if (!ls.length) { listEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--dim);font-size:13px">No labels yet.</div>`; }
-    else {
-      listEl.innerHTML = `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:240px;overflow-y:auto">` +
-        ls.map(l => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)" data-lid="${l.id}">
-          <div style="width:12px;height:12px;border-radius:50%;background:${l.color};flex-shrink:0"></div>
-          <span style="flex:1;font-size:13px;font-weight:500">${Arc.esc(l.name)}</span>
-          <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="arcLabelEdit('${l.id}')">Edit</button>
-          <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px;color:var(--red)" onclick="arcLabelDel('${l.id}')">✕</button>
-        </div>`).join('') +
-        `</div>`;
-    }
+  if (!listEl) return;
+  const ls = Arc.Labels.getAll();
+  if (!ls.length) {
+    listEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--dim);font-size:13px">No labels yet — create your first one below.</div>`;
+  } else {
+    listEl.innerHTML = `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;max-height:240px;overflow-y:auto">` +
+      ls.map(l => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)" class="lm-row" data-lid="${l.id}">
+        <div style="width:12px;height:12px;border-radius:50%;background:${l.color};flex-shrink:0"></div>
+        <span style="flex:1;font-size:13px;font-weight:500">${Arc.esc(l.name)}</span>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px" onclick="arcLabelEdit('${l.id}')">Edit</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px;color:var(--red)" onclick="arcLabelDel('${l.id}')">✕</button>
+      </div>`).join('') +
+      `</div>`;
   }
-  document.getElementById('lm-new-name').value = '';
 }
+
+// Reset form back to "create" mode
+function arcLmCancelEdit() {
+  const nameEl  = document.getElementById('lm-new-name');
+  const idEl    = document.getElementById('lm-editing-id');
+  const titleEl = document.getElementById('lm-form-title');
+  const cancelEl= document.getElementById('lm-cancel-btn');
+  const submitEl= document.getElementById('lm-submit-btn');
+  const colorEl = document.getElementById('lm-color');
+  if (nameEl)  { nameEl.value = ''; nameEl.style.borderColor = ''; }
+  if (idEl)    idEl.value = '';
+  if (titleEl) titleEl.textContent = 'New Label';
+  if (cancelEl) cancelEl.style.display = 'none';
+  if (submitEl) submitEl.textContent = '＋ Create';
+  // Reset colour picker to first preset
+  const cp = document.getElementById('lm-cp');
+  if (cp) {
+    const swatches = cp.querySelectorAll('.cswatch');
+    swatches.forEach((s, i) => s.classList.toggle('sel', i === 0));
+    if (colorEl && swatches[0]) colorEl.value = swatches[0].dataset.color || '#7b79f7';
+  }
+}
+
+function arcLmCreate() {
+  const name    = (document.getElementById('lm-new-name')?.value || '').trim();
+  const color   = document.getElementById('lm-color')?.value || '#7b79f7';
+  const editing = document.getElementById('lm-editing-id')?.value || '';
+  const nameEl  = document.getElementById('lm-new-name');
+  if (!name) { if (nameEl) { nameEl.style.borderColor = 'var(--red)'; nameEl.focus(); } return; }
+
+  if (editing) {
+    // Update existing label
+    const l = Arc.Labels.getById(editing);
+    if (l) Arc.Labels.update({ ...l, name, color });
+  } else {
+    // Create new label
+    Arc.Labels.add({ id: Arc.uid(), name, color });
+  }
+  arcLmRenderList();
+  arcLmCancelEdit();
+}
+
 function arcLabelEdit(id) {
   const l = Arc.Labels.getById(id);
   if (!l) return;
-  const newName = prompt('Rename label:', l.name);
-  if (newName === null) return;
-  Arc.Labels.update({ ...l, name: newName.trim() || l.name });
-  arcLmCreate.__refresh && arcLmCreate.__refresh();
-  // Refresh the list in place
-  const row = document.querySelector(`[data-lid="${id}"] span`);
-  if (row) row.textContent = newName.trim() || l.name;
+  // Populate the form fields
+  const nameEl   = document.getElementById('lm-new-name');
+  const idEl     = document.getElementById('lm-editing-id');
+  const colorEl  = document.getElementById('lm-color');
+  const titleEl  = document.getElementById('lm-form-title');
+  const cancelEl = document.getElementById('lm-cancel-btn');
+  const submitEl = document.getElementById('lm-submit-btn');
+  if (!nameEl) return;
+  nameEl.value = l.name;
+  nameEl.style.borderColor = '';
+  if (idEl)     idEl.value = id;
+  if (colorEl)  colorEl.value = l.color;
+  if (titleEl)  titleEl.textContent = 'Edit Label';
+  if (cancelEl) cancelEl.style.display = '';
+  if (submitEl) submitEl.textContent = '✓ Save';
+  // Highlight matching colour swatch (match by data-color attribute)
+  const cp = document.getElementById('lm-cp');
+  if (cp) {
+    cp.querySelectorAll('.cswatch').forEach(s => {
+      s.classList.toggle('sel', s.dataset.color === l.color);
+    });
+  }
+  nameEl.focus();
+  nameEl.select();
+  // Scroll the form into view
+  nameEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
 function arcLabelDel(id) {
   const l = Arc.Labels.getById(id);
   if (!l || !confirm(`Delete label "${l.name}"? It will be removed from all tasks and goals.`)) return;
@@ -857,9 +931,11 @@ function arcLabelDel(id) {
   Arc.Tasks.save(tasks);
   const goals = Arc.Goals.getAll().map(g => ({ ...g, labelIds: (g.labelIds || []).filter(x => x !== id) }));
   Arc.Goals.save(goals);
-  const row = document.querySelector(`[data-lid="${id}"]`);
-  if (row) row.remove();
+  arcLmRenderList();
+  // If we were editing this label, cancel the edit
+  if (document.getElementById('lm-editing-id')?.value === id) arcLmCancelEdit();
 }
+
 function arcLmClose() {
   closeModal();
   if (typeof window._arcLmOnClose === 'function') { const cb = window._arcLmOnClose; window._arcLmOnClose = null; cb(); }
