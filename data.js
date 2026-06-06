@@ -90,10 +90,16 @@ const Arc = (() => {
       localStorage.setItem(k, JSON.stringify(v));
       // Background sync to Firestore (fire-and-forget — localStorage is the fast cache)
       if (window._arcDb && window._arcUser) {
+        let fv = v;
+        // Strip base64 avatar before Firestore — it can exceed the 1 MB document limit
+        // and silently kill the write. The avatar lives only in localStorage.
+        if (k === 'arc_profile' && fv && typeof fv === 'object' && fv.avatar && fv.avatar.startsWith('data:')) {
+          fv = { ...fv, avatar: null };
+        }
         window._arcDb
           .collection('users').doc(window._arcUser.uid)
           .collection('store').doc(k)
-          .set({ value: v, ts: Date.now() })
+          .set({ value: fv, ts: Date.now() })
           .catch(e => console.warn('Arcus: sync failed for', k, e));
       }
     },
@@ -870,10 +876,6 @@ function arcFirebaseInit() {
   firebase.initializeApp(ARC_FIREBASE_CONFIG);
   window._arcDb = firebase.firestore();
 
-  // Enable offline persistence so app works without internet
-  firebase.firestore().enablePersistence({ synchronizeTabs: true })
-    .catch(e => console.warn('Arcus: Firestore persistence unavailable:', e.code));
-
   // Inject auth overlay into DOM
   arcInjectAuthOverlay();
 
@@ -882,8 +884,8 @@ function arcFirebaseInit() {
     window._arcUser = user;
     if (user) {
       arcShowSyncBanner(true);
-      await arcLoadUserData(user.uid);
-      arcShowSyncBanner(false);
+      const hadError = await arcLoadUserData(user.uid);
+      if (!hadError) arcShowSyncBanner(false);
       arcHideAuthOverlay();
       // Re-render the page with fresh cloud data
       const navEl = document.getElementById('nav-container');
@@ -899,6 +901,7 @@ function arcFirebaseInit() {
   });
 }
 
+// Returns true if there was an error (so the caller can leave the banner visible), false on success.
 async function arcLoadUserData(uid) {
   try {
     const snap = await window._arcDb
@@ -907,30 +910,50 @@ async function arcLoadUserData(uid) {
     if (!snap.empty) {
       // Pull all Firestore data into localStorage
       snap.forEach(doc => {
-        localStorage.setItem(doc.id, JSON.stringify(doc.data().value));
+        const val = doc.data().value;
+        if (val !== undefined) localStorage.setItem(doc.id, JSON.stringify(val));
       });
+      console.info(`Arcus: loaded ${snap.size} records from Firestore ✓`);
     } else {
       // First time this account uses cloud — migrate local data up
       const hasLocal = ARC_STORE_KEYS.some(k => localStorage.getItem(k));
-      if (hasLocal) await arcUploadLocalData(uid);
+      if (hasLocal) {
+        arcShowSyncBanner(true, '☁ Backing up your data to the cloud…');
+        await arcUploadLocalData(uid);
+        console.info('Arcus: initial upload complete ✓');
+      }
     }
+    return false; // no error
   } catch (e) {
-    console.warn('Arcus: Firestore load failed, using local data.', e);
+    console.error('Arcus: Firestore load failed:', e);
+    arcShowSyncBanner(true, '⚠ Could not sync — your local data is safe');
+    setTimeout(() => arcShowSyncBanner(false), 5000);
+    return true; // had error
   }
 }
 
 async function arcUploadLocalData(uid) {
-  // Batch-write all localStorage keys to Firestore
-  const batch = window._arcDb.batch();
-  ARC_STORE_KEYS.forEach(key => {
-    const raw = localStorage.getItem(key);
-    if (!raw) return;
-    try {
-      const ref = window._arcDb.collection('users').doc(uid).collection('store').doc(key);
-      batch.set(ref, { value: JSON.parse(raw), ts: Date.now() });
-    } catch {}
-  });
-  await batch.commit().catch(e => console.warn('Arcus: migration upload failed:', e));
+  // Write each key individually so one failure (e.g. a 1 MB avatar) doesn't
+  // silently block all other keys from reaching Firestore.
+  const results = await Promise.allSettled(
+    ARC_STORE_KEYS.map(async key => {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      let value;
+      try { value = JSON.parse(raw); } catch { return; }
+      // Strip base64 avatar — exceeds Firestore's 1 MB document limit
+      if (key === 'arc_profile' && value && value.avatar && value.avatar.startsWith('data:')) {
+        value = { ...value, avatar: null };
+      }
+      await window._arcDb
+        .collection('users').doc(uid).collection('store').doc(key)
+        .set({ value, ts: Date.now() });
+    })
+  );
+  const failed = results.filter(r => r.status === 'rejected');
+  if (failed.length) {
+    console.warn(`Arcus: ${failed.length} key(s) failed to upload`, failed.map(r => r.reason));
+  }
 }
 
 function arcSignInGoogle() {
@@ -945,9 +968,11 @@ function arcSignInGoogle() {
 
 function arcSignOut() {
   if (!window.firebase) return;
-  if (!confirm('Sign out of Arcus? Your data is safely stored in the cloud.')) return;
+  if (!confirm('Sign out of Arcus? Your data will remain safe in the cloud.')) return;
   firebase.auth().signOut().then(() => {
-    localStorage.clear();
+    // Do NOT clear localStorage — it stays as a local backup.
+    // On the next sign-in, Firestore data is loaded and overwrites localStorage,
+    // so there is no risk of seeing another user's data.
     window.location.reload();
   });
 }
@@ -986,15 +1011,18 @@ function arcHideAuthOverlay() {
 }
 
 // ── Sync banner (brief "Syncing…" indicator on new device) ────────────
-function arcShowSyncBanner(show) {
+function arcShowSyncBanner(show, msg) {
   let el = document.getElementById('arc-sync-banner');
   if (!el && show) {
     el = document.createElement('div');
     el.id = 'arc-sync-banner';
-    el.textContent = '☁ Syncing your data…';
     document.body.appendChild(el);
   }
-  if (el) el.classList.toggle('visible', show);
+  if (el) {
+    if (msg) el.textContent = msg;
+    else if (show) el.textContent = '☁ Syncing your data…';
+    el.classList.toggle('visible', show);
+  }
 }
 
 // Auto-initialize when DOM is ready (Firebase SDK must be loaded before data.js)
