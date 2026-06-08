@@ -67,7 +67,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .bucket-col.new-col { background:transparent; border:2px dashed var(--border2) !important; border-radius:12px; margin-left:16px; cursor:pointer; align-items:center; justify-content:center; color:var(--muted); font-size:13px;font-weight:500;gap:6px; transition:border-color .2s,color .2s; overflow:hidden; }
 .bucket-col.new-col:hover { border-color:var(--accent) !important;color:var(--accent); }
 .bucket-header { padding:10px 14px 12px; display:flex; align-items:center; gap:9px; border-bottom:1px solid var(--border); flex-shrink:0; }
-.bucket-color-bar { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.bucket-color-bar { width:3px; height:16px; border-radius:2px; flex-shrink:0; }
 .bucket-name { font-size:13px;font-weight:700;flex:1;letter-spacing:.1px; }
 .bucket-count { font-size:11px;color:var(--muted);background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:1px 8px; }
 .bucket-menu { position:relative; }
@@ -82,7 +82,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 /* ── Cards area ── */
 .bucket-cards { flex:1; overflow-y:auto; padding:4px 14px 12px; display:flex; flex-direction:column; gap:8px; }
 .bucket-cards.drag-over { background:rgba(123,121,247,.06); outline:2px dashed var(--accent); outline-offset:-4px; border-radius:8px; }
-.add-task-btn { padding:8px 14px; margin:8px 14px 4px; border-radius:8px; background:transparent; border:1px dashed var(--border2); color:var(--muted); font-size:12px;font-weight:500; cursor:pointer; transition:border-color .2s,color .2s; flex-shrink:0; }
+.add-task-btn { padding:8px 14px; margin:8px 14px 4px; border-radius:8px; background:var(--s1); border:1px dashed var(--border2); color:var(--muted); font-size:12px;font-weight:500; cursor:pointer; transition:border-color .2s,color .2s,background .2s; flex-shrink:0; }
 .add-task-btn:hover { border-color:var(--accent);color:var(--accent); }
 
 /* ── Task Cards ── */
