@@ -141,8 +141,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 /* ── Bucket modal color pick ── */
 .bucket-colors { display:flex;gap:7px;flex-wrap:wrap; }
-.bucket-add-btn { width:24px;height:24px;border-radius:6px;background:transparent;border:1px solid var(--border2);color:var(--muted);cursor:pointer;font-size:17px;font-weight:300;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;line-height:1;padding:0; }
-.bucket-add-btn:hover { background:var(--accent);border-color:var(--accent);color:#fff; }
+.bucket-add-btn { width:24px;height:24px;border-radius:6px;background:#fff;border:1px solid var(--border2);color:var(--muted);cursor:pointer;font-size:17px;font-weight:300;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.bucket-add-btn:hover { background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none; }
 
 /* ── Split modal ── */
 .modal.modal-split { max-width:1020px; padding:0; overflow:hidden; display:flex; flex-direction:column; }
@@ -457,9 +457,9 @@ function renderBoard() {
 
     col.innerHTML = `
       <div class="bucket-header">
-        <div class="bucket-color-bar" style="background:${bucket.color||'var(--accent)'}"></div>
         <div class="bucket-name">${Arc.esc(bucket.name)}</div>
         <div class="bucket-count">${total}</div>
+        ${filterMode !== 'goals' ? `<button class="bucket-add-btn" onclick="newTaskModal('${bucket.id}')" title="Add task">+</button>` : ''}
         <div class="bucket-menu" id="bm-${bucket.id}">
           <button class="bucket-menu-btn" onclick="toggleBucketMenu('${bucket.id}',event)">⋯</button>
           <div class="bucket-dropdown hidden">
@@ -470,7 +470,6 @@ function renderBoard() {
           </div>
         </div>
       </div>
-      ${filterMode !== 'goals' ? `<button class="add-task-btn" onclick="newTaskModal('${bucket.id}')">＋ Add Task</button>` : ''}
       <div class="bucket-cards" id="bc-${bucket.id}"
            ondragover="onDragOver(event)" ondragenter="onDragEnter(event)"
            ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${bucket.id}')">
