@@ -90,7 +90,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .task-card:hover { border-color: var(--border2); box-shadow: 0 4px 16px rgba(0,0,0,.14); transform: translateY(-2px); }
 
 /* ── Kanban light-theme ── */
-[data-theme="light"] .bucket-col { background: #eceef8; border-color: #d8dbed; }
+[data-theme="light"] body { background: #ffffff; }
+[data-theme="light"] .bucket-col { background: #f0f1f8; border-color: #dcdff0; }
 [data-theme="light"] .task-card { background: #ffffff; border-color: #dde0ef; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
 [data-theme="light"] .task-card:hover { border-color: var(--border2); box-shadow: 0 4px 16px rgba(0,0,0,.1); }
 
@@ -454,15 +455,6 @@ function renderBoard() {
         <div class="bucket-name">${Arc.esc(bucket.name)}</div>
         <div class="bucket-count">${total}</div>
         ${filterMode !== 'goals' ? `<button class="bucket-add-btn" onclick="newTaskModal('${bucket.id}')" title="Add task">+</button>` : ''}
-        <div class="bucket-menu" id="bm-${bucket.id}">
-          <button class="bucket-menu-btn" onclick="toggleBucketMenu('${bucket.id}',event)">⋯</button>
-          <div class="bucket-dropdown hidden">
-            <div class="dd-item" onclick="editBucketModal('${bucket.id}')">✎ Rename</div>
-            ${!bucket.isDefault ? `<div class="dd-item" onclick="editBucketModal('${bucket.id}',true)">🎨 Color</div>` : ''}
-            ${!bucket.isDefault ? `<div class="dd-item danger" onclick="confirmDelBucket('${bucket.id}')">🗑 Delete</div>` : ''}
-            ${isDone && total > 0 ? `<div class="dd-item" onclick="clearDoneGoals()">✓ Clear done</div>` : ''}
-          </div>
-        </div>
       </div>
       <div class="bucket-cards" id="bc-${bucket.id}"
            ondragover="onDragOver(event)" ondragenter="onDragEnter(event)"
