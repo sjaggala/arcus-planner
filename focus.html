@@ -231,7 +231,7 @@ function buildNote(pin, task) {
   // Label pills
   const labelPills = (task.labels||[]).map(lid => {
     const l = Arc.Labels.getById(lid); if (!l) return '';
-    return `<span class="sticky-label-pill" style="background:${l.color}33;color:${l.color}">${Arc.esc(l.name)}</span>`;
+    return `<span class="sticky-label-pill" style="background:${l.color};color:#fff">${Arc.esc(l.name)}</span>`;
   }).join('');
 
   // Style panel swatches

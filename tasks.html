@@ -508,7 +508,7 @@ function renderTaskCard(task, bucketId) {
   // Label pills
   const labelPills = (task.labels||[]).map(lid => {
     const l = Arc.Labels.getById(lid); if (!l) return '';
-    return `<span class="tc-label-pill" style="background:${l.color}22;color:${l.color};border:1px solid ${l.color}44">${Arc.esc(l.name)}</span>`;
+    return `<span class="tc-label-pill" style="background:${l.color};color:#fff">${Arc.esc(l.name)}</span>`;
   }).join('');
 
   return `<div class="task-card ${isDone?'done-card':''}"

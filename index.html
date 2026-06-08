@@ -223,8 +223,9 @@ function renderStats() {
 }
 
 function renderGoalsToday() {
-  const todayGoals = Arc.Goals.activeToday();
-  const overdueGoals = Arc.Goals.overdue().filter(g => !Arc.Goals.activeToday().find(x=>x.id===g.id));
+  const INACTIVE = ['cancelled', 'completed'];
+  const todayGoals = Arc.Goals.activeToday().filter(g => !INACTIVE.includes(g.status));
+  const overdueGoals = Arc.Goals.overdue().filter(g => !INACTIVE.includes(g.status) && !todayGoals.find(x=>x.id===g.id));
   const all = [...todayGoals, ...overdueGoals].slice(0, 8);
   const el = document.getElementById('goals-today');
   if (all.length === 0) {
