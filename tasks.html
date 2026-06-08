@@ -91,6 +91,20 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   transition: box-shadow .2s, transform .15s, border-color .2s;
 }
 .task-card:hover { border-color: var(--border2); box-shadow: 0 6px 22px rgba(0,0,0,.18); transform: translateY(-2px); }
+
+/* ── Kanban light-theme: white cards, tinted columns ── */
+[data-theme="light"] .bucket-col { background: #dde3f5; border-color: #c8cee6; }
+[data-theme="light"] .bucket-header { border-bottom-color: #c8cee6; }
+[data-theme="light"] .task-card { background: #ffffff; border-color: #d4d8ee; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+[data-theme="light"] .task-card:hover { border-color: var(--border2); box-shadow: 0 6px 22px rgba(0,0,0,.12); }
+[data-theme="light"] .add-task-btn { border-color: #bcc4df; }
+[data-theme="light"] .add-task-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Kanban dark-theme: deeper columns so cards lift ── */
+[data-theme="dark"] .bucket-col { background: #0e1224; border-color: #252c47; }
+[data-theme="dark"] .bucket-header { border-bottom-color: #252c47; }
+[data-theme="dark"] .task-card { background: #1a1f38; border-color: #2c3354; }
+[data-theme="dark"] .task-card:hover { box-shadow: 0 6px 22px rgba(0,0,0,.32); }
 .task-card.dragging { opacity:.35; transform:scale(.97); box-shadow:none; }
 .task-card.done-card { opacity:.45; }
 .task-card-title { font-size:13px; font-weight:600; margin-bottom:9px; line-height:1.45; padding-right:54px; color:var(--text); }
