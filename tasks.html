@@ -61,15 +61,13 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 /* ── Kanban ── */
 .kanban-wrap { flex:1; overflow-x:auto; overflow-y:hidden; padding:16px 18px; }
-.kanban-board { display:flex; gap:0; height:100%; min-width:max-content; }
-.bucket-col { width:290px; flex-shrink:0; display:flex; flex-direction:column; background:transparent; border:none; border-right:1px solid var(--border); overflow:visible; }
-.bucket-col:last-child { border-right:none; }
-.bucket-col.new-col { background:transparent; border:2px dashed var(--border2) !important; border-radius:12px; margin-left:16px; cursor:pointer; align-items:center; justify-content:center; color:var(--muted); font-size:13px;font-weight:500;gap:6px; transition:border-color .2s,color .2s; overflow:hidden; }
-.bucket-col.new-col:hover { border-color:var(--accent) !important;color:var(--accent); }
-.bucket-header { padding:10px 14px 12px; display:flex; align-items:center; gap:9px; border-bottom:1px solid var(--border); flex-shrink:0; }
-.bucket-color-bar { width:3px; height:16px; border-radius:2px; flex-shrink:0; }
-.bucket-name { font-size:13px;font-weight:700;flex:1;letter-spacing:.1px; }
-.bucket-count { font-size:11px;color:var(--muted);background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:1px 8px; }
+.kanban-board { display:flex; gap:12px; height:100%; min-width:max-content; }
+.bucket-col { width:290px; flex-shrink:0; display:flex; flex-direction:column; background:var(--s2); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.bucket-col.new-col { background:transparent; border:2px dashed var(--border2); cursor:pointer; align-items:center; justify-content:center; color:var(--muted); font-size:13px;font-weight:500;gap:6px; transition:border-color .2s,color .2s; }
+.bucket-col.new-col:hover { border-color:var(--accent);color:var(--accent); }
+.bucket-header { padding:12px 14px 10px; display:flex; align-items:center; gap:8px; border-bottom:none; flex-shrink:0; }
+.bucket-name { font-size:11px;font-weight:700;flex:1;letter-spacing:.6px;text-transform:uppercase;color:var(--muted); }
+.bucket-count { font-size:12px;font-weight:600;color:var(--muted); }
 .bucket-menu { position:relative; }
 .bucket-menu-btn { width:24px;height:24px;border-radius:6px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s; }
 .bucket-menu-btn:hover { background:var(--s3);color:var(--text); }
@@ -80,30 +78,26 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .dd-item.danger { color:var(--red); }
 
 /* ── Cards area ── */
-.bucket-cards { flex:1; overflow-y:auto; padding:4px 14px 12px; display:flex; flex-direction:column; gap:8px; }
+.bucket-cards { flex:1; overflow-y:auto; padding:4px 10px 10px; display:flex; flex-direction:column; gap:8px; }
 .bucket-cards.drag-over { background:rgba(123,121,247,.06); outline:2px dashed var(--accent); outline-offset:-4px; border-radius:8px; }
-.add-task-btn { padding:8px 14px; margin:8px 14px 4px; border-radius:8px; background:var(--s1); border:1px dashed var(--border2); color:var(--muted); font-size:12px;font-weight:500; cursor:pointer; transition:border-color .2s,color .2s,background .2s; flex-shrink:0; }
-.add-task-btn:hover { border-color:var(--accent);color:var(--accent); }
 
 /* ── Task Cards ── */
 .task-card {
-  background: var(--s2); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
   padding: 13px 14px 12px; cursor: pointer; position: relative;
   transition: box-shadow .2s, transform .15s, border-color .2s;
 }
-.task-card:hover { border-color: var(--border2); box-shadow: 0 6px 22px rgba(0,0,0,.18); transform: translateY(-2px); }
+.task-card:hover { border-color: var(--border2); box-shadow: 0 4px 16px rgba(0,0,0,.14); transform: translateY(-2px); }
 
-/* ── Kanban light-theme: white cards ── */
-[data-theme="light"] .bucket-col { border-right-color: #d0d5ec; }
-[data-theme="light"] .bucket-header { border-bottom-color: #d0d5ec; }
-[data-theme="light"] .task-card { background: #ffffff; border-color: #d4d8ee; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-[data-theme="light"] .task-card:hover { border-color: var(--border2); box-shadow: 0 6px 22px rgba(0,0,0,.12); }
-[data-theme="light"] .add-task-btn { border-color: #bcc4df; }
-[data-theme="light"] .add-task-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* ── Kanban light-theme ── */
+[data-theme="light"] .bucket-col { background: #eceef8; border-color: #d8dbed; }
+[data-theme="light"] .task-card { background: #ffffff; border-color: #dde0ef; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+[data-theme="light"] .task-card:hover { border-color: var(--border2); box-shadow: 0 4px 16px rgba(0,0,0,.1); }
 
-/* ── Kanban dark-theme: cards elevated above page bg ── */
+/* ── Kanban dark-theme ── */
+[data-theme="dark"] .bucket-col { background: #141828; border-color: #232b45; }
 [data-theme="dark"] .task-card { background: #1a1f38; border-color: #2c3354; }
-[data-theme="dark"] .task-card:hover { box-shadow: 0 6px 22px rgba(0,0,0,.32); }
+[data-theme="dark"] .task-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.32); }
 .task-card.dragging { opacity:.35; transform:scale(.97); box-shadow:none; }
 .task-card.done-card { opacity:.45; }
 .task-card-title { font-size:13px; font-weight:600; margin-bottom:9px; line-height:1.45; padding-right:54px; color:var(--text); }
@@ -141,8 +135,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 /* ── Bucket modal color pick ── */
 .bucket-colors { display:flex;gap:7px;flex-wrap:wrap; }
-.bucket-add-btn { width:24px;height:24px;border-radius:6px;background:#fff;border:1px solid var(--border2);color:var(--muted);cursor:pointer;font-size:17px;font-weight:300;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;line-height:1;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.08); }
-.bucket-add-btn:hover { background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:none; }
+.bucket-add-btn { width:24px;height:24px;border-radius:6px;background:rgba(255,255,255,.8);border:1px solid var(--border2);color:var(--muted);cursor:pointer;font-size:17px;font-weight:300;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;line-height:1;padding:0; }
+.bucket-add-btn:hover { background:var(--accent);border-color:var(--accent);color:#fff; }
 
 /* ── Split modal ── */
 .modal.modal-split { max-width:1020px; padding:0; overflow:hidden; display:flex; flex-direction:column; }
