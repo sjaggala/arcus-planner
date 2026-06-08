@@ -93,16 +93,16 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .task-card:hover { border-color: var(--border2); box-shadow: 0 6px 22px rgba(0,0,0,.18); transform: translateY(-2px); }
 
 /* ── Kanban light-theme: white cards, tinted columns ── */
-[data-theme="light"] .bucket-col { background: #dde3f5; border-color: #c8cee6; }
-[data-theme="light"] .bucket-header { border-bottom-color: #c8cee6; }
+[data-theme="light"] .bucket-col { background: #eaecf8; border-color: #d0d5ec; }
+[data-theme="light"] .bucket-header { border-bottom-color: #d0d5ec; }
 [data-theme="light"] .task-card { background: #ffffff; border-color: #d4d8ee; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 [data-theme="light"] .task-card:hover { border-color: var(--border2); box-shadow: 0 6px 22px rgba(0,0,0,.12); }
 [data-theme="light"] .add-task-btn { border-color: #bcc4df; }
 [data-theme="light"] .add-task-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── Kanban dark-theme: deeper columns so cards lift ── */
-[data-theme="dark"] .bucket-col { background: #0e1224; border-color: #252c47; }
-[data-theme="dark"] .bucket-header { border-bottom-color: #252c47; }
+[data-theme="dark"] .bucket-col { background: #141828; border-color: #232b45; }
+[data-theme="dark"] .bucket-header { border-bottom-color: #232b45; }
 [data-theme="dark"] .task-card { background: #1a1f38; border-color: #2c3354; }
 [data-theme="dark"] .task-card:hover { box-shadow: 0 6px 22px rgba(0,0,0,.32); }
 .task-card.dragging { opacity:.35; transform:scale(.97); box-shadow:none; }
@@ -121,6 +121,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .card-action-btn { width:23px; height:23px; border-radius:6px; background:var(--s3); border:1px solid var(--border); color:var(--muted); display:flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; transition:color .15s,background .15s; }
 .card-action-btn:hover { color:var(--text); background:var(--s2); }
 .card-action-btn.pinned { color:#f5c542; border-color:#f5c542; background:rgba(245,197,66,.1); }
+.tc-pin-dot { position:absolute; top:10px; right:10px; font-size:12px; line-height:1; opacity:.75; pointer-events:none; transition:opacity .15s; }
+.task-card:hover .tc-pin-dot { opacity:0; }
 
 /* ── Goal Cards ── */
 .goal-card {
@@ -528,6 +530,7 @@ function renderTaskCard(task, bucketId) {
   return `<div class="task-card ${isDone?'done-card':''}"
     draggable="true" ondragstart="onDragStart(event,'${task.id}')" ondragend="onDragEnd(event)"
     onclick="editTaskModal('${task.id}')">
+    ${isPinned ? `<div class="tc-pin-dot" title="Pinned to Focus">📌</div>` : ''}
     <div class="task-card-actions" onclick="event.stopPropagation()">
       <div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">📌</div>
       <div class="card-action-btn" onclick="editTaskModal('${task.id}')" title="Edit">✎</div>
