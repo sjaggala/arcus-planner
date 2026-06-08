@@ -2,45 +2,45 @@
 
 /* ===== DARK THEME (default) ===== */
 :root, [data-theme="dark"] {
-  --bg:        #0b0e18;
-  --s1:        #13172a;
-  --s2:        #1a1f36;
-  --s3:        #222844;
-  --border:    #2c3354;
-  --border2:   #3a4468;
-  --text:      #dde1f5;
-  --muted:     #6a74a0;
-  --dim:       #3d4568;
+  --bg:        #111113;
+  --s1:        #1a1a1d;
+  --s2:        #222225;
+  --s3:        #2e2e31;
+  --border:    #3c3c3f;
+  --border2:   #505055;
+  --text:      #e4e4e6;
+  --muted:     #7c7c85;
+  --dim:       #46464a;
   --accent:    #7b79f7;
   --accent2:   #a5a3ff;
   --green:     #3ec97a;
   --amber:     #f5c542;
   --red:       #f06f6f;
-  --modal-bg:  #1a1f36;
-  --nav-bg:         #0d1121;
-  --nav-bdr:        #1e243d;
-  --nav-logo-color: #dde1f5;
+  --modal-bg:  #1a1a1d;
+  --nav-bg:         #0d0d0f;
+  --nav-bdr:        #252527;
+  --nav-logo-color: #e4e4e6;
   --nav-logo-accent:#7b79f7;
-  --nav-link:       rgba(221,225,245,.45);
-  --nav-link-hover: rgba(221,225,245,.8);
+  --nav-link:       rgba(228,228,230,.45);
+  --nav-link-hover: rgba(228,228,230,.8);
   --nav-link-active-bg: rgba(123,121,247,.22);
   --nav-gear-bg:    rgba(255,255,255,.05);
   --nav-gear-bdr:   rgba(255,255,255,.08);
-  --nav-gear-color: rgba(221,225,245,.45);
-  --nav-gear-hover: rgba(221,225,245,.85);
+  --nav-gear-color: rgba(228,228,230,.45);
+  --nav-gear-hover: rgba(228,228,230,.85);
 }
 
 /* ===== LIGHT THEME ===== */
 [data-theme="light"] {
-  --bg:        #f4f5fb;
+  --bg:        #f4f4f5;
   --s1:        #ffffff;
-  --s2:        #f3f4fc;
-  --s3:        #e8eaf5;
-  --border:    #ced2ea;
-  --border2:   #b4b9d8;
-  --text:      #1a1f3a;
-  --muted:     #5e6890;
-  --dim:       #9ba3c8;
+  --s2:        #f4f4f5;
+  --s3:        #e8e8ea;
+  --border:    #d4d4d8;
+  --border2:   #b8b8be;
+  --text:      #18181b;
+  --muted:     #71717a;
+  --dim:       #a1a1aa;
   --accent:    #5452d6;
   --accent2:   #3d3bb8;
   --green:     #16a34a;
@@ -48,16 +48,16 @@
   --red:       #dc2626;
   --modal-bg:  #ffffff;
   --nav-bg:         #ffffff;
-  --nav-bdr:        #ced2ea;
-  --nav-logo-color: #1a1f3a;
+  --nav-bdr:        #d4d4d8;
+  --nav-logo-color: #18181b;
   --nav-logo-accent:#5452d6;
-  --nav-link:       rgba(26,31,58,.45);
-  --nav-link-hover: rgba(26,31,58,.85);
+  --nav-link:       rgba(24,24,27,.45);
+  --nav-link-hover: rgba(24,24,27,.85);
   --nav-link-active-bg: rgba(84,82,214,.1);
   --nav-gear-bg:    rgba(0,0,0,.04);
   --nav-gear-bdr:   rgba(0,0,0,.08);
-  --nav-gear-color: rgba(26,31,58,.45);
-  --nav-gear-hover: rgba(26,31,58,.85);
+  --nav-gear-color: rgba(24,24,27,.45);
+  --nav-gear-hover: rgba(24,24,27,.85);
 }
 
 /* ===== RESET ===== */

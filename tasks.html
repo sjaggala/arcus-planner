@@ -91,13 +91,13 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 /* ── Kanban light-theme ── */
 [data-theme="light"] body { background: #ffffff; }
-[data-theme="light"] .bucket-col { background: #f0f1f8; border-color: #dcdff0; }
-[data-theme="light"] .task-card { background: #ffffff; border-color: #dde0ef; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+[data-theme="light"] .bucket-col { background: #ebebec; border-color: #d8d8da; }
+[data-theme="light"] .task-card { background: #ffffff; border-color: #e0e0e2; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
 [data-theme="light"] .task-card:hover { border-color: var(--border2); box-shadow: 0 4px 16px rgba(0,0,0,.1); }
 
 /* ── Kanban dark-theme ── */
-[data-theme="dark"] .bucket-col { background: #141828; border-color: #232b45; }
-[data-theme="dark"] .task-card { background: #1a1f38; border-color: #2c3354; }
+[data-theme="dark"] .bucket-col { background: #1e1e21; border-color: #2e2e31; }
+[data-theme="dark"] .task-card { background: #222225; border-color: #363639; }
 [data-theme="dark"] .task-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.32); }
 .task-card.dragging { opacity:.35; transform:scale(.97); box-shadow:none; }
 .task-card.done-card { opacity:.45; }
@@ -551,7 +551,7 @@ function toggleBucketMenu(bucketId, e) {
 function editBucketModal(id, colorOnly = false) {
   closeAllDropdowns();
   const bucket = Arc.Buckets.getAll().find(b => b.id === id); if (!bucket) return;
-  const colorOpts = ['#6a74a0','#7b79f7','#60a5fa','#f5c542','#3ec97a','#f06f6f','#fb923c','#f472b6','#2dd4bf','#a78bfa'].map(c =>
+  const colorOpts = ['#71717a','#7b79f7','#60a5fa','#f5c542','#3ec97a','#f06f6f','#fb923c','#f472b6','#2dd4bf','#a78bfa'].map(c =>
     `<div class="cswatch ${c===bucket.color?'sel':''}" style="background:${c}" onclick="pickBC(this,'${c}')"></div>`
   ).join('');
   showModal(`<div class="modal narrow">
@@ -574,13 +574,13 @@ function saveBucket(id) {
 }
 
 function newBucketModal() {
-  const colorOpts = ['#6a74a0','#7b79f7','#60a5fa','#f5c542','#3ec97a','#f06f6f','#fb923c','#f472b6','#2dd4bf','#a78bfa'].map((c,i) =>
+  const colorOpts = ['#71717a','#7b79f7','#60a5fa','#f5c542','#3ec97a','#f06f6f','#fb923c','#f472b6','#2dd4bf','#a78bfa'].map((c,i) =>
     `<div class="cswatch ${i===0?'sel':''}" style="background:${c}" onclick="pickBC(this,'${c}')"></div>`
   ).join('');
   showModal(`<div class="modal narrow">
     <div class="modal-hdr"><div><div class="modal-title">New Column</div></div><button class="close-btn" onclick="closeModal()">✕</button></div>
     <div class="form-group"><label class="form-lbl">Column Name</label><input class="form-inp" id="bc-name" placeholder="e.g. Blocked, Review…" maxlength="30"></div>
-    <div class="form-group"><label class="form-lbl">Color</label><div class="color-picker" id="bc-cp">${colorOpts}</div><input type="hidden" id="bc-color" value="#6a74a0"></div>
+    <div class="form-group"><label class="form-lbl">Color</label><div class="color-picker" id="bc-cp">${colorOpts}</div><input type="hidden" id="bc-color" value="#71717a"></div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createBucket()">Add Column</button></div>
   </div>`);
 }
