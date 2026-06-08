@@ -205,7 +205,10 @@ function renderBoard() {
   // Remove old notes (keep empty placeholder)
   canvas.querySelectorAll('.sticky-note').forEach(n => n.remove());
 
-  const valid = pins.filter(p => allTasks.find(t => t.id === p.taskId));
+  const valid = pins.filter(p => {
+    const t = allTasks.find(t => t.id === p.taskId);
+    return t && t.bucketId !== 'b_done';
+  });
   document.getElementById('focus-count').textContent = `${valid.length} pinned`;
   empty.style.display = valid.length ? 'none' : '';
 

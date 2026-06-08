@@ -269,7 +269,11 @@ function onDrop(e, bucketId) {
   const taskId = draggedTaskId || e.dataTransfer.getData('text/plain');
   if (!taskId) return;
   const task = Arc.Tasks.getAll().find(t => t.id === taskId);
-  if (task && task.bucketId !== bucketId) { Arc.Tasks.update({ ...task, bucketId }); renderBoard(); }
+  if (task && task.bucketId !== bucketId) {
+    Arc.Tasks.update({ ...task, bucketId });
+    if (bucketId === 'b_done') Arc.PinnedTasks.unpin(task.id);
+    renderBoard();
+  }
   draggedTaskId = null;
 }
 
@@ -898,6 +902,7 @@ function saveTask(id) {
     createdAt:   existing?.createdAt || new Date().toISOString(),
   };
   id ? Arc.Tasks.update(task) : Arc.Tasks.add(task);
+  if (task.bucketId === 'b_done') Arc.PinnedTasks.unpin(task.id);
   closeModal(); renderBoard();
 }
 
