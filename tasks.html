@@ -21,10 +21,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .toolbar-title { font-family:'Fraunces',serif; font-size:16px; font-weight:600; }
 .filter-set { display:flex; gap:6px; align-items:center; }
 .filter-lbl { font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted); }
-.fpill { padding:4px 11px; border-radius:20px; font-size:12px;font-weight:500; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; transition:all .15s; }
-.fpill:hover { color:var(--text); border-color:var(--border2); }
-.fpill.on { background:var(--s2); color:var(--text); border-color:var(--accent); }
-.fpill.show-all { border-color:var(--accent);color:var(--accent);background:rgba(123,121,247,.1); }
 .tb-sep { width:1px;height:22px;background:var(--border);margin:0 2px; flex-shrink:0; }
 
 /* ── Multi-select project dropdown ── */
@@ -118,19 +114,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .tc-pin-dot { position:absolute; top:10px; right:10px; font-size:12px; line-height:1; opacity:.75; pointer-events:none; transition:opacity .15s; }
 .task-card:hover .tc-pin-dot { opacity:0; }
 
-/* ── Goal Cards ── */
-.goal-card {
-  background: var(--s2); border: 1px solid var(--border); border-radius: 10px;
-  padding: 13px 14px 12px; position: relative; transition: box-shadow .2s, border-color .2s;
-}
-.goal-card:hover { border-color: var(--border2); box-shadow: 0 5px 18px rgba(0,0,0,.14); }
-.goal-card-title { font-size:13px; font-weight:600; margin-bottom:8px; line-height:1.45; }
-.goal-card-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:7px; }
-.goal-card-dates { font-size:11px; color:var(--dim); margin-bottom:8px; }
-.goal-card-link { font-size:11px; color:var(--accent); font-weight:600; cursor:pointer; transition:opacity .15s; }
-.goal-card-link:hover { opacity:.75; }
-.goal-card.overdue-card { border-color: rgba(240,111,111,.4); background: rgba(240,111,111,.05); }
-
 /* ── Empty ── */
 .bucket-empty { color:var(--dim);font-size:12px;text-align:center;padding:20px 12px; }
 
@@ -214,13 +197,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <div class="tasks-toolbar">
   <div class="toolbar-title">Task Board</div>
   <div class="filter-set">
-    <span class="filter-lbl">Show:</span>
-    <div class="fpill show-all" id="f-all" onclick="setFilter('all')">All</div>
-    <div class="fpill" id="f-goals" onclick="setFilter('goals')">Goals</div>
-    <div class="fpill" id="f-tasks" onclick="setFilter('tasks')">Tasks</div>
-  </div>
-  <div class="tb-sep"></div>
-  <div class="filter-set">
     <span class="filter-lbl">Project:</span>
     <div class="proj-multi-wrap" id="proj-multi-wrap">
       <button class="proj-multi-btn" id="proj-multi-btn" onclick="toggleProjDropdown(event)">All Projects</button>
@@ -252,7 +228,6 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 // ======================================================
 // STATE
 // ======================================================
-let filterMode = 'all';
 let selectedProjects = []; // array of project IDs; empty = all
 let selectedLabels   = []; // array of label IDs;   empty = all
 let openDropdown = null;
@@ -295,7 +270,6 @@ function onDrop(e, bucketId) {
 }
 
 function fmtDate(s) { if (!s) return ''; const d = new Date(s+'T00:00:00'); return `${MONTHS[d.getMonth()]} ${d.getDate()}`; }
-function isOverdue(g) { return !['completed','cancelled'].includes(g.status) && g.dateTo < Arc.today(); }
 
 // ======================================================
 // INIT
@@ -308,14 +282,10 @@ function init() {
   // Restore saved filter state
   try {
     const saved = JSON.parse(localStorage.getItem('arc_tasks_filter') || '{}');
-    if (saved.filterMode && ['all','goals','tasks'].includes(saved.filterMode)) {
-      filterMode = saved.filterMode;
-    }
     if (Array.isArray(saved.projects)) selectedProjects = saved.projects;
     if (Array.isArray(saved.labels))   selectedLabels   = saved.labels;
   } catch {}
 
-  updateFilterPills();
   buildProjDropdown();
   buildLabelFilterPills();
   renderBoard();
@@ -341,21 +311,8 @@ window.closeModal = (orig => () => { orig(); setUrlParam('tid', null); })(window
 // ======================================================
 // FILTER
 // ======================================================
-function setFilter(mode) {
-  filterMode = mode;
-  updateFilterPills();
-  saveTasksFilter();
-  renderBoard();
-}
-
-function updateFilterPills() {
-  document.getElementById('f-all').className   = 'fpill' + (filterMode==='all'  ?' show-all':'');
-  document.getElementById('f-goals').className = 'fpill' + (filterMode==='goals'?' on':'');
-  document.getElementById('f-tasks').className = 'fpill' + (filterMode==='tasks'?' on':'');
-}
-
 function saveTasksFilter() {
-  localStorage.setItem('arc_tasks_filter', JSON.stringify({ filterMode, projects: selectedProjects, labels: selectedLabels }));
+  localStorage.setItem('arc_tasks_filter', JSON.stringify({ projects: selectedProjects, labels: selectedLabels }));
 }
 
 // ── Project multi-select ─────────────────────────────────────────────
@@ -442,46 +399,31 @@ function toggleLabelFilter(id) {
 // BOARD RENDER
 // ======================================================
 function renderBoard() {
-  const board    = document.getElementById('kanban-board');
-  const buckets  = Arc.Buckets.getAll();
-  const allGoals = Arc.Goals.getAll();
+  const board   = document.getElementById('kanban-board');
+  const buckets = Arc.Buckets.getAll();
   const allTasks = Arc.Tasks.getAll();
 
   board.innerHTML = '';
 
   buckets.forEach(bucket => {
-    let goalCards = [];
-    if (filterMode !== 'tasks') {
-      let goals = allGoals.filter(g => { const b = Arc.Buckets.forGoal(g); return b && b.id === bucket.id; });
-      if (selectedProjects.length) goals = goals.filter(g => selectedProjects.includes(g.projectId));
-      goalCards = goals;
-    }
+    let tasks = allTasks.filter(t => t.bucketId === bucket.id);
+    if (selectedProjects.length) tasks = tasks.filter(t => selectedProjects.includes(t.projectId));
+    if (selectedLabels.length)   tasks = tasks.filter(t => (t.labels||[]).some(lid => selectedLabels.includes(lid)));
 
-    let taskCards = [];
-    if (filterMode !== 'goals') {
-      let tasks = allTasks.filter(t => t.bucketId === bucket.id);
-      if (selectedProjects.length) tasks = tasks.filter(t => selectedProjects.includes(t.projectId));
-      if (selectedLabels.length)   tasks = tasks.filter(t => (t.labels||[]).some(lid => selectedLabels.includes(lid)));
-      taskCards = tasks;
-    }
-
-    const total = goalCards.length + taskCards.length;
     const col = document.createElement('div');
     col.className = 'bucket-col';
     col.dataset.bucketId = bucket.id;
-    const isDone = bucket.id === 'b_done';
 
     col.innerHTML = `
       <div class="bucket-header">
         <div class="bucket-name">${Arc.esc(bucket.name)}</div>
-        <div class="bucket-count">${total}</div>
-        ${filterMode !== 'goals' ? `<button class="bucket-add-btn" onclick="newTaskModal('${bucket.id}')" title="Add task">+</button>` : ''}
+        <div class="bucket-count">${tasks.length}</div>
+        <button class="bucket-add-btn" onclick="newTaskModal('${bucket.id}')" title="Add task">+</button>
       </div>
       <div class="bucket-cards" id="bc-${bucket.id}"
            ondragover="onDragOver(event)" ondragenter="onDragEnter(event)"
            ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${bucket.id}')">
-        ${goalCards.map(g => renderGoalCard(g)).join('')}
-        ${taskCards.map(t => renderTaskCard(t, bucket.id)).join('')}
+        ${tasks.map(t => renderTaskCard(t, bucket.id)).join('')}
       </div>`;
     board.appendChild(col);
   });
@@ -491,24 +433,6 @@ function renderBoard() {
   addCol.onclick = () => newBucketModal();
   addCol.innerHTML = `<span style="font-size:20px">⊕</span> Add Column`;
   board.appendChild(addCol);
-}
-
-// ======================================================
-// GOAL CARD
-// ======================================================
-function renderGoalCard(goal) {
-  const st = Arc.Goals.statusInfo(goal.status);
-  const od = isOverdue(goal);
-  return `<div class="goal-card ${od?'overdue-card':''}">
-    <div class="goal-card-title">${Arc.esc(goal.title)}</div>
-    <div class="goal-card-meta">
-      <span class="card-pill" style="background:${st.color}20;color:${st.color}">${st.label}</span>
-      ${goal.label ? `<span class="card-pill" style="background:var(--s3);color:var(--muted)">${Arc.esc(goal.label)}</span>` : ''}
-      ${od ? `<span class="tc-overdue">⚠ Overdue</span>` : ''}
-    </div>
-    <div class="goal-card-dates">${fmtDate(goal.dateFrom)} → ${fmtDate(goal.dateTo)}</div>
-    <div class="goal-card-link" onclick="window.location.href='planner.html?pid=${goal.projectId}'">View in Planner</div>
-  </div>`;
 }
 
 // ======================================================
