@@ -189,6 +189,20 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .label-chip.sel { border-color:#fff8; }
 .lbl-manage-link { font-size:11px; color:var(--accent); cursor:pointer; font-weight:600; }
 .lbl-manage-link:hover { opacity:.75; }
+
+/* ── Sub-tasks ── */
+.st-list { display:flex; flex-direction:column; gap:2px; margin-bottom:6px; }
+.st-item { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:7px; background:var(--s3); }
+.st-item input[type="checkbox"] { width:14px; height:14px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
+.st-item-text { flex:1; font-size:13px; color:var(--text); }
+.st-item.done .st-item-text { text-decoration:line-through; color:var(--muted); }
+.st-item-del { width:18px; height:18px; background:transparent; border:none; color:var(--muted); cursor:pointer; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; transition:color .15s; padding:0; }
+.st-item-del:hover { color:var(--red); }
+.st-add-row { display:flex; gap:6px; align-items:center; }
+.st-add-row .form-inp { margin:0; }
+/* Sub-task progress badge on card */
+.tc-st-prog { font-size:10px; font-weight:600; padding:1px 6px; border-radius:6px; background:var(--s3); color:var(--muted); border:1px solid var(--border); }
+.tc-st-prog.complete { background:rgba(62,201,122,.12); color:var(--green); border-color:rgba(62,201,122,.3); }
 </style>
 </head>
 <body>
@@ -515,6 +529,13 @@ function renderTaskCard(task, bucketId) {
     return `<span class="tc-label-pill" style="background:${l.color};color:#fff">${Arc.esc(l.name)}</span>`;
   }).join('');
 
+  // Subtask progress badge
+  const sts = task.subtasks || [];
+  const stDone = sts.filter(s => s.done).length;
+  const stBadge = sts.length
+    ? `<span class="tc-st-prog ${stDone === sts.length ? 'complete' : ''}">✓ ${stDone}/${sts.length}</span>`
+    : '';
+
   return `<div class="task-card ${isDone?'done-card':''}"
     draggable="true" ondragstart="onDragStart(event,'${task.id}')" ondragend="onDragEnd(event)"
     onclick="editTaskModal('${task.id}')">
@@ -524,7 +545,7 @@ function renderTaskCard(task, bucketId) {
       <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">✕</div>
     </div>
     <div class="task-card-title">${Arc.esc(task.title)}</div>
-    ${metaParts.length || labelPills ? `<div class="task-card-meta">${metaParts.join('')}${labelPills}</div>` : ''}
+    ${metaParts.length || labelPills || stBadge ? `<div class="task-card-meta">${metaParts.join('')}${stBadge}${labelPills}</div>` : ''}
   </div>`;
 }
 
@@ -664,9 +685,21 @@ function taskModal(task, defaultBucketId) {
         onclick="toggleTaskLabel('${l.id}')">${Arc.esc(l.name)}</div>`).join('')
     : `<span style="font-size:12px;color:var(--dim)">No labels yet —</span>`;
 
+  // Populate subtask buffer from existing task
+  window._stBuf = (t.subtasks || []).map(s => ({ ...s }));
+
   const formHtml = `
     <div class="form-group"><label class="form-lbl">Task Title *</label><input class="form-inp" id="tm-title" placeholder="What needs to be done?" value="${Arc.esc(t.title)}" maxlength="80"></div>
     <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="tm-desc" rows="2" placeholder="Additional details…">${Arc.esc(t.description||'')}</textarea></div>
+    <div class="form-group">
+      <label class="form-lbl">Sub-tasks</label>
+      <div class="st-list" id="tm-st-list"></div>
+      <div class="st-add-row">
+        <input class="form-inp" id="tm-st-inp" placeholder="Add a sub-task…" style="flex:1"
+          onkeydown="if(event.key==='Enter'){stAdd();event.preventDefault()}">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="stAdd()">+ Add</button>
+      </div>
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-lbl">Priority</label><select class="form-inp" id="tm-pri">${prioOpts}</select></div>
       <div class="form-group"><label class="form-lbl">Due Date</label><input type="date" class="form-inp" id="tm-due" value="${t.dueDate||''}"></div>
@@ -709,6 +742,37 @@ function taskModal(task, defaultBucketId) {
   </div>`);
 
   if (isEdit) { initRTE('cm-rte', t.id); }
+  // Render initial subtask list
+  stRender();
+}
+
+// ── Subtask helpers ────────────────────────────────────────────────────
+function stRender() {
+  const list = document.getElementById('tm-st-list');
+  if (!list) return;
+  list.innerHTML = (window._stBuf || []).map((s, i) => `
+    <div class="st-item ${s.done ? 'done' : ''}">
+      <input type="checkbox" ${s.done ? 'checked' : ''} onchange="stToggle(${i},this.checked)">
+      <span class="st-item-text">${Arc.esc(s.text)}</span>
+      <button class="st-item-del" onclick="stRemove(${i})" title="Remove">✕</button>
+    </div>`).join('');
+}
+function stAdd() {
+  const inp = document.getElementById('tm-st-inp');
+  const text = inp?.value?.trim();
+  if (!text) { inp?.focus(); return; }
+  window._stBuf = [...(window._stBuf || []), { id: Arc.uid(), text, done: false }];
+  inp.value = '';
+  stRender();
+  inp.focus();
+}
+function stToggle(idx, done) {
+  if (window._stBuf?.[idx]) window._stBuf[idx].done = done;
+  stRender();
+}
+function stRemove(idx) {
+  window._stBuf = (window._stBuf || []).filter((_, i) => i !== idx);
+  stRender();
 }
 
 function toggleTaskLabel(labelId) {
@@ -899,6 +963,7 @@ function saveTask(id) {
     bucketId:    document.getElementById('tm-bucket').value,
     projectId:   document.getElementById('tm-proj').value,
     labels,
+    subtasks:    window._stBuf || [],
     createdAt:   existing?.createdAt || new Date().toISOString(),
   };
   id ? Arc.Tasks.update(task) : Arc.Tasks.add(task);

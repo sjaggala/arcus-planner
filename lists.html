@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcus — Lists</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{var __t=(JSON.parse(localStorage.getItem('arc_cfg')||'{}')).theme;if(__t)document.documentElement.setAttribute('data-theme',__t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+
+/* ── Toolbar ── */
+.lists-toolbar {
+  padding:0 20px; height:50px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--border); flex-shrink:0; background:var(--s1);
+}
+.lists-title { font-family:'Fraunces',serif; font-size:16px; font-weight:600; }
+.lists-count { font-size:12px; color:var(--muted); background:var(--s3); border:1px solid var(--border); border-radius:10px; padding:2px 10px; }
+
+/* ── Canvas ── */
+.lists-canvas {
+  flex:1; position:relative; overflow:auto; background:var(--bg);
+  min-height:0;
+}
+[data-theme="light"] .lists-canvas { background:#f2f2f3; }
+
+/* ── Checklist Card ── */
+.cl-card {
+  position:absolute; display:flex; flex-direction:column;
+  background:var(--s1); border:1px solid var(--border); border-radius:12px;
+  box-shadow:0 2px 10px rgba(0,0,0,.18); min-width:220px; min-height:120px;
+  overflow:hidden; transition:box-shadow .15s;
+}
+[data-theme="light"] .cl-card { background:#fff; border-color:#e0e0e2; box-shadow:0 2px 10px rgba(0,0,0,.07); }
+.cl-card:hover { box-shadow:0 6px 24px rgba(0,0,0,.22); }
+[data-theme="light"] .cl-card:hover { box-shadow:0 6px 24px rgba(0,0,0,.11); }
+.cl-card.is-dragging { box-shadow:0 10px 36px rgba(0,0,0,.28); opacity:.94; }
+
+/* ── Card Header (drag zone) ── */
+.cl-header {
+  padding:10px 12px 9px; display:flex; align-items:center; gap:8px;
+  cursor:grab; background:var(--s2); border-bottom:1px solid var(--border);
+  flex-shrink:0; user-select:none;
+}
+[data-theme="light"] .cl-header { background:#f7f7f8; border-bottom-color:#e8e8ea; }
+.cl-header:active { cursor:grabbing; }
+.cl-title {
+  flex:1; background:transparent; border:none; outline:none;
+  font-size:13px; font-weight:700; color:var(--text);
+  font-family:'Outfit',sans-serif; min-width:0; cursor:text;
+}
+.cl-title::placeholder { color:var(--dim); font-weight:500; }
+.cl-hdr-btn {
+  width:22px; height:22px; border-radius:5px; background:transparent;
+  border:none; color:var(--muted); cursor:pointer; display:flex;
+  align-items:center; justify-content:center; font-size:12px;
+  transition:color .15s,background .15s; flex-shrink:0; padding:0;
+}
+.cl-hdr-btn:hover { background:var(--s3); color:var(--red); }
+
+/* ── Items area ── */
+.cl-items { flex:1; overflow-y:auto; padding:6px 0 4px; }
+.cl-item {
+  display:flex; align-items:flex-start; gap:8px; padding:4px 12px;
+}
+.cl-item:hover .cl-item-del { opacity:1; }
+.cl-item input[type="checkbox"] {
+  width:14px; height:14px; margin-top:2px; accent-color:var(--accent);
+  cursor:pointer; flex-shrink:0;
+}
+.cl-item-text {
+  flex:1; font-size:13px; color:var(--text); line-height:1.45;
+  word-break:break-word;
+}
+.cl-item.done .cl-item-text { text-decoration:line-through; color:var(--muted); }
+.cl-item-del {
+  width:16px; height:16px; border-radius:3px; background:transparent; border:none;
+  color:var(--muted); cursor:pointer; display:flex; align-items:center;
+  justify-content:center; font-size:10px; opacity:0;
+  transition:opacity .15s,color .15s; flex-shrink:0; margin-top:2px; padding:0;
+}
+.cl-item-del:hover { color:var(--red); opacity:1; }
+
+/* ── Done section divider ── */
+.cl-done-sep { border:none; border-top:1px solid var(--border); margin:6px 12px 4px; }
+.cl-done-hdr {
+  padding:2px 12px 4px; font-size:10px; font-weight:700; letter-spacing:.5px;
+  text-transform:uppercase; color:var(--muted); display:flex; align-items:center; gap:5px;
+}
+
+/* ── Add item row ── */
+.cl-add-row {
+  display:flex; align-items:center; gap:6px; padding:7px 12px 8px;
+  border-top:1px solid var(--border); flex-shrink:0;
+}
+.cl-add-inp {
+  flex:1; background:transparent; border:none; outline:none;
+  font-size:12px; color:var(--text); font-family:'Outfit',sans-serif;
+}
+.cl-add-inp::placeholder { color:var(--dim); }
+.cl-add-btn {
+  width:20px; height:20px; border-radius:5px; background:var(--s3);
+  border:1px solid var(--border); color:var(--muted); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:300; line-height:1;
+  transition:all .15s; flex-shrink:0; padding:0;
+}
+.cl-add-btn:hover { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* ── Resize handle ── */
+.cl-resize {
+  position:absolute; bottom:0; right:0;
+  width:18px; height:18px; cursor:nwse-resize;
+  opacity:0; transition:opacity .2s;
+}
+.cl-card:hover .cl-resize { opacity:1; }
+.cl-resize::after {
+  content:''; position:absolute; bottom:4px; right:4px;
+  width:7px; height:7px;
+  border-right:2px solid var(--border2); border-bottom:2px solid var(--border2);
+  border-radius:1px;
+}
+
+/* ── Empty state ── */
+.lists-empty {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-55%);
+  text-align:center; pointer-events:none;
+}
+.lists-empty h3 { font-size:18px; font-weight:600; color:var(--text); margin-bottom:8px; }
+.lists-empty p { font-size:13px; color:var(--muted); line-height:1.6; }
+.lists-empty .arrow-hint { font-size:12px; color:var(--accent); margin-top:12px; font-weight:600; }
+
+[data-theme="light"] body { background:#f2f2f3; }
+</style>
+</head>
+<body>
+<div id="nav-container"></div>
+
+<div class="lists-toolbar">
+  <span class="lists-title">Lists</span>
+  <span class="lists-count" id="lists-count">0 lists</span>
+  <div style="flex:1"></div>
+  <button class="btn btn-ghost btn-sm" onclick="autoArrange()" title="Auto-arrange cards">⊞ Arrange</button>
+  <button class="btn btn-primary btn-sm" onclick="addChecklist()">＋ New List</button>
+</div>
+
+<div class="lists-canvas" id="lists-canvas">
+  <div class="lists-empty" id="lists-empty">
+    <h3>No lists yet</h3>
+    <p>Create checklists for groceries, packing lists,<br>things to do — anything with multiple items.</p>
+    <div class="arrow-hint">↑ Click "New List" to get started</div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+Arc.applyTheme();
+document.getElementById('nav-container').innerHTML = Arc.navHtml('lists');
+
+// ── Render ─────────────────────────────────────────────────────────────
+function renderBoard() {
+  const canvas = document.getElementById('lists-canvas');
+  canvas.querySelectorAll('.cl-card').forEach(c => c.remove());
+  const all = Arc.Checklists.getAll();
+  updateCount(all.length);
+  all.forEach(cl => canvas.appendChild(buildCard(cl)));
+}
+
+function buildCard(cl) {
+  const items  = cl.items || [];
+  const active = items.filter(i => !i.done);
+  const done   = items.filter(i =>  i.done);
+
+  const el = document.createElement('div');
+  el.className = 'cl-card';
+  el.id = `cl-${cl.id}`;
+  el.style.left  = (cl.x || 24) + 'px';
+  el.style.top   = (cl.y || 24) + 'px';
+  el.style.width = (cl.w || 280) + 'px';
+  if (cl.h) el.style.height = cl.h + 'px';
+
+  el.innerHTML = `
+    <div class="cl-header" onmousedown="startDrag(event,'${cl.id}')">
+      <input class="cl-title" value="${Arc.esc(cl.title)}" placeholder="List title…"
+        onmousedown="event.stopPropagation()"
+        onblur="saveTitle('${cl.id}',this.value)"
+        onkeydown="if(event.key==='Enter')this.blur()">
+      <button class="cl-hdr-btn" onmousedown="event.stopPropagation()" onclick="deleteChecklist('${cl.id}')" title="Delete list">✕</button>
+    </div>
+    <div class="cl-items" id="cli-${cl.id}">
+      ${active.map(i => itemHtml(cl.id, i)).join('')}
+      ${done.length ? `
+        <hr class="cl-done-sep">
+        <div class="cl-done-hdr">✓ Completed (${done.length})</div>
+        ${done.map(i => itemHtml(cl.id, i)).join('')}
+      ` : ''}
+    </div>
+    <div class="cl-add-row">
+      <input class="cl-add-inp" id="clai-${cl.id}" placeholder="Add an item…"
+        onkeydown="if(event.key==='Enter'){addItem('${cl.id}');event.preventDefault()}">
+      <button class="cl-add-btn" onclick="addItem('${cl.id}')" title="Add item">+</button>
+    </div>
+    <div class="cl-resize" onmousedown="startResize(event,'${cl.id}')"></div>`;
+
+  return el;
+}
+
+function itemHtml(clId, item) {
+  return `<div class="cl-item ${item.done ? 'done' : ''}" id="clitem-${item.id}">
+    <input type="checkbox" ${item.done ? 'checked' : ''}
+      onchange="toggleItem('${clId}','${item.id}',this.checked)">
+    <span class="cl-item-text">${Arc.esc(item.text)}</span>
+    <button class="cl-item-del" onclick="deleteItem('${clId}','${item.id}')" title="Remove">✕</button>
+  </div>`;
+}
+
+function reRenderCard(clId) {
+  const cl  = Arc.Checklists.getById(clId);
+  const old = document.getElementById(`cl-${clId}`);
+  if (!cl || !old) return;
+  // Preserve current DOM position/size
+  const nx = old.style.left, ny = old.style.top, nw = old.style.width, nh = old.style.height;
+  const newCard = buildCard(cl);
+  newCard.style.left = nx; newCard.style.top = ny;
+  newCard.style.width = nw; if (nh) newCard.style.height = nh;
+  old.replaceWith(newCard);
+  document.getElementById(`clai-${clId}`)?.focus();
+}
+
+function updateCount(n) {
+  const c = n ?? Arc.Checklists.getAll().length;
+  document.getElementById('lists-count').textContent = `${c} list${c !== 1 ? 's' : ''}`;
+  document.getElementById('lists-empty').style.display = c ? 'none' : '';
+}
+
+// ── Actions ────────────────────────────────────────────────────────────
+function addChecklist() {
+  const all  = Arc.Checklists.getAll();
+  const cols = Math.max(1, Math.floor((window.innerWidth - 80) / 310));
+  const idx  = all.length;
+  const cl   = {
+    id: Arc.uid(), title: '', items: [],
+    x: 24 + (idx % cols) * 310,
+    y: 24 + Math.floor(idx / cols) * 340,
+    w: 280,
+  };
+  Arc.Checklists.add(cl);
+  const canvas = document.getElementById('lists-canvas');
+  canvas.appendChild(buildCard(cl));
+  updateCount();
+  setTimeout(() => document.getElementById(`cl-${cl.id}`)?.querySelector('.cl-title')?.focus(), 30);
+}
+
+function saveTitle(clId, val) {
+  const cl = Arc.Checklists.getById(clId);
+  if (cl && cl.title !== val) Arc.Checklists.update({ ...cl, title: val });
+}
+
+function addItem(clId) {
+  const inp  = document.getElementById(`clai-${clId}`);
+  const text = inp?.value?.trim();
+  if (!text) { inp?.focus(); return; }
+  const cl = Arc.Checklists.getById(clId);
+  if (!cl) return;
+  Arc.Checklists.update({ ...cl, items: [...(cl.items || []), { id: Arc.uid(), text, done: false }] });
+  inp.value = '';
+  reRenderCard(clId);
+}
+
+function toggleItem(clId, itemId, done) {
+  const cl = Arc.Checklists.getById(clId);
+  if (!cl) return;
+  Arc.Checklists.update({ ...cl, items: cl.items.map(i => i.id === itemId ? { ...i, done } : i) });
+  reRenderCard(clId);
+}
+
+function deleteItem(clId, itemId) {
+  const cl = Arc.Checklists.getById(clId);
+  if (!cl) return;
+  Arc.Checklists.update({ ...cl, items: cl.items.filter(i => i.id !== itemId) });
+  reRenderCard(clId);
+}
+
+function deleteChecklist(clId) {
+  if (!confirm('Delete this list?')) return;
+  Arc.Checklists.delete(clId);
+  document.getElementById(`cl-${clId}`)?.remove();
+  updateCount();
+}
+
+function autoArrange() {
+  const all  = Arc.Checklists.getAll();
+  const cols = Math.max(1, Math.floor((window.innerWidth - 80) / 310));
+  all.forEach((cl, i) => { cl.x = 24 + (i % cols) * 310; cl.y = 24 + Math.floor(i / cols) * 340; });
+  Arc.Checklists.save(all);
+  renderBoard();
+}
+
+// ── Drag ───────────────────────────────────────────────────────────────
+let _drag = null;
+
+function startDrag(e, clId) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+  e.preventDefault();
+  const card = document.getElementById(`cl-${clId}`);
+  if (!card) return;
+  _drag = { clId, sx: e.clientX, sy: e.clientY, ox: parseFloat(card.style.left)||0, oy: parseFloat(card.style.top)||0 };
+  card.classList.add('is-dragging');
+  card.style.zIndex = 100;
+
+  const onMove = ev => {
+    if (!_drag) return;
+    card.style.left = Math.max(0, _drag.ox + ev.clientX - _drag.sx) + 'px';
+    card.style.top  = Math.max(0, _drag.oy + ev.clientY - _drag.sy) + 'px';
+  };
+  const onUp = ev => {
+    if (!_drag) return;
+    const nx = Math.max(0, _drag.ox + ev.clientX - _drag.sx);
+    const ny = Math.max(0, _drag.oy + ev.clientY - _drag.sy);
+    const cl = Arc.Checklists.getById(clId);
+    if (cl) Arc.Checklists.update({ ...cl, x: Math.round(nx), y: Math.round(ny) });
+    card.classList.remove('is-dragging');
+    card.style.zIndex = '';
+    _drag = null;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// ── Resize ─────────────────────────────────────────────────────────────
+function startResize(e, clId) {
+  e.preventDefault(); e.stopPropagation();
+  const card = document.getElementById(`cl-${clId}`);
+  if (!card) return;
+  const sx = e.clientX, sy = e.clientY;
+  const sw = card.offsetWidth, sh = card.offsetHeight;
+
+  const onMove = ev => {
+    card.style.width  = Math.max(220, sw + ev.clientX - sx) + 'px';
+    card.style.height = Math.max(150, sh + ev.clientY - sy) + 'px';
+  };
+  const onUp = ev => {
+    const w = Math.max(220, sw + ev.clientX - sx);
+    const h = Math.max(150, sh + ev.clientY - sy);
+    const cl = Arc.Checklists.getById(clId);
+    if (cl) Arc.Checklists.update({ ...cl, w: Math.round(w), h: Math.round(h) });
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────
+renderBoard();
+</script>
+</body>
+</html>

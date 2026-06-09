@@ -331,6 +331,16 @@ const Arc = (() => {
     },
   };
 
+  // ── Checklists ───────────────────────────────────────────────────────
+  const Checklists = {
+    getAll()    { return DB.get('arc_checklists') || []; },
+    save(cls)   { DB.set('arc_checklists', cls); },
+    add(cl)     { const all = this.getAll(); all.push(cl); this.save(all); },
+    update(cl)  { this.save(this.getAll().map(x => x.id === cl.id ? cl : x)); },
+    delete(id)  { this.save(this.getAll().filter(x => x.id !== id)); },
+    getById(id) { return this.getAll().find(x => x.id === id) || null; },
+  };
+
   // ── Avatar HTML ──────────────────────────────────────────────────────
   function avatarHtml(size = 34) {
     const p = Profile.get(), ini = Profile.initials();
@@ -357,6 +367,7 @@ const Arc = (() => {
       { id: 'events',   label: 'Events',   href: 'events.html' },
       { id: 'journal',  label: 'Journal',  href: 'journal.html' },
       { id: 'focus',    label: 'Focus',     href: 'focus.html' },
+      { id: 'lists',    label: 'Lists',     href: 'lists.html' },
     ];
     const linksHtml = links.map(l =>
       `<a href="${l.href}" class="nav-link ${l.id === activePage ? 'active' : ''}">${l.label}</a>`
@@ -725,7 +736,7 @@ const Arc = (() => {
   }
 
   return { uid, esc, dateStr, today, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
-           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, FolderSave,
+           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, Checklists, FolderSave,
            avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager };
 })();
 
@@ -947,7 +958,7 @@ function arcLmClose() {
 const ARC_STORE_KEYS = [
   'arc_profile','arc_p','arc_g','arc_n','arc_j','arc_j2',
   'arc_buckets','arc_tasks','arc_ev','arc_comments',
-  'arc_labels','arc_pinned','arc_cfg',
+  'arc_labels','arc_pinned','arc_checklists','arc_cfg',
 ];
 
 function arcFirebaseInit() {
