@@ -62,7 +62,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .cl-hdr-btn:hover { background:var(--s3); color:var(--red); }
 
 /* ── Items area ── */
-.cl-items { flex:1; overflow-y:auto; padding:6px 0 4px; }
+.cl-items { flex:1; overflow-y:auto; padding:6px 0 8px; }
 .cl-item {
   display:flex; align-items:flex-start; gap:8px; padding:4px 12px;
 }
@@ -85,30 +85,22 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .cl-item-del:hover { color:var(--red); opacity:1; }
 
 /* ── Done section divider ── */
-.cl-done-sep { border:none; border-top:1px solid var(--border); margin:6px 12px 4px; }
+.cl-done-sep { border:none; border-top:1px solid var(--border); margin:16px 12px 6px; }
 .cl-done-hdr {
   padding:2px 12px 4px; font-size:10px; font-weight:700; letter-spacing:.5px;
   text-transform:uppercase; color:var(--muted); display:flex; align-items:center; gap:5px;
 }
 
-/* ── Add item row ── */
-.cl-add-row {
-  display:flex; align-items:center; gap:6px; padding:7px 12px 8px;
-  border-top:1px solid var(--border); flex-shrink:0;
+/* ── Ghost new-item row ── */
+.cl-new-row {
+  display:flex; align-items:center; gap:8px; padding:4px 12px;
 }
-.cl-add-inp {
+.cl-new-cb { opacity:.3; flex-shrink:0; width:13px; height:13px; }
+.cl-new-inp {
   flex:1; background:transparent; border:none; outline:none;
-  font-size:12px; color:var(--text); font-family:'Outfit',sans-serif;
+  font-size:12px; color:var(--text); font-family:'Outfit',sans-serif; padding:0;
 }
-.cl-add-inp::placeholder { color:var(--dim); }
-.cl-add-btn {
-  width:20px; height:20px; border-radius:5px; background:var(--s3);
-  border:1px solid var(--border); color:var(--muted); cursor:pointer;
-  display:flex; align-items:center; justify-content:center;
-  font-size:15px; font-weight:300; line-height:1;
-  transition:all .15s; flex-shrink:0; padding:0;
-}
-.cl-add-btn:hover { background:var(--accent); border-color:var(--accent); color:#fff; }
+.cl-new-inp::placeholder { color:var(--dim); }
 
 /* ── Resize handle ── */
 .cl-resize {
@@ -197,11 +189,11 @@ function buildCard(cl) {
         <div class="cl-done-hdr">✓ Completed (${done.length})</div>
         ${done.map(i => itemHtml(cl.id, i)).join('')}
       ` : ''}
-    </div>
-    <div class="cl-add-row">
-      <input class="cl-add-inp" id="clai-${cl.id}" placeholder="Add an item…"
-        onkeydown="if(event.key==='Enter'){addItem('${cl.id}');event.preventDefault()}">
-      <button class="cl-add-btn" onclick="addItem('${cl.id}')" title="Add item">+</button>
+      <div class="cl-new-row">
+        <input type="checkbox" class="cl-new-cb" disabled>
+        <input class="cl-new-inp" id="clai-${cl.id}" placeholder="Add an item…"
+          onkeydown="if(event.key==='Enter'&&this.value.trim()){addItem('${cl.id}');event.preventDefault()}">
+      </div>
     </div>
     <div class="cl-resize" onmousedown="startResize(event,'${cl.id}')"></div>`;
 
@@ -266,8 +258,8 @@ function addItem(clId) {
   const cl = Arc.Checklists.getById(clId);
   if (!cl) return;
   Arc.Checklists.update({ ...cl, items: [...(cl.items || []), { id: Arc.uid(), text, done: false }] });
-  inp.value = '';
   reRenderCard(clId);
+  setTimeout(() => document.getElementById(`clai-${clId}`)?.focus(), 20);
 }
 
 function toggleItem(clId, itemId, done) {

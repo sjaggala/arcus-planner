@@ -191,15 +191,18 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .lbl-manage-link:hover { opacity:.75; }
 
 /* ── Sub-tasks ── */
-.st-list { display:flex; flex-direction:column; gap:2px; margin-bottom:6px; }
-.st-item { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:7px; background:var(--s3); }
+.st-list { display:flex; flex-direction:column; }
+.st-item { display:flex; align-items:center; gap:8px; padding:4px 2px; position:relative; }
 .st-item input[type="checkbox"] { width:14px; height:14px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
 .st-item-text { flex:1; font-size:13px; color:var(--text); }
 .st-item.done .st-item-text { text-decoration:line-through; color:var(--muted); }
-.st-item-del { width:18px; height:18px; background:transparent; border:none; color:var(--muted); cursor:pointer; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; transition:color .15s; padding:0; }
+.st-item-del { width:16px; height:16px; background:transparent; border:none; color:var(--muted); cursor:pointer; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0; opacity:0; transition:opacity .15s,color .15s; padding:0; }
+.st-item:hover .st-item-del { opacity:1; }
 .st-item-del:hover { color:var(--red); }
-.st-add-row { display:flex; gap:6px; align-items:center; }
-.st-add-row .form-inp { margin:0; }
+.st-new-row { padding:4px 2px; }
+.st-new-cb { opacity:.3; flex-shrink:0; width:14px; height:14px; }
+.st-new-inp { flex:1; background:transparent; border:none; outline:none; font-size:13px; color:var(--text); font-family:'Outfit',sans-serif; padding:0; }
+.st-new-inp::placeholder { color:var(--dim); }
 /* Sub-task progress badge on card */
 .tc-st-prog { font-size:10px; font-weight:600; padding:1px 6px; border-radius:6px; background:var(--s3); color:var(--muted); border:1px solid var(--border); }
 .tc-st-prog.complete { background:rgba(62,201,122,.12); color:var(--green); border-color:rgba(62,201,122,.3); }
@@ -694,11 +697,6 @@ function taskModal(task, defaultBucketId) {
     <div class="form-group">
       <label class="form-lbl">Sub-tasks</label>
       <div class="st-list" id="tm-st-list"></div>
-      <div class="st-add-row">
-        <input class="form-inp" id="tm-st-inp" placeholder="Add a sub-task…" style="flex:1"
-          onkeydown="if(event.key==='Enter'){stAdd();event.preventDefault()}">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="stAdd()">+ Add</button>
-      </div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-lbl">Priority</label><select class="form-inp" id="tm-pri">${prioOpts}</select></div>
@@ -750,21 +748,26 @@ function taskModal(task, defaultBucketId) {
 function stRender() {
   const list = document.getElementById('tm-st-list');
   if (!list) return;
-  list.innerHTML = (window._stBuf || []).map((s, i) => `
+  const items = (window._stBuf || []).map((s, i) => `
     <div class="st-item ${s.done ? 'done' : ''}">
       <input type="checkbox" ${s.done ? 'checked' : ''} onchange="stToggle(${i},this.checked)">
       <span class="st-item-text">${Arc.esc(s.text)}</span>
       <button class="st-item-del" onclick="stRemove(${i})" title="Remove">✕</button>
     </div>`).join('');
+  const ghost = `<div class="st-item st-new-row" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" class="st-new-cb" disabled>
+      <input class="st-new-inp" id="tm-st-inp" placeholder="Add a sub-task…"
+        onkeydown="if(event.key==='Enter'&&this.value.trim()){stAdd();event.preventDefault()}">
+    </div>`;
+  list.innerHTML = items + ghost;
 }
 function stAdd() {
   const inp = document.getElementById('tm-st-inp');
   const text = inp?.value?.trim();
-  if (!text) { inp?.focus(); return; }
+  if (!text) return;
   window._stBuf = [...(window._stBuf || []), { id: Arc.uid(), text, done: false }];
-  inp.value = '';
   stRender();
-  inp.focus();
+  document.getElementById('tm-st-inp')?.focus();
 }
 function stToggle(idx, done) {
   if (window._stBuf?.[idx]) window._stBuf[idx].done = done;
