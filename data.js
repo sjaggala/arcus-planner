@@ -531,7 +531,25 @@ const Arc = (() => {
     pendingIn()    { return this._list.filter(p => p.status === 'pending' && p.direction === 'in'); },
     pendingOut()   { return this._list.filter(p => p.status === 'pending' && p.direction === 'out'); },
     byEmail(email) { const e = String(email || '').toLowerCase(); return this._list.find(p => p.email === e) || null; },
-    nameFor(email) { return this.byEmail(email)?.name || email; },
+    nameFor(email) {
+      const m = this.metaFor(email);
+      if (m.name) return m.name;
+      return this.byEmail(email)?.name || email;
+    },
+    // Personal address-book details (company, phone, notes…) — stored in MY
+    // data only; the other person never sees what I write about them.
+    metaAll()      { return DB.get('arc_people_meta') || {}; },
+    metaFor(email) { return this.metaAll()[String(email || '').toLowerCase()] || {}; },
+    saveMeta(email, m) {
+      const all = this.metaAll();
+      all[String(email).toLowerCase()] = m;
+      DB.set('arc_people_meta', all);
+    },
+    deleteMeta(email) {
+      const all = this.metaAll();
+      delete all[String(email).toLowerCase()];
+      DB.set('arc_people_meta', all);
+    },
     async invite(email, name) {
       const e = String(email).toLowerCase().trim();
       if (!e || !e.includes('@')) throw new Error('Enter a valid email address.');
@@ -1194,7 +1212,7 @@ function arcPersonAva(p, size = 26) {
 const ARC_STORE_KEYS = [
   'arc_profile','arc_p','arc_g','arc_n','arc_j','arc_j2',
   'arc_buckets','arc_tasks','arc_ev','arc_comments',
-  'arc_labels','arc_pinned','arc_checklists','arc_cfg',
+  'arc_labels','arc_pinned','arc_checklists','arc_people_meta','arc_cfg',
 ];
 
 function arcFirebaseInit() {
