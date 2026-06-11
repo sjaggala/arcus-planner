@@ -194,10 +194,21 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .tc-owner-ava { width:18px; height:18px; border-radius:50%; object-fit:cover; flex-shrink:0; display:inline-flex; border:1px solid var(--border2); }
 .tc-owner-ini { background:linear-gradient(135deg,#7b79f7,#a78bfa); color:#fff; font-size:9px; font-weight:700; align-items:center; justify-content:center; display:inline-flex; }
 .tc-shared-chip { font-size:10px; font-weight:600; padding:1px 7px; border-radius:8px; background:rgba(123,121,247,.12); color:var(--accent); border:1px solid rgba(123,121,247,.25); }
-.ts-member { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; background:var(--s3); border:1px solid var(--border); border-radius:14px; padding:3px 6px 3px 10px; margin:0 6px 6px 0; }
-.ts-member button { width:15px; height:15px; border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:9px; padding:0; line-height:1; }
-.ts-member button:hover { color:var(--red); }
-.ts-note { font-size:12px; color:var(--muted); background:var(--s3); border:1px solid var(--border); border-radius:8px; padding:8px 12px; line-height:1.6; }
+.ts-share-row { display:flex; align-items:center; gap:5px; margin-left:auto; flex-shrink:0; }
+.ts-ava-wrap { cursor:pointer; border-radius:50%; display:inline-flex; transition:transform .12s, opacity .12s; }
+.ts-ava-wrap:hover { transform:scale(1.12); opacity:.85; }
+.ts-shared-by { font-size:11px; color:var(--muted); font-weight:600; white-space:nowrap; }
+.ts-add-btn { width:24px; height:24px; border-radius:50%; border:1px dashed var(--border2); background:var(--s3); color:var(--muted); cursor:pointer; font-size:14px; font-weight:400; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; transition:all .15s; }
+.ts-add-btn:hover { border-color:var(--accent); border-style:solid; color:var(--accent); background:rgba(123,121,247,.08); }
+.ts-share-dd { position:absolute; top:30px; right:0; z-index:300; min-width:235px; background:var(--s2); border:1px solid var(--border2); border-radius:10px; padding:5px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+.ts-share-dd.hidden { display:none; }
+.ts-dd-person { display:flex; align-items:center; gap:9px; padding:6px 8px; border-radius:7px; cursor:pointer; transition:background .12s; }
+.ts-dd-person:hover { background:var(--s3); }
+.ts-dd-name { font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ts-dd-mail { font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ts-dd-empty { font-size:11px; color:var(--dim); padding:10px 8px; text-align:center; line-height:1.6; }
+.ts-dd-sep { height:1px; background:var(--border); margin:4px 2px; }
+.ts-dd-inp { font-size:11px; padding:5px 9px; margin:2px; width:calc(100% - 4px); }
 </style>
 </head>
 <body>
@@ -318,6 +329,11 @@ function init() {
     const wrap = document.getElementById('proj-multi-wrap');
     if (projDropdownOpen && wrap && !wrap.contains(e.target)) {
       closeProjDropdown();
+    }
+    // Close share people-picker
+    const sdd = document.getElementById('ts-share-dd');
+    if (sdd && !sdd.classList.contains('hidden') && !sdd.contains(e.target)) {
+      sdd.classList.add('hidden');
     }
   });
 
@@ -488,7 +504,8 @@ function renderTaskCard(task, bucketId, shared) {
   }
   if (sharedByMe) {
     const ms = Arc.Shared.membersOf(task.id);
-    metaParts.push(`<span class="tc-shared-chip" title="Shared with ${Arc.esc(ms.join(', '))}">👥 ${ms.length}</span>`);
+    const names = ms.map(m => Arc.People.nameFor(m)).join(', ');
+    metaParts.push(`<span class="tc-shared-chip" title="Shared with ${Arc.esc(names)}">👥 ${ms.length}</span>`);
   }
 
   // Label pills (labels are personal — hidden on tasks shared with me)
@@ -661,24 +678,6 @@ function taskModal(task, defaultBucketId, shared) {
   // Populate subtask buffer from existing task
   window._stBuf = (t.subtasks || []).map(s => ({ ...s }));
 
-  // Sharing section: owners manage members; members see who shared it.
-  // Sharing requires sign-in and an already-saved task.
-  const canShare = !!(window._arcUser && window._arcDb);
-  const shareSection = !isEdit ? '' : (shared
-    ? `<div class="form-group"><label class="form-lbl">Sharing</label>
-        <div class="ts-note">Shared by <strong>${Arc.esc(shared.ownerName)}</strong> — your changes sync back to them.</div>
-      </div>`
-    : (canShare ? `<div class="form-group">
-        <label class="form-lbl">Sharing</label>
-        <div id="ts-members"></div>
-        <div style="display:flex;gap:8px">
-          <input class="form-inp" id="ts-email" type="email" placeholder="Share with (their Google email)…" style="flex:1"
-            onkeydown="if(event.key==='Enter'){arcTaskShareAdd('${t.id}');event.preventDefault()}">
-          <button type="button" class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="arcTaskShareAdd('${t.id}')">Share</button>
-        </div>
-        <div id="ts-err" style="font-size:11px;color:var(--red);min-height:14px;margin-top:3px"></div>
-      </div>` : ''));
-
   const formHtml = `
     <div class="form-group"><label class="form-lbl">Task Title *</label><input class="form-inp" id="tm-title" placeholder="What needs to be done?" value="${Arc.esc(t.title)}" maxlength="80"></div>
     <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="tm-desc" rows="2" placeholder="Additional details…">${Arc.esc(t.description||'')}</textarea></div>
@@ -703,12 +702,12 @@ function taskModal(task, defaultBucketId, shared) {
         <span class="lbl-manage-link" onclick="manageLabelsModal('${t.id||''}')">＋ Manage Labels</span>
       </div>
       <div class="label-chips" id="task-label-chips">${labelChips}</div>
-    </div>`}
-    ${shareSection}`;
+    </div>`}`;
 
   showModal(`<div class="modal ${isEdit?'modal-split':''}">
     <div class="modal-hdr">
       <div><div class="modal-title">${isEdit?'Edit Task':'New Task'}</div><div class="modal-sub">${isEdit?'Update this task':'Add a standalone task to your board'}</div></div>
+      ${isEdit ? `<div class="ts-share-row" id="ts-share-row"></div>` : ''}
       <button class="close-btn" onclick="closeModal()">✕</button>
     </div>
     ${isEdit ? `<div class="split-body">
@@ -734,43 +733,73 @@ function taskModal(task, defaultBucketId, shared) {
   </div>`);
 
   if (isEdit) { initRTE('cm-rte', t.id); }
-  if (isEdit && !shared) tsRenderMembers(t.id);
+  if (isEdit) tsRenderShareRow(t.id, shared || null);
   // Render initial subtask list
   stRender();
 }
 
-// ── Task sharing (owner side) ─────────────────────────────────────────
-function tsRenderMembers(taskId) {
-  const el = document.getElementById('ts-members');
-  if (!el) return;
+// ── Task sharing — header avatar row + people picker ─────────────────
+function tsRenderShareRow(taskId, shared) {
+  const row = document.getElementById('ts-share-row');
+  if (!row) return;
+  // Task shared WITH me: just show who it came from
+  if (shared) {
+    row.innerHTML = `${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 24)}
+      <span class="ts-shared-by">Shared by ${Arc.esc(shared.ownerName)}</span>`;
+    return;
+  }
+  if (!window._arcUser || !window._arcDb) { row.innerHTML = ''; return; }
   const ms = Arc.Shared.membersOf(taskId);
-  el.innerHTML = ms.length
-    ? ms.map(m => `<span class="ts-member">${Arc.esc(m)}<button onclick="arcTaskShareRemove('${taskId}','${Arc.esc(m)}')" title="Remove access">✕</button></span>`).join('')
-    : `<div style="font-size:11px;color:var(--dim);margin-bottom:6px">Not shared — add someone's email to collaborate on this task.</div>`;
+  row.innerHTML = ms.map(m => {
+    const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
+    return `<span class="ts-ava-wrap" title="${Arc.esc(p.name)} — click to remove" onclick="arcTaskShareRemove('${taskId}','${Arc.esc(m)}')">${arcPersonAva(p, 24)}</span>`;
+  }).join('') + `
+    <div style="position:relative;display:inline-flex">
+      <button class="ts-add-btn" title="Share this task" onclick="tsToggleShareDd(event,'${taskId}')">+</button>
+      <div class="ts-share-dd hidden" id="ts-share-dd"></div>
+    </div>`;
 }
 
-async function arcTaskShareAdd(taskId) {
-  const inp = document.getElementById('ts-email');
-  const err = document.getElementById('ts-err');
-  const email = inp?.value?.trim();
-  if (!email) { inp?.focus(); return; }
-  if (err) err.textContent = '';
+function tsToggleShareDd(e, taskId) {
+  e.stopPropagation();
+  const dd = document.getElementById('ts-share-dd');
+  if (!dd) return;
+  if (!dd.classList.contains('hidden')) { dd.classList.add('hidden'); return; }
+  const ms = Arc.Shared.membersOf(taskId);
+  const candidates = Arc.People.connected().filter(p => !ms.includes(p.email));
+  dd.innerHTML = `
+    ${candidates.length
+      ? candidates.map(p => `
+        <div class="ts-dd-person" onclick="tsShareWith('${taskId}','${Arc.esc(p.email)}')">
+          ${arcPersonAva(p, 24)}
+          <div style="min-width:0;flex:1">
+            <div class="ts-dd-name">${Arc.esc(p.name)}</div>
+            <div class="ts-dd-mail">${Arc.esc(p.email)}</div>
+          </div>
+        </div>`).join('')
+      : `<div class="ts-dd-empty">No connected people yet.<br>Add them under <strong>People</strong> in your profile menu.</div>`}
+    <div class="ts-dd-sep"></div>
+    <input class="form-inp ts-dd-inp" id="ts-dd-email" type="email" placeholder="or type an email…"
+      onclick="event.stopPropagation()"
+      onkeydown="if(event.key==='Enter'&&this.value.trim()){tsShareWith('${taskId}',this.value);event.preventDefault()}">`;
+  dd.classList.remove('hidden');
+}
+
+async function tsShareWith(taskId, email) {
   const task = Arc.Tasks.getAll().find(t => t.id === taskId);
-  if (!task) return;
-  try {
-    await Arc.Shared.share('task', task, email);
-    if (inp) inp.value = '';
-    tsRenderMembers(taskId);
-    renderBoard();
-  } catch (e) {
-    if (err) err.textContent = e.message || 'Could not share — check the email and try again.';
-  }
+  if (!task || !email || !String(email).trim()) return;
+  try { await Arc.Shared.share('task', task, email); }
+  catch (e) { alert(e.message || 'Could not share.'); return; }
+  tsRenderShareRow(taskId, null);  // also closes the dropdown
+  renderBoard();
 }
 
 async function arcTaskShareRemove(taskId, email) {
+  const p = Arc.People.byEmail(email);
+  if (!confirm(`Remove ${p ? p.name : email} from this task?`)) return;
   try { await Arc.Shared.unshare(taskId, email); }
   catch (e) { alert('Could not remove: ' + (e.message || e)); }
-  tsRenderMembers(taskId);
+  tsRenderShareRow(taskId, null);
   renderBoard();
 }
 

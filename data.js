@@ -30,6 +30,14 @@
 //             allow delete: if request.auth != null &&
 //               resource.data.ownerUid == request.auth.uid;
 //           }
+//           match /connections/{pairId} {
+//             allow create: if request.auth != null &&
+//               request.resource.data.fromEmail == request.auth.token.email.lower();
+//             allow read, update, delete: if request.auth != null && (
+//               resource.data.fromEmail == request.auth.token.email.lower() ||
+//               resource.data.toEmail == request.auth.token.email.lower()
+//             );
+//           }
 //         }
 //       }
 //  6. Authentication → Settings → Authorized domains → add your GitHub Pages domain
@@ -484,6 +492,111 @@ const Arc = (() => {
     },
   };
 
+  // ── People (directory / address book) ────────────────────────────────
+  // Connections live in the top-level `connections` collection, one doc per
+  // pair of people (doc id = both emails, sorted, joined with '__'):
+  //   { fromUid, fromEmail, fromName, fromPhoto, toEmail, toName,
+  //     toUid, toRealName, toPhoto, status: 'pending'|'accepted', createdAt, ts }
+  // The sender supplies toName (what they call the person); when the invite is
+  // accepted the recipient's real display name and photo are stored too.
+  const People = {
+    _list: [],   // normalized: { id, email, name, photo, status, direction }
+    available() { return !!(window._arcDb && window._arcUser); },
+    _col() { return window._arcDb.collection('connections'); },
+    pairId(a, b) { return [String(a).toLowerCase().trim(), String(b).toLowerCase().trim()].sort().join('__'); },
+    myEmail() { return (window._arcUser?.email || '').toLowerCase(); },
+    async load() {
+      this._list = [];
+      if (!this.available() || !this.myEmail()) return;
+      try {
+        const me = this.myEmail();
+        const [out, inc] = await Promise.all([
+          this._col().where('fromEmail', '==', me).get(),
+          this._col().where('toEmail', '==', me).get(),
+        ]);
+        const norm = (d, dir) => {
+          const x = d.data();
+          const other = dir === 'out'
+            ? { email: x.toEmail, name: x.toRealName || x.toName || x.toEmail, photo: x.toPhoto || null }
+            : { email: x.fromEmail, name: x.fromName || x.fromEmail, photo: x.fromPhoto || null };
+          return { id: d.id, direction: dir, status: x.status, ...other };
+        };
+        this._list = [
+          ...out.docs.map(d => norm(d, 'out')),
+          ...inc.docs.map(d => norm(d, 'in')),
+        ];
+      } catch (e) { console.warn('Arcus: could not load people', e); }
+    },
+    connected()    { return this._list.filter(p => p.status === 'accepted'); },
+    pendingIn()    { return this._list.filter(p => p.status === 'pending' && p.direction === 'in'); },
+    pendingOut()   { return this._list.filter(p => p.status === 'pending' && p.direction === 'out'); },
+    byEmail(email) { const e = String(email || '').toLowerCase(); return this._list.find(p => p.email === e) || null; },
+    nameFor(email) { return this.byEmail(email)?.name || email; },
+    async invite(email, name) {
+      const e = String(email).toLowerCase().trim();
+      if (!e || !e.includes('@')) throw new Error('Enter a valid email address.');
+      const me = this.myEmail();
+      if (e === me) throw new Error('That is your own email.');
+      if (this.byEmail(e)) throw new Error('This person is already in your list.');
+      const u = window._arcUser;
+      const doc = {
+        fromUid: u.uid, fromEmail: me,
+        fromName: u.displayName || me, fromPhoto: u.photoURL || null,
+        toEmail: e, toName: (name || '').trim() || e,
+        toUid: null, toRealName: null, toPhoto: null,
+        status: 'pending', createdAt: Date.now(), ts: Date.now(),
+      };
+      await this._col().doc(this.pairId(me, e)).set(doc);
+      this._list.push({ id: this.pairId(me, e), direction: 'out', status: 'pending', email: e, name: doc.toName, photo: null });
+    },
+    async accept(id) {
+      const u = window._arcUser;
+      await this._col().doc(id).update({
+        status: 'accepted', toUid: u.uid,
+        toRealName: u.displayName || this.myEmail(), toPhoto: u.photoURL || null,
+        ts: Date.now(),
+      });
+      const p = this._list.find(x => x.id === id);
+      if (p) p.status = 'accepted';
+    },
+    async remove(id) {   // decline an invite, cancel an outgoing one, or disconnect
+      await this._col().doc(id).delete();
+      this._list = this._list.filter(x => x.id !== id);
+    },
+  };
+
+  // ── People modal ─────────────────────────────────────────────────────
+  async function openPeopleModal() {
+    if (!People.available()) {
+      showModal(`<div class="modal narrow">
+        <div class="modal-hdr"><div class="modal-title">People</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+        <p style="color:var(--muted);font-size:13px;line-height:1.7">Your address book needs cloud sync. Sign in with Google to add people and collaborate.</p>
+        <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">OK</button></div>
+      </div>`);
+      return;
+    }
+    showModal(`<div class="modal" style="max-width:520px">
+      <div class="modal-hdr">
+        <div><div class="modal-title">People</div><div class="modal-sub">Your address book — connect to collaborate on tasks</div></div>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div style="margin-bottom:20px">
+        <div class="ss-section-title">Add a person</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-inp" id="pp-name" placeholder="Name" style="flex:1" onkeydown="if(event.key==='Enter')arcPeopleInvite()">
+          <input class="form-inp" id="pp-email" type="email" placeholder="their-email@gmail.com" style="flex:1.4" onkeydown="if(event.key==='Enter')arcPeopleInvite()">
+          <button class="btn btn-primary btn-sm" style="flex-shrink:0;white-space:nowrap" onclick="arcPeopleInvite()">Send Invite</button>
+        </div>
+        <div class="form-hint" style="margin-top:6px">They'll see your invite under People when they sign in to Arcus with that email.</div>
+        <div id="pp-err" style="font-size:11px;color:var(--red);min-height:14px;margin-top:4px"></div>
+      </div>
+      <div id="pp-lists"><div class="share-loading">Loading…</div></div>
+      <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>
+    </div>`);
+    await People.load();
+    arcPeopleRender();
+  }
+
   // ── Sharing overview modal ───────────────────────────────────────────
   async function openSharingModal() {
     if (!Shared.available()) {
@@ -584,6 +697,9 @@ const Arc = (() => {
               <div class="arc-pmenu-div"></div>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openLabelManager()">
                 <span class="apm-icon">🏷</span> Manage Labels
+              </button>
+              <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openPeopleModal()">
+                <span class="apm-icon">👤</span> People
               </button>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openSharingModal()">
                 <span class="apm-icon">🤝</span> Sharing
@@ -912,8 +1028,8 @@ const Arc = (() => {
   }
 
   return { uid, esc, dateStr, today, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
-           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, Checklists, Shared, FolderSave,
-           avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager, openSharingModal };
+           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, Checklists, Shared, People, FolderSave,
+           avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager, openSharingModal, openPeopleModal };
 })();
 
 // =====================================================================
@@ -1175,6 +1291,83 @@ async function arcOvLeave(id) {
   if (typeof renderBoard === 'function') renderBoard();
 }
 
+// ── People modal handlers ─────────────────────────────────────────────
+function arcPersonAva(p, size = 26) {
+  const ini = (p.name || p.email || '?').charAt(0).toUpperCase();
+  return p.photo
+    ? `<img src="${Arc.esc(p.photo)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0;display:block" alt="">`
+    : `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#7b79f7,#a78bfa);color:#fff;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.42)}px;font-weight:700;flex-shrink:0">${Arc.esc(ini)}</div>`;
+}
+
+function arcPeopleRender() {
+  const el = document.getElementById('pp-lists');
+  if (!el) return;
+  const row = (p, actions) => `<div style="display:flex;align-items:center;gap:11px;padding:8px 12px;border-bottom:1px solid var(--border)">
+    ${arcPersonAva(p, 30)}
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Arc.esc(p.name)}</div>
+      <div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Arc.esc(p.email)}</div>
+    </div>
+    ${actions}</div>`;
+  const box = inner => `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">${inner}</div>`;
+  const title = t => `<div class="ss-section-title">${t}</div>`;
+  let html = '';
+
+  const pin = Arc.People.pendingIn();
+  if (pin.length) {
+    html += title('Invites for you') + box(pin.map(p => row(p, `
+      <button class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 12px;flex-shrink:0" onclick="arcPeopleAccept('${p.id}')">Accept</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px;color:var(--red);flex-shrink:0" onclick="arcPeopleRemove('${p.id}','Decline this invite?')">Decline</button>
+    `)).join(''));
+  }
+  const pout = Arc.People.pendingOut();
+  if (pout.length) {
+    html += title('Invited — waiting on them') + box(pout.map(p => row(p, `
+      <span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--amber);background:rgba(245,197,66,.1);border:1px solid rgba(245,197,66,.3);border-radius:10px;padding:2px 9px;flex-shrink:0">Pending</span>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px;color:var(--muted);flex-shrink:0" onclick="arcPeopleRemove('${p.id}','Cancel this invite?')">Cancel</button>
+    `)).join(''));
+  }
+  const conn = Arc.People.connected();
+  html += title('Connected') + (conn.length
+    ? box(conn.map(p => row(p, `
+        <span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--green);background:rgba(62,201,122,.1);border:1px solid rgba(62,201,122,.3);border-radius:10px;padding:2px 9px;flex-shrink:0">Connected</span>
+        <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px;color:var(--red);flex-shrink:0" onclick="arcPeopleRemove('${p.id}','Remove this person from your people?')">✕</button>
+      `)).join(''))
+    : `<div style="font-size:12px;color:var(--dim);padding:6px 2px 16px">No connections yet — send an invite above to get started.</div>`);
+
+  el.innerHTML = html;
+}
+
+async function arcPeopleInvite() {
+  const nameEl  = document.getElementById('pp-name');
+  const emailEl = document.getElementById('pp-email');
+  const err     = document.getElementById('pp-err');
+  const email = emailEl?.value?.trim();
+  if (!email) { emailEl?.focus(); return; }
+  if (err) err.textContent = '';
+  try {
+    await Arc.People.invite(email, nameEl?.value || '');
+    if (nameEl) nameEl.value = '';
+    if (emailEl) emailEl.value = '';
+    arcPeopleRender();
+  } catch (e) {
+    if (err) err.textContent = e.message || 'Could not send the invite.';
+  }
+}
+
+async function arcPeopleAccept(id) {
+  try { await Arc.People.accept(id); }
+  catch (e) { alert('Could not accept: ' + (e.message || e)); }
+  arcPeopleRender();
+}
+
+async function arcPeopleRemove(id, msg) {
+  if (!confirm(msg || 'Remove this person?')) return;
+  try { await Arc.People.remove(id); }
+  catch (e) { alert('Could not remove: ' + (e.message || e)); }
+  arcPeopleRender();
+}
+
 // =====================================================================
 // FIREBASE AUTH + FIRESTORE SYNC
 // =====================================================================
@@ -1205,8 +1398,8 @@ function arcFirebaseInit() {
     if (user) {
       arcShowSyncBanner(true);
       const hadError = await arcLoadUserData(user.uid);
-      // Load shared items and fold collaborators' edits into the local store
-      await Arc.Shared.load();
+      // Load shared items + people directory, fold collaborators' edits into the local store
+      await Promise.all([Arc.Shared.load(), Arc.People.load()]);
       Arc.Shared.applyMineToLocal();
       if (!hadError) arcShowSyncBanner(false);
       arcHideAuthOverlay();
