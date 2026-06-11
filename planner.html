@@ -70,6 +70,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
   width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0;
   padding:8px 16px; display:flex; align-items:center; border-right:1px solid var(--border);
   background:var(--s1);
+  position:sticky; left:0; z-index:31;
 }
 .g-corner-lbl { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
 .g-dates { display:flex; }
@@ -89,7 +90,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
 /* ── Category ──────────────────────────────────────────── */
 .cat-row { display:flex; background:var(--s2); border-bottom:1px solid var(--border); transition:background .2s; }
-.cat-left { width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0; padding:7px 14px; display:flex; align-items:center; gap:8px; cursor:pointer; border-right:1px solid var(--border); user-select:none; }
+.cat-left { width:var(--gLeft); min-width:var(--gLeft); flex-shrink:0; padding:7px 14px; display:flex; align-items:center; gap:8px; cursor:pointer; border-right:1px solid var(--border); user-select:none; position:sticky; left:0; z-index:20; background:var(--s2); }
 .cat-left:hover { background:var(--s3); }
 .cat-chev { font-size:12px; color:var(--muted); transition:transform .2s; }
 .cat-chev.open { transform:rotate(90deg); }
@@ -108,7 +109,10 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
   padding:0 12px; display:flex; align-items:center; gap:8px;
   border-right:1px solid var(--border); cursor:pointer; overflow:hidden;
   min-height:44px;
+  /* Frozen while the timeline scrolls horizontally */
+  position:sticky; left:0; z-index:20; background:var(--bg);
 }
+.goal-row.is-overdue .goal-left { background:color-mix(in srgb, var(--red) 8%, var(--bg)); }
 .goal-left:hover .goal-title { color:var(--accent); }
 .goal-clr { width:3px; height:22px; border-radius:2px; flex-shrink:0; }
 .goal-title { font-size:13px; font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:color .15s; }

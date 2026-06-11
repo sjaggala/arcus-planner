@@ -63,8 +63,12 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .sticky-hdr-grip::before { content:'⋮⋮'; font-size:11px; opacity:.4; letter-spacing:-1px; }
 .sticky-btn { width:22px;height:22px;border-radius:5px;border:none;background:rgba(0,0,0,.12);
   cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;
-  color:inherit;transition:background .12s;flex-shrink:0; }
+  color:inherit;transition:background .12s,opacity .15s;flex-shrink:0; }
 .sticky-btn:hover { background:rgba(0,0,0,.22); }
+/* Header action buttons stay invisible until the note is hovered */
+.sticky-hdr .sticky-btn { opacity:0; }
+.sticky-note:hover .sticky-hdr .sticky-btn,
+.sticky-note.show-panel .sticky-hdr .sticky-btn { opacity:1; }
 
 /* Note body */
 .sticky-body { padding:10px 12px 12px; }

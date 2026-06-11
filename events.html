@@ -42,9 +42,9 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .view-pill.active { background:var(--accent); color:#fff; }
 
 /* Month grid */
-.month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:0; background:var(--s1); border:1px solid var(--border); border-radius:10px; overflow:hidden; flex:1; }
+.month-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:0; background:var(--s1); border:1px solid var(--border); border-radius:10px; overflow:hidden; flex:1; }
 .day-hdr { background:var(--s2); padding:4px 0; text-align:center; font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
-.day-cell { background:var(--s1); min-height:90px; padding:6px; position:relative; cursor:pointer; transition:background .1s; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+.day-cell { background:var(--s1); min-height:90px; padding:6px; position:relative; cursor:pointer; transition:background .1s; border-right:1px solid var(--border); border-bottom:1px solid var(--border); min-width:0; overflow:hidden; }
 .month-grid > *:nth-child(7n) { border-right:none; }
 .month-grid > *:nth-last-child(-n+7) { border-bottom:none; }
 .day-cell:hover { background:var(--s2); }
@@ -57,13 +57,18 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .more-pill { font-size:10px; color:var(--muted); padding:1px 4px; cursor:pointer; }
 .more-pill:hover { color:var(--accent); }
 
-/* Week grid */
-.week-grid { display:flex; flex-direction:column; flex:1; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
-.week-hdr-row { display:grid; grid-template-columns:52px repeat(7,1fr); background:var(--s2); border-bottom:1px solid var(--border); }
-.week-hdr-cell { padding:8px 6px; text-align:center; font-size:11px; font-weight:700; color:var(--muted); }
+/* Week grid — header, all-day row and hour grid share ONE scroll container
+   so their 7 day-columns always align perfectly */
+.week-grid { flex:1; border:1px solid var(--border); border-radius:10px; overflow-y:auto; display:flex; flex-direction:column; }
+.week-sticky { position:sticky; top:0; z-index:5; }
+.week-hdr-row { display:grid; grid-template-columns:52px repeat(7,minmax(0,1fr)); background:var(--s2); border-bottom:1px solid var(--border); }
+.week-hdr-cell { padding:8px 6px; text-align:center; font-size:11px; font-weight:700; color:var(--muted); min-width:0; }
 .week-hdr-cell.is-today { color:var(--accent); }
 .week-hdr-date { font-size:18px; font-weight:600; font-family:'Fraunces',serif; display:block; }
-.week-body { flex:1; overflow-y:auto; display:grid; grid-template-columns:52px repeat(7,1fr); }
+.week-allday-row { display:grid; grid-template-columns:52px repeat(7,minmax(0,1fr)); background:var(--s1); border-bottom:1px solid var(--border); }
+.week-allday-cell { padding:3px; border-right:1px solid var(--border); min-height:24px; min-width:0; overflow:hidden; }
+.week-allday-cell:last-child { border-right:none; }
+.week-body { display:grid; grid-template-columns:52px repeat(7,minmax(0,1fr)); }
 .week-time-col { border-right:1px solid var(--border); }
 .week-hour-lbl { height:52px; display:flex; align-items:flex-start; justify-content:flex-end; padding:4px 8px 0 0; font-size:10px; color:var(--dim); }
 .week-day-col { border-right:1px solid var(--border); position:relative; }
@@ -416,7 +421,7 @@ function renderWeekView(container) {
     const gtItems = getGoalTaskItems(dStr);
     const evPills = adevs.map(ev => `<div class="ev-pill" style="background:${(ev.color||'#7b79f7')}22;color:${ev.color||'#7b79f7'};border:1px solid ${(ev.color||'#7b79f7')}44" onclick="editEvent('${ev.id}')">${Arc.esc(ev.title)}</div>`).join('');
     const gtPills = gtItems.map(gtPillHtml).join('');
-    return `<div style="padding:3px;border-right:1px solid var(--border);min-height:24px">${evPills}${gtPills}</div>`;
+    return `<div class="week-allday-cell">${evPills}${gtPills}</div>`;
   }).join('');
 
   // Hours
@@ -447,13 +452,15 @@ function renderWeekView(container) {
   }).join('');
 
   container.innerHTML = `<div class="week-grid">
-    <div class="week-hdr-row">
-      <div class="week-hdr-cell" style="font-size:10px;color:var(--dim)">GMT</div>
-      ${hdrCells}
-    </div>
-    <div style="display:grid;grid-template-columns:52px repeat(7,1fr);background:var(--s1);border-bottom:1px solid var(--border)">
-      <div style="padding:4px 6px;font-size:10px;color:var(--dim);display:flex;align-items:center;justify-content:flex-end">ALL DAY</div>
-      ${allDayRow}
+    <div class="week-sticky">
+      <div class="week-hdr-row">
+        <div class="week-hdr-cell" style="font-size:10px;color:var(--dim)">GMT</div>
+        ${hdrCells}
+      </div>
+      <div class="week-allday-row">
+        <div style="padding:4px 6px;font-size:10px;color:var(--dim);display:flex;align-items:center;justify-content:flex-end">ALL DAY</div>
+        ${allDayRow}
+      </div>
     </div>
     <div class="week-body">
       <div class="week-time-col">${timeLbls}</div>
@@ -461,8 +468,8 @@ function renderWeekView(container) {
     </div>
   </div>`;
   // Scroll to 8am
-  const wb = container.querySelector('.week-body');
-  if (wb) wb.scrollTop = 8 * 52;
+  const wg = container.querySelector('.week-grid');
+  if (wg) wg.scrollTop = 8 * 52;
 }
 
 // ── Day View ────────────────────────────────────────────────────────
