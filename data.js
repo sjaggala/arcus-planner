@@ -565,68 +565,6 @@ const Arc = (() => {
     },
   };
 
-  // ── People modal ─────────────────────────────────────────────────────
-  async function openPeopleModal() {
-    if (!People.available()) {
-      showModal(`<div class="modal narrow">
-        <div class="modal-hdr"><div class="modal-title">People</div><button class="close-btn" onclick="closeModal()">✕</button></div>
-        <p style="color:var(--muted);font-size:13px;line-height:1.7">Your address book needs cloud sync. Sign in with Google to add people and collaborate.</p>
-        <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">OK</button></div>
-      </div>`);
-      return;
-    }
-    showModal(`<div class="modal" style="max-width:520px">
-      <div class="modal-hdr">
-        <div><div class="modal-title">People</div><div class="modal-sub">Your address book — connect to collaborate on tasks</div></div>
-        <button class="close-btn" onclick="closeModal()">✕</button>
-      </div>
-      <div style="margin-bottom:20px">
-        <div class="ss-section-title">Add a person</div>
-        <div style="display:flex;gap:8px">
-          <input class="form-inp" id="pp-name" placeholder="Name" style="flex:1" onkeydown="if(event.key==='Enter')arcPeopleInvite()">
-          <input class="form-inp" id="pp-email" type="email" placeholder="their-email@gmail.com" style="flex:1.4" onkeydown="if(event.key==='Enter')arcPeopleInvite()">
-          <button class="btn btn-primary btn-sm" style="flex-shrink:0;white-space:nowrap" onclick="arcPeopleInvite()">Send Invite</button>
-        </div>
-        <div class="form-hint" style="margin-top:6px">They'll see your invite under People when they sign in to Arcus with that email.</div>
-        <div id="pp-err" style="font-size:11px;color:var(--red);min-height:14px;margin-top:4px"></div>
-      </div>
-      <div id="pp-lists"><div class="share-loading">Loading…</div></div>
-      <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>
-    </div>`);
-    await People.load();
-    arcPeopleRender();
-  }
-
-  // ── Sharing overview modal ───────────────────────────────────────────
-  async function openSharingModal() {
-    if (!Shared.available()) {
-      showModal(`<div class="modal narrow">
-        <div class="modal-hdr"><div class="modal-title">Sharing</div><button class="close-btn" onclick="closeModal()">✕</button></div>
-        <p style="color:var(--muted);font-size:13px;line-height:1.7">Collaboration needs cloud sync. Sign in with Google to share tasks with others.</p>
-        <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">OK</button></div>
-      </div>`);
-      return;
-    }
-    showModal(`<div class="modal" style="max-width:500px">
-      <div class="modal-hdr">
-        <div><div class="modal-title">Sharing</div><div class="modal-sub">Items you collaborate on with others</div></div>
-        <button class="close-btn" onclick="closeModal()">✕</button>
-      </div>
-      <div style="margin-bottom:20px">
-        <div class="ss-section-title">Shared by me</div>
-        <div id="share-mine"><div class="share-loading">Loading…</div></div>
-        <div class="form-hint" style="margin-top:6px">To share a task, open it on the board and add an email under "Sharing".</div>
-      </div>
-      <div>
-        <div class="ss-section-title">Shared with me</div>
-        <div id="share-withme"><div class="share-loading">Loading…</div></div>
-      </div>
-      <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>
-    </div>`);
-    await Shared.load();
-    arcSharingRenderOverview();
-  }
-
   // ── Avatar HTML ──────────────────────────────────────────────────────
   function avatarHtml(size = 34) {
     const p = Profile.get(), ini = Profile.initials();
@@ -698,11 +636,8 @@ const Arc = (() => {
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openLabelManager()">
                 <span class="apm-icon">🏷</span> Manage Labels
               </button>
-              <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openPeopleModal()">
-                <span class="apm-icon">👤</span> People
-              </button>
-              <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openSharingModal()">
-                <span class="apm-icon">🤝</span> Sharing
+              <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();location.href='people.html'">
+                <span class="apm-icon">👥</span> People &amp; Sharing
               </button>
               <div class="arc-pmenu-div"></div>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();openSettings()">
@@ -1029,7 +964,7 @@ const Arc = (() => {
 
   return { uid, esc, dateStr, today, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
            Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, Checklists, Shared, People, FolderSave,
-           avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager, openSharingModal, openPeopleModal };
+           avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager };
 })();
 
 // =====================================================================
@@ -1244,54 +1179,7 @@ function arcLmClose() {
   if (typeof window._arcLmOnClose === 'function') { const cb = window._arcLmOnClose; window._arcLmOnClose = null; cb(); }
 }
 
-// ── Sharing overview modal handlers ──────────────────────────────────
-function arcSharingRenderOverview() {
-  const mineEl   = document.getElementById('share-mine');
-  const withMeEl = document.getElementById('share-withme');
-  const typeChip = t => `<span style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:1px 7px;border-radius:8px;background:rgba(123,121,247,.12);color:var(--accent);border:1px solid rgba(123,121,247,.25);flex-shrink:0">${t}</span>`;
-  if (mineEl) {
-    const mine = Arc.Shared._mine;
-    mineEl.innerHTML = mine.length
-      ? `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">` +
-        mine.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:7px">${Arc.esc(s.data?.title || 'Untitled')} ${typeChip(s.type)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:1px">with ${Arc.esc((s.members || []).join(', '))}</div>
-          </div>
-          <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;color:var(--red);flex-shrink:0" onclick="arcOvUnshareAll('${s.id}')">Stop sharing</button>
-        </div>`).join('') + `</div>`
-      : `<div style="font-size:12px;color:var(--dim);padding:6px 2px">You haven't shared anything yet.</div>`;
-  }
-  if (withMeEl) {
-    const withMe = Arc.Shared._withMe;
-    withMeEl.innerHTML = withMe.length
-      ? `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">` +
-        withMe.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:7px">${Arc.esc(s.data?.title || 'Untitled')} ${typeChip(s.type)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:1px">shared by ${Arc.esc(s.ownerName)}</div>
-          </div>
-          <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;color:var(--red);flex-shrink:0" onclick="arcOvLeave('${s.id}')">Leave</button>
-        </div>`).join('') + `</div>`
-      : `<div style="font-size:12px;color:var(--dim);padding:6px 2px">Nothing has been shared with you yet.</div>`;
-  }
-}
-
-async function arcOvUnshareAll(id) {
-  if (!confirm('Stop sharing this item? Collaborators will lose access; you keep the item.')) return;
-  try { await Arc.Shared.unshareAll(id); } catch (e) { alert('Could not stop sharing: ' + (e.message || e)); }
-  arcSharingRenderOverview();
-  if (typeof renderBoard === 'function') renderBoard();
-}
-
-async function arcOvLeave(id) {
-  if (!confirm('Remove this shared item from your board? The owner keeps it.')) return;
-  try { await Arc.Shared.leave(id); } catch (e) { alert('Could not leave: ' + (e.message || e)); }
-  arcSharingRenderOverview();
-  if (typeof renderBoard === 'function') renderBoard();
-}
-
-// ── People modal handlers ─────────────────────────────────────────────
+// ── Person avatar helper (used by tasks.html and people.html) ─────────
 function arcPersonAva(p, size = 26) {
   const ini = (p.name || p.email || '?').charAt(0).toUpperCase();
   return p.photo
@@ -1299,74 +1187,6 @@ function arcPersonAva(p, size = 26) {
     : `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#7b79f7,#a78bfa);color:#fff;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.42)}px;font-weight:700;flex-shrink:0">${Arc.esc(ini)}</div>`;
 }
 
-function arcPeopleRender() {
-  const el = document.getElementById('pp-lists');
-  if (!el) return;
-  const row = (p, actions) => `<div style="display:flex;align-items:center;gap:11px;padding:8px 12px;border-bottom:1px solid var(--border)">
-    ${arcPersonAva(p, 30)}
-    <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Arc.esc(p.name)}</div>
-      <div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Arc.esc(p.email)}</div>
-    </div>
-    ${actions}</div>`;
-  const box = inner => `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px">${inner}</div>`;
-  const title = t => `<div class="ss-section-title">${t}</div>`;
-  let html = '';
-
-  const pin = Arc.People.pendingIn();
-  if (pin.length) {
-    html += title('Invites for you') + box(pin.map(p => row(p, `
-      <button class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 12px;flex-shrink:0" onclick="arcPeopleAccept('${p.id}')">Accept</button>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px;color:var(--red);flex-shrink:0" onclick="arcPeopleRemove('${p.id}','Decline this invite?')">Decline</button>
-    `)).join(''));
-  }
-  const pout = Arc.People.pendingOut();
-  if (pout.length) {
-    html += title('Invited — waiting on them') + box(pout.map(p => row(p, `
-      <span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--amber);background:rgba(245,197,66,.1);border:1px solid rgba(245,197,66,.3);border-radius:10px;padding:2px 9px;flex-shrink:0">Pending</span>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px;color:var(--muted);flex-shrink:0" onclick="arcPeopleRemove('${p.id}','Cancel this invite?')">Cancel</button>
-    `)).join(''));
-  }
-  const conn = Arc.People.connected();
-  html += title('Connected') + (conn.length
-    ? box(conn.map(p => row(p, `
-        <span style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--green);background:rgba(62,201,122,.1);border:1px solid rgba(62,201,122,.3);border-radius:10px;padding:2px 9px;flex-shrink:0">Connected</span>
-        <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px;color:var(--red);flex-shrink:0" onclick="arcPeopleRemove('${p.id}','Remove this person from your people?')">✕</button>
-      `)).join(''))
-    : `<div style="font-size:12px;color:var(--dim);padding:6px 2px 16px">No connections yet — send an invite above to get started.</div>`);
-
-  el.innerHTML = html;
-}
-
-async function arcPeopleInvite() {
-  const nameEl  = document.getElementById('pp-name');
-  const emailEl = document.getElementById('pp-email');
-  const err     = document.getElementById('pp-err');
-  const email = emailEl?.value?.trim();
-  if (!email) { emailEl?.focus(); return; }
-  if (err) err.textContent = '';
-  try {
-    await Arc.People.invite(email, nameEl?.value || '');
-    if (nameEl) nameEl.value = '';
-    if (emailEl) emailEl.value = '';
-    arcPeopleRender();
-  } catch (e) {
-    if (err) err.textContent = e.message || 'Could not send the invite.';
-  }
-}
-
-async function arcPeopleAccept(id) {
-  try { await Arc.People.accept(id); }
-  catch (e) { alert('Could not accept: ' + (e.message || e)); }
-  arcPeopleRender();
-}
-
-async function arcPeopleRemove(id, msg) {
-  if (!confirm(msg || 'Remove this person?')) return;
-  try { await Arc.People.remove(id); }
-  catch (e) { alert('Could not remove: ' + (e.message || e)); }
-  arcPeopleRender();
-}
 
 // =====================================================================
 // FIREBASE AUTH + FIRESTORE SYNC

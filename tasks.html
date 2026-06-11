@@ -190,17 +190,21 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .tc-st-prog { font-size:10px; font-weight:600; padding:1px 6px; border-radius:6px; background:var(--s3); color:var(--muted); border:1px solid var(--border); }
 .tc-st-prog.complete { background:rgba(62,201,122,.12); color:var(--green); border-color:rgba(62,201,122,.3); }
 
-/* ── Shared task indicators ── */
-.tc-owner-ava { width:18px; height:18px; border-radius:50%; object-fit:cover; flex-shrink:0; display:inline-flex; border:1px solid var(--border2); }
-.tc-owner-ini { background:linear-gradient(135deg,#7b79f7,#a78bfa); color:#fff; font-size:9px; font-weight:700; align-items:center; justify-content:center; display:inline-flex; }
-.tc-shared-chip { font-size:10px; font-weight:600; padding:1px 7px; border-radius:8px; background:rgba(123,121,247,.12); color:var(--accent); border:1px solid rgba(123,121,247,.25); }
-.ts-share-row { display:flex; align-items:center; gap:5px; margin-left:auto; flex-shrink:0; }
+/* ── Shared task indicators (people avatars, bottom-right of card) ── */
+.tc-people { position:absolute; bottom:9px; right:11px; display:flex; align-items:center; pointer-events:auto; }
+.tc-people > * { margin-left:-6px; box-shadow:0 0 0 2px var(--s1); border-radius:50%; }
+.tc-people > *:first-child { margin-left:0; }
+.tc-people-more { font-size:9px; color:var(--muted); font-weight:700; margin-left:3px !important; box-shadow:none !important; }
+[data-theme="light"] .tc-people > * { box-shadow:0 0 0 2px #ffffff; }
+[data-theme="dark"] .tc-people > * { box-shadow:0 0 0 2px #222225; }
+.task-card.has-people .task-card-meta { padding-right:52px; }
+.ts-share-row { display:flex; align-items:center; gap:5px; flex-shrink:0; }
 .ts-ava-wrap { cursor:pointer; border-radius:50%; display:inline-flex; transition:transform .12s, opacity .12s; }
 .ts-ava-wrap:hover { transform:scale(1.12); opacity:.85; }
 .ts-shared-by { font-size:11px; color:var(--muted); font-weight:600; white-space:nowrap; }
-.ts-add-btn { width:24px; height:24px; border-radius:50%; border:1px dashed var(--border2); background:var(--s3); color:var(--muted); cursor:pointer; font-size:14px; font-weight:400; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; transition:all .15s; }
+.ts-add-btn { width:30px; height:30px; border-radius:50%; border:1px dashed var(--border2); background:var(--s3); color:var(--muted); cursor:pointer; font-size:17px; font-weight:400; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; transition:all .15s; }
 .ts-add-btn:hover { border-color:var(--accent); border-style:solid; color:var(--accent); background:rgba(123,121,247,.08); }
-.ts-share-dd { position:absolute; top:30px; right:0; z-index:300; min-width:235px; background:var(--s2); border:1px solid var(--border2); border-radius:10px; padding:5px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+.ts-share-dd { position:absolute; top:36px; left:0; z-index:300; min-width:235px; background:var(--s2); border:1px solid var(--border2); border-radius:10px; padding:5px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
 .ts-share-dd.hidden { display:none; }
 .ts-dd-person { display:flex; align-items:center; gap:9px; padding:6px 8px; border-radius:7px; cursor:pointer; transition:background .12s; }
 .ts-dd-person:hover { background:var(--s3); }
@@ -495,17 +499,20 @@ function renderTaskCard(task, bucketId, shared) {
   if (task.priority === 'high') metaParts.push(`<span class="tc-high">High</span>`);
   if (proj) metaParts.push(`<span class="tc-proj">${Arc.esc(proj.name)}</span>`);
 
-  // Shared indicators: owner's avatar on tasks shared WITH me,
-  // a member-count chip on my tasks shared with others
+  // Shared indicator: people avatars in the card's bottom-right corner —
+  // the owner's photo on tasks shared WITH me, member photos on tasks I shared
+  let peopleCluster = '';
   if (shared) {
-    metaParts.push(shared.ownerPhoto
-      ? `<img class="tc-owner-ava" src="${Arc.esc(shared.ownerPhoto)}" title="Shared by ${Arc.esc(shared.ownerName)}" alt="">`
-      : `<span class="tc-owner-ava tc-owner-ini" title="Shared by ${Arc.esc(shared.ownerName)}">${Arc.esc((shared.ownerName||'?').charAt(0).toUpperCase())}</span>`);
-  }
-  if (sharedByMe) {
+    peopleCluster = `<div class="tc-people" title="Shared by ${Arc.esc(shared.ownerName)}">
+      ${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 20)}</div>`;
+  } else if (sharedByMe) {
     const ms = Arc.Shared.membersOf(task.id);
     const names = ms.map(m => Arc.People.nameFor(m)).join(', ');
-    metaParts.push(`<span class="tc-shared-chip" title="Shared with ${Arc.esc(names)}">👥 ${ms.length}</span>`);
+    peopleCluster = `<div class="tc-people" title="Shared with ${Arc.esc(names)}">
+      ${ms.slice(0, 3).map(m => {
+        const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
+        return arcPersonAva(p, 20);
+      }).join('')}${ms.length > 3 ? `<span class="tc-people-more">+${ms.length - 3}</span>` : ''}</div>`;
   }
 
   // Label pills (labels are personal — hidden on tasks shared with me)
@@ -526,13 +533,14 @@ function renderTaskCard(task, bucketId, shared) {
     : `<div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">📌</div>
        <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">✕</div>`;
 
-  return `<div class="task-card ${isDone?'done-card':''}"
+  return `<div class="task-card ${isDone?'done-card':''} ${peopleCluster?'has-people':''}"
     draggable="true" ondragstart="onDragStart(event,'${task.id}')" ondragend="onDragEnd(event)"
     onclick="editTaskModal('${task.id}')">
     ${isPinned ? `<div class="tc-pin-dot" title="Pinned to Focus">📌</div>` : ''}
     <div class="task-card-actions" onclick="event.stopPropagation()">${actions}</div>
     <div class="task-card-title">${Arc.esc(task.title)}</div>
     ${metaParts.length || labelPills || stBadge ? `<div class="task-card-meta">${metaParts.join('')}${stBadge}${labelPills}</div>` : ''}
+    ${peopleCluster}
   </div>`;
 }
 
@@ -706,8 +714,13 @@ function taskModal(task, defaultBucketId, shared) {
 
   showModal(`<div class="modal ${isEdit?'modal-split':''}">
     <div class="modal-hdr">
-      <div><div class="modal-title">${isEdit?'Edit Task':'New Task'}</div><div class="modal-sub">${isEdit?'Update this task':'Add a standalone task to your board'}</div></div>
-      ${isEdit ? `<div class="ts-share-row" id="ts-share-row"></div>` : ''}
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:16px">
+          <div class="modal-title">${isEdit?'Edit Task':'New Task'}</div>
+          ${isEdit ? `<div class="ts-share-row" id="ts-share-row"></div>` : ''}
+        </div>
+        <div class="modal-sub">${isEdit?'Update this task':'Add a standalone task to your board'}</div>
+      </div>
       <button class="close-btn" onclick="closeModal()">✕</button>
     </div>
     ${isEdit ? `<div class="split-body">
@@ -744,7 +757,7 @@ function tsRenderShareRow(taskId, shared) {
   if (!row) return;
   // Task shared WITH me: just show who it came from
   if (shared) {
-    row.innerHTML = `${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 24)}
+    row.innerHTML = `${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 28)}
       <span class="ts-shared-by">Shared by ${Arc.esc(shared.ownerName)}</span>`;
     return;
   }
@@ -752,7 +765,7 @@ function tsRenderShareRow(taskId, shared) {
   const ms = Arc.Shared.membersOf(taskId);
   row.innerHTML = ms.map(m => {
     const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
-    return `<span class="ts-ava-wrap" title="${Arc.esc(p.name)} — click to remove" onclick="arcTaskShareRemove('${taskId}','${Arc.esc(m)}')">${arcPersonAva(p, 24)}</span>`;
+    return `<span class="ts-ava-wrap" title="${Arc.esc(p.name)} — click to remove" onclick="arcTaskShareRemove('${taskId}','${Arc.esc(m)}')">${arcPersonAva(p, 28)}</span>`;
   }).join('') + `
     <div style="position:relative;display:inline-flex">
       <button class="ts-add-btn" title="Share this task" onclick="tsToggleShareDd(event,'${taskId}')">+</button>
@@ -777,7 +790,7 @@ function tsToggleShareDd(e, taskId) {
             <div class="ts-dd-mail">${Arc.esc(p.email)}</div>
           </div>
         </div>`).join('')
-      : `<div class="ts-dd-empty">No connected people yet.<br>Add them under <strong>People</strong> in your profile menu.</div>`}
+      : `<div class="ts-dd-empty">No connected people yet.<br>Add them on the <strong>People &amp; Sharing</strong> page in your profile menu.</div>`}
     <div class="ts-dd-sep"></div>
     <input class="form-inp ts-dd-inp" id="ts-dd-email" type="email" placeholder="or type an email…"
       onclick="event.stopPropagation()"
