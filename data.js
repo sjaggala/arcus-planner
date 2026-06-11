@@ -13,12 +13,25 @@
 //  2. Project Settings → General → Add app → Web → register as "Arcus" → copy config below
 //  3. Authentication → Get Started → Sign-in method → Google → Enable → Save
 //  4. Firestore Database → Create database → Start in production mode → choose region
-//  5. Firestore → Rules tab → replace with:
+//  5. Firestore → Rules tab → replace with (includes collaboration/sharing):
 //       rules_version = '2';
 //       service cloud.firestore {
 //         match /databases/{database}/documents {
 //           match /users/{uid}/store/{doc} {
-//             allow read, write: if request.auth != null && request.auth.uid == uid;
+//             allow read, write: if request.auth != null && (
+//               request.auth.uid == uid ||
+//               exists(/databases/$(database)/documents/shares/$(uid + '_' + request.auth.token.email.lower()))
+//             );
+//           }
+//           match /shares/{shareId} {
+//             allow read: if request.auth != null && (
+//               resource.data.ownerUid == request.auth.uid ||
+//               resource.data.memberEmail == request.auth.token.email.lower()
+//             );
+//             allow create: if request.auth != null &&
+//               request.resource.data.ownerUid == request.auth.uid;
+//             allow delete: if request.auth != null &&
+//               resource.data.ownerUid == request.auth.uid;
 //           }
 //         }
 //       }
@@ -38,6 +51,18 @@ const ARC_FIREBASE_CONFIG = {
 // Internal Firebase state (set by arcFirebaseInit)
 window._arcUser   = null;  // signed-in Firebase user
 window._arcDb     = null;  // Firestore instance
+
+// Shared-workspace state (collaboration). When _arcWs is set, the keys in
+// ARC_SHARED_KEYS are read from / written to the WORKSPACE OWNER's Firestore
+// via an in-memory cache — never this user's localStorage.
+window._arcWs      = null; // { uid, name } of the workspace owner being viewed
+window._arcWsCache = {};   // in-memory store for the shared workspace's data
+
+// Keys that belong to a workspace and are shared with collaborators.
+// Personal keys (journal, focus pins, checklists, profile, settings) are not shared.
+const ARC_SHARED_KEYS = [
+  'arc_p','arc_g','arc_n','arc_buckets','arc_tasks','arc_ev','arc_comments','arc_labels',
+];
 
 // =====================================================================
 // GLOBAL MODAL SYSTEM
@@ -86,8 +111,26 @@ const Arc = (() => {
 
   const DB = {
     _localSaveTimer: null,
-    get(k)    { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    get(k) {
+      // Shared-workspace mode: shared keys come from the owner's data cache
+      if (window._arcWs && ARC_SHARED_KEYS.includes(k)) {
+        return window._arcWsCache[k] !== undefined ? window._arcWsCache[k] : null;
+      }
+      try { return JSON.parse(localStorage.getItem(k)); } catch { return null; }
+    },
     set(k, v) {
+      // Shared-workspace mode: write shared keys straight to the owner's Firestore
+      if (window._arcWs && ARC_SHARED_KEYS.includes(k)) {
+        window._arcWsCache[k] = v;
+        if (window._arcDb && window._arcUser) {
+          window._arcDb
+            .collection('users').doc(window._arcWs.uid)
+            .collection('store').doc(k)
+            .set({ value: v, ts: Date.now() })
+            .catch(e => console.warn('Arcus: shared workspace sync failed for', k, e));
+        }
+        return;
+      }
       localStorage.setItem(k, JSON.stringify(v));
       // Background sync to Firestore (fire-and-forget — localStorage is the fast cache)
       if (window._arcDb && window._arcUser) {
@@ -274,7 +317,9 @@ const Arc = (() => {
       if (!text || !text.trim()) return null;
       const all = this.getAll();
       if (!all[entityId]) all[entityId] = [];
-      const c = { id: uid(), text: text.trim(), html: html || null, createdAt: new Date().toISOString() };
+      // Record the author so collaborators in shared workspaces can tell who posted
+      const by = (window._arcUser?.displayName || Profile.displayName() || '').split(' ')[0] || null;
+      const c = { id: uid(), text: text.trim(), html: html || null, by: by === 'there' ? null : by, createdAt: new Date().toISOString() };
       all[entityId].push(c);
       DB.set(this._k, all);
       return c;
@@ -341,6 +386,92 @@ const Arc = (() => {
     getById(id) { return this.getAll().find(x => x.id === id) || null; },
   };
 
+  // ── Sharing (collaboration) ──────────────────────────────────────────
+  // Shares live in a top-level Firestore collection `shares`, one doc per
+  // owner→member pair (doc id: `{ownerUid}_{memberEmail}`). Firestore rules
+  // grant a member read/write access to the owner's users/{uid}/store/* docs
+  // whenever a matching share doc exists.
+  const Sharing = {
+    shareId(ownerUid, email) { return `${ownerUid}_${String(email).toLowerCase().trim()}`; },
+    available() { return !!(window._arcDb && window._arcUser); },
+    // People I've shared my workspace with
+    async myMembers() {
+      if (!this.available()) return [];
+      const snap = await window._arcDb.collection('shares')
+        .where('ownerUid', '==', window._arcUser.uid).get();
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    // Workspaces other people have shared with me
+    async sharedWithMe() {
+      if (!this.available() || !window._arcUser.email) return [];
+      const snap = await window._arcDb.collection('shares')
+        .where('memberEmail', '==', window._arcUser.email.toLowerCase()).get();
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+    async addMember(email) {
+      const e = String(email).toLowerCase().trim();
+      if (!e || !e.includes('@')) throw new Error('Enter a valid email address.');
+      const u = window._arcUser;
+      if (e === (u.email || '').toLowerCase()) throw new Error('That is your own email.');
+      await window._arcDb.collection('shares').doc(this.shareId(u.uid, e)).set({
+        ownerUid:    u.uid,
+        ownerName:   u.displayName || u.email || 'Arcus user',
+        ownerEmail:  (u.email || '').toLowerCase(),
+        memberEmail: e,
+        createdAt:   Date.now(),
+      });
+    },
+    async removeMember(email) {
+      await window._arcDb.collection('shares')
+        .doc(this.shareId(window._arcUser.uid, email)).delete();
+    },
+    enterWorkspace(ownerUid, ownerName) {
+      sessionStorage.setItem('arc_ws', JSON.stringify({ uid: ownerUid, name: ownerName || 'Shared' }));
+      location.href = 'tasks.html';
+    },
+    exitWorkspace() {
+      sessionStorage.removeItem('arc_ws');
+      window._arcWs = null;
+      window._arcWsCache = {};
+      location.href = 'index.html';
+    },
+  };
+
+  // ── Sharing modal ────────────────────────────────────────────────────
+  async function openSharingModal() {
+    if (!Sharing.available()) {
+      showModal(`<div class="modal narrow">
+        <div class="modal-hdr"><div class="modal-title">Sharing</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+        <p style="color:var(--muted);font-size:13px;line-height:1.7">Collaboration needs cloud sync. Sign in with Google to share your workspace with others.</p>
+        <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">OK</button></div>
+      </div>`);
+      return;
+    }
+    showModal(`<div class="modal" style="max-width:480px">
+      <div class="modal-hdr">
+        <div><div class="modal-title">Sharing</div><div class="modal-sub">Collaborate on your projects, goals, tasks &amp; events</div></div>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div style="margin-bottom:20px">
+        <div class="ss-section-title">People with access to my workspace</div>
+        <div id="share-mine" style="margin-bottom:10px"><div class="share-loading">Loading…</div></div>
+        <div style="display:flex;gap:8px">
+          <input class="form-inp" id="share-email" type="email" placeholder="person@gmail.com" style="flex:1"
+            onkeydown="if(event.key==='Enter')arcShareAdd()">
+          <button class="btn btn-primary btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="arcShareAdd()">＋ Invite</button>
+        </div>
+        <div class="form-hint" style="margin-top:6px">They sign in to Arcus with this Google email, then open your workspace from this same menu.</div>
+        <div id="share-err" style="font-size:11px;color:var(--red);margin-top:4px;min-height:14px"></div>
+      </div>
+      <div>
+        <div class="ss-section-title">Shared with me</div>
+        <div id="share-withme"><div class="share-loading">Loading…</div></div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Done</button></div>
+    </div>`);
+    arcSharingRefresh();
+  }
+
   // ── Avatar HTML ──────────────────────────────────────────────────────
   function avatarHtml(size = 34) {
     const p = Profile.get(), ini = Profile.initials();
@@ -382,6 +513,7 @@ const Arc = (() => {
       <a href="index.html" class="nav-logo">Arc<span>us</span></a>
       <div class="nav-links">${linksHtml}</div>
       <div class="nav-right">
+        ${window._arcWs ? `<span class="nav-ws-badge" title="You are working in ${esc(window._arcWs.name)}'s shared workspace">👥 ${esc(window._arcWs.name)}'s workspace<button class="nav-ws-exit" onclick="Arc.Sharing.exitWorkspace()" title="Back to my workspace">✕</button></span>` : ''}
         ${isLocalMode ? `<span class="nav-local-badge" title="Data is on this device only — click to sign in" onclick="arcToggleProfileMenu(event)"><span class="nlb-dot"></span>Local only</span>` : ''}
         <div class="nav-profile-wrap">
           <button class="nav-avatar-btn" onclick="arcToggleProfileMenu(event)" title="${isLocalMode ? 'Local mode — click to sign in with Google' : 'Your Profile'}">${ava}</button>
@@ -411,6 +543,9 @@ const Arc = (() => {
               <div class="arc-pmenu-div"></div>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openLabelManager()">
                 <span class="apm-icon">🏷</span> Manage Labels
+              </button>
+              <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openSharingModal()">
+                <span class="apm-icon">🤝</span> Sharing
               </button>
               <div class="arc-pmenu-div"></div>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();openSettings()">
@@ -736,8 +871,8 @@ const Arc = (() => {
   }
 
   return { uid, esc, dateStr, today, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
-           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, Checklists, FolderSave,
-           avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager };
+           Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, Checklists, Sharing, FolderSave,
+           avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager, openSharingModal };
 })();
 
 // =====================================================================
@@ -952,6 +1087,68 @@ function arcLmClose() {
   if (typeof window._arcLmOnClose === 'function') { const cb = window._arcLmOnClose; window._arcLmOnClose = null; cb(); }
 }
 
+// ── Sharing modal handlers ────────────────────────────────────────────
+async function arcSharingRefresh() {
+  const mineEl   = document.getElementById('share-mine');
+  const withMeEl = document.getElementById('share-withme');
+  if (!mineEl && !withMeEl) return;
+  try {
+    const [mine, withMe] = await Promise.all([Arc.Sharing.myMembers(), Arc.Sharing.sharedWithMe()]);
+    if (mineEl) {
+      mineEl.innerHTML = mine.length
+        ? `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">` +
+          mine.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)">
+            <span style="flex:1;font-size:13px;font-weight:500">${Arc.esc(s.memberEmail)}</span>
+            <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px;color:var(--red)" onclick="arcShareRemove('${Arc.esc(s.memberEmail)}')">Remove</button>
+          </div>`).join('') + `</div>`
+        : `<div style="font-size:12px;color:var(--dim);padding:6px 2px">Not shared with anyone yet.</div>`;
+    }
+    if (withMeEl) {
+      withMeEl.innerHTML = withMe.length
+        ? `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">` +
+          withMe.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500">${Arc.esc(s.ownerName)}</div>
+              <div style="font-size:11px;color:var(--muted)">${Arc.esc(s.ownerEmail || '')}</div>
+            </div>
+            <button class="btn btn-primary btn-sm" style="font-size:11px;padding:3px 12px" onclick="arcShareOpen('${s.ownerUid}','${Arc.esc(s.ownerName).replace(/'/g, '&#39;')}')">Open</button>
+          </div>`).join('') + `</div>`
+        : `<div style="font-size:12px;color:var(--dim);padding:6px 2px">No one has shared a workspace with you.</div>`;
+    }
+  } catch (e) {
+    console.error('Arcus: sharing list failed', e);
+    const msg = `<div style="font-size:12px;color:var(--red);padding:6px 2px">Could not load — check your connection and Firestore rules.</div>`;
+    if (mineEl)   mineEl.innerHTML   = msg;
+    if (withMeEl) withMeEl.innerHTML = msg;
+  }
+}
+
+async function arcShareAdd() {
+  const inp = document.getElementById('share-email');
+  const err = document.getElementById('share-err');
+  const email = inp?.value?.trim();
+  if (!email) { inp?.focus(); return; }
+  if (err) err.textContent = '';
+  try {
+    await Arc.Sharing.addMember(email);
+    if (inp) inp.value = '';
+    arcSharingRefresh();
+  } catch (e) {
+    if (err) err.textContent = e.message || 'Could not add — check the email and try again.';
+  }
+}
+
+async function arcShareRemove(email) {
+  if (!confirm(`Remove ${email}'s access to your workspace?`)) return;
+  try { await Arc.Sharing.removeMember(email); } catch (e) { alert('Could not remove: ' + e.message); }
+  arcSharingRefresh();
+}
+
+function arcShareOpen(ownerUid, ownerName) {
+  const div = document.createElement('div'); div.innerHTML = ownerName;
+  Arc.Sharing.enterWorkspace(ownerUid, div.textContent || 'Shared');
+}
+
 // =====================================================================
 // FIREBASE AUTH + FIRESTORE SYNC
 // =====================================================================
@@ -982,6 +1179,7 @@ function arcFirebaseInit() {
     if (user) {
       arcShowSyncBanner(true);
       const hadError = await arcLoadUserData(user.uid);
+      await arcEnterSavedWorkspace();
       if (!hadError) arcShowSyncBanner(false);
       arcHideAuthOverlay();
       // Re-render the page with fresh cloud data
@@ -1003,6 +1201,33 @@ function arcFirebaseInit() {
       }
     }
   });
+}
+
+// If a shared workspace was opened this session (sessionStorage 'arc_ws'),
+// pull the owner's shared data into the in-memory cache and activate it.
+// On any failure (access revoked, offline) we silently fall back to the
+// user's own workspace.
+async function arcEnterSavedWorkspace() {
+  window._arcWs = null;
+  window._arcWsCache = {};
+  let ws = null;
+  try { ws = JSON.parse(sessionStorage.getItem('arc_ws')); } catch {}
+  if (!ws || !ws.uid || !window._arcDb || !window._arcUser) return;
+  if (ws.uid === window._arcUser.uid) { sessionStorage.removeItem('arc_ws'); return; }
+  try {
+    const snap = await window._arcDb
+      .collection('users').doc(ws.uid).collection('store').get();
+    const cache = {};
+    snap.forEach(doc => {
+      if (ARC_SHARED_KEYS.includes(doc.id)) cache[doc.id] = doc.data().value;
+    });
+    window._arcWsCache = cache;
+    window._arcWs = ws;
+    console.info(`Arcus: opened ${ws.name}'s shared workspace ✓`);
+  } catch (e) {
+    console.warn('Arcus: could not open shared workspace (access revoked?)', e);
+    sessionStorage.removeItem('arc_ws');
+  }
 }
 
 // Returns true if there was an error (so the caller can leave the banner visible), false on success.
