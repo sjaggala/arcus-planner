@@ -132,8 +132,8 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
   <div class="focus-title">Focus Board</div>
   <span class="focus-count" id="focus-count">0 pinned</span>
   <button class="btn btn-ghost btn-sm" id="grid-toggle-btn" onclick="toggleGrid()">Grid: On</button>
-  <button class="btn btn-ghost btn-sm" onclick="autoArrange()">↔ Auto-arrange</button>
-  <button class="btn btn-ghost btn-sm" onclick="window.location.href='tasks.html'">→ Task Board</button>
+  <button class="btn btn-ghost btn-sm" onclick="autoArrange()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-1px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Auto-arrange</button>
+  <button class="btn btn-ghost btn-sm" onclick="window.location.href='tasks.html'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-1px"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></svg> Task Board</button>
 </div>
 
 <div class="focus-canvas show-grid" id="focus-canvas">
@@ -151,7 +151,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=8"></script>
+<script src="data.js?v=9"></script>
 <script>
 // ── Note color palette ────────────────────────────────────────────────
 const NOTE_COLORS = [
@@ -255,9 +255,9 @@ function buildNote(pin, task) {
   noteEl.innerHTML = `
     <div class="sticky-hdr">
       <div class="sticky-hdr-grip" onmousedown="startDrag(event,'${task.id}')"></div>
-      <button class="sticky-btn" onclick="toggleExpand('${task.id}')" title="Expand/collapse">⤢</button>
-      <button class="sticky-btn" onclick="toggleStylePanel('${task.id}');event.stopPropagation()" title="Style">🎨</button>
-      <button class="sticky-btn" onclick="unpinNote('${task.id}')" title="Unpin">✕</button>
+      <button class="sticky-btn" onclick="toggleExpand('${task.id}')" title="Expand/collapse">${Arc.icon('expand', 10)}</button>
+      <button class="sticky-btn" onclick="toggleStylePanel('${task.id}');event.stopPropagation()" title="Style">${Arc.icon('sliders', 10)}</button>
+      <button class="sticky-btn" onclick="unpinNote('${task.id}')" title="Unpin">${Arc.icon('x', 11)}</button>
     </div>
     <div class="sticky-body" onclick="toggleExpand('${task.id}')">
       <div class="sticky-title" style="${pin.bold?'font-weight:800':'font-weight:700'};${pin.italic?'font-style:italic':''}">

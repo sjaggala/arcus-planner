@@ -126,7 +126,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <div class="page-body">
 
   <div class="pg-hdr">
-    <div class="pg-back" onclick="location.href='index.html'">← Back to Home</div>
     <div>
       <div class="pg-title">People &amp; Sharing</div>
       <div class="pg-sub">Your address book and everything you collaborate on</div>
@@ -142,7 +141,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=8"></script>
+<script src="data.js?v=9"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const TYPE_LABEL = { task: 'Task', goal: 'Goal', project: 'Project' };
@@ -181,11 +180,16 @@ function bucketName(bucketId) {
 function render() {
   const el = document.getElementById('pg-content');
   if (!window._arcUser || !window._arcDb) {
-    el.innerHTML = `<div class="pg-signin">
-      <div style="margin-bottom:10px;color:var(--muted);display:flex;justify-content:center">${Arc.icon('users', 34)}</div>
-      <strong style="color:var(--text)">Sign in to collaborate</strong><br>
-      The address book and task sharing need cloud sync.<br>Sign in with Google from the profile menu to get started.
-    </div>`;
+    // If this tab was already authenticated, Firebase is still resolving the
+    // session — show a quiet loading state instead of flashing the sign-in card
+    const authPending = sessionStorage.getItem('arc_auth_ok') && localStorage.getItem('arc_local_mode') !== '1';
+    el.innerHTML = authPending
+      ? `<div class="share-loading" style="padding:30px 4px">Loading your people…</div>`
+      : `<div class="pg-signin">
+          <div style="margin-bottom:10px;color:var(--muted);display:flex;justify-content:center">${Arc.icon('users', 34)}</div>
+          <strong style="color:var(--text)">Sign in to collaborate</strong><br>
+          The address book and task sharing need cloud sync.<br>Sign in with Google from the profile menu to get started.
+        </div>`;
     return;
   }
   const pendingCount = Arc.People.pendingIn().length + Arc.People.pendingOut().length;

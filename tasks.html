@@ -25,13 +25,14 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .fpill { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:500; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; transition:all .15s; }
 .fpill:hover { color:var(--text); border-color:var(--border2); }
 .fpill.on { background:rgba(123,121,247,.1); color:var(--accent); border-color:var(--accent); }
-/* Person filter: bare overlapping avatars + a round filter button */
-.pf-btn { border:none; background:transparent; padding:0; display:flex; align-items:center; cursor:pointer; }
-.pf-ava { display:inline-flex; border-radius:50%; position:relative; margin-left:-9px; box-shadow:0 0 0 2px var(--s1); }
+/* Person filter: bare overlapping avatars (click = filter) + a round filter button (click = dropdown) */
+.pf-btn { border:none; background:transparent; padding:0; display:flex; align-items:center; }
+.pf-ava { display:inline-flex; border-radius:50%; position:relative; margin-left:-9px; box-shadow:0 0 0 2px var(--s1); cursor:pointer; transition:transform .12s; }
+.pf-ava:hover { transform:scale(1.12); z-index:5 !important; }
 .pf-ava:first-child { margin-left:0; }
 .pf-ava.active { box-shadow:0 0 0 2px var(--accent); z-index:4 !important; }
-.pf-filter-circle { width:27px; height:27px; border-radius:50%; border:1px solid var(--border); background:var(--s1); color:var(--muted); display:flex; align-items:center; justify-content:center; margin-left:7px; transition:all .15s; flex-shrink:0; }
-.pf-btn:hover .pf-filter-circle { border-color:var(--border2); color:var(--text); }
+.pf-filter-circle { width:27px; height:27px; border-radius:50%; border:1px solid var(--border); background:var(--s1); color:var(--muted); display:flex; align-items:center; justify-content:center; margin-left:7px; transition:all .15s; flex-shrink:0; cursor:pointer; }
+.pf-filter-circle:hover { border-color:var(--border2); color:var(--text); }
 .pf-filter-circle.on { border-color:var(--accent); color:var(--accent); background:rgba(123,121,247,.08); }
 .pmd-item.on { background:rgba(123,121,247,.1); color:var(--accent); }
 
@@ -44,7 +45,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   overflow:hidden; text-overflow:ellipsis; position:relative; text-align:left;
   line-height:1.4;
 }
-.proj-multi-btn::after { content:'▾'; position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:10px; color:var(--muted); }
+.pmb-arr { position:absolute; right:7px; top:50%; transform:translateY(-50%); color:var(--muted); display:flex; align-items:center; }
 .proj-multi-btn.has-sel { border-color:var(--accent); color:var(--accent); background:rgba(123,121,247,.08); }
 .proj-multi-dropdown {
   position:absolute; top:calc(100% + 4px); left:0; z-index:200; min-width:200px;
@@ -122,8 +123,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .task-card:hover .task-card-actions { opacity:1; }
 .card-action-btn { width:23px; height:23px; border-radius:6px; background:var(--s3); border:1px solid var(--border); color:var(--muted); display:flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; transition:color .15s,background .15s; }
 .card-action-btn:hover { color:var(--text); background:var(--s2); }
-.card-action-btn.pinned { color:#f5c542; border-color:#f5c542; background:rgba(245,197,66,.1); }
-.tc-pin-dot { position:absolute; top:10px; right:10px; line-height:1; color:#f5c542; opacity:.9; pointer-events:none; transition:opacity .15s; }
+.card-action-btn.pinned { color:var(--accent); border-color:var(--accent); background:rgba(123,121,247,.1); }
+.tc-pin-dot { position:absolute; top:10px; right:10px; line-height:1; color:var(--accent); pointer-events:none; transition:opacity .15s; }
 .task-card:hover .tc-pin-dot { opacity:0; }
 
 /* ── Empty ── */
@@ -262,7 +263,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     <span class="filter-lbl">Shared:</span>
     <div class="fpill" id="f-shared" onclick="toggleSharedOnly()">Shared only</div>
     <div class="proj-multi-wrap" id="pf-wrap">
-      <button class="pf-btn" id="pf-btn" onclick="togglePersonDd(event)" title="Filter by person"></button>
+      <div class="pf-btn" id="pf-btn" title="Filter by person"></div>
       <div class="proj-multi-dropdown" id="pf-dd"></div>
     </div>
   </div>
@@ -279,7 +280,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=8"></script>
+<script src="data.js?v=9"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -386,8 +387,10 @@ function init() {
     }
   });
 
-  const tid = new URLSearchParams(location.search).get('tid');
+  const params = new URLSearchParams(location.search);
+  const tid = params.get('tid');
   if (tid) setTimeout(() => editTaskModal(tid), 200);
+  else if (params.get('new')) { setUrlParam('new', null); setTimeout(() => newTaskModal('b_todo'), 200); }
 }
 
 window.closeModal = (orig => () => { orig(); setUrlParam('tid', null); })(window.closeModal);
@@ -453,24 +456,27 @@ function updatePersonBtn() {
   const btn = document.getElementById('pf-btn');
   if (!btn) return;
   const people = personFilterList();
-  const filterCircle = `<span class="pf-filter-circle ${personFilter ? 'on' : ''}">${Arc.icon('filter', 12)}</span>`;
+  const filterCircle = `<span class="pf-filter-circle ${personFilter ? 'on' : ''}" onclick="togglePersonDd(event)" title="Filter by person">${Arc.icon('filter', 12)}</span>`;
   if (!people.length) {
     btn.innerHTML = filterCircle;
-    btn.title = 'Filter by person';
     return;
   }
-  // Bare overlapping profile circles (first in front, max 3) + filter button
+  // Bare overlapping profile circles — clicking one filters straight to that
+  // person (click again to clear); the filter circle opens the full dropdown
   let list = [...people];
   if (personFilter) {
     list.sort((a, b) => (a.email === personFilter ? -1 : 0) - (b.email === personFilter ? -1 : 0));
   }
   const shown = list.slice(0, 3);
   btn.innerHTML = shown.map((p, i) =>
-    `<span class="pf-ava ${p.email === personFilter ? 'active' : ''}" style="z-index:${3 - i}" title="${Arc.esc(p.name)}">${arcPersonAva(p, 26)}</span>`
+    `<span class="pf-ava ${p.email === personFilter ? 'active' : ''}" style="z-index:${3 - i}"
+       title="${Arc.esc(p.name)} — click to ${p.email === personFilter ? 'clear the filter' : 'show only their tasks'}"
+       onclick="event.stopPropagation();pfAvaClick('${Arc.esc(p.email)}')">${arcPersonAva(p, 26)}</span>`
   ).join('') + filterCircle;
-  btn.title = personFilter
-    ? `Showing ${Arc.People.nameFor(personFilter)} — click to change`
-    : 'Filter by person';
+}
+
+function pfAvaClick(email) {
+  setPersonFilter(personFilter === email ? null : email);
 }
 
 // ── Project multi-select ─────────────────────────────────────────────
@@ -522,14 +528,16 @@ function toggleProject(id, e) {
 
 function updateProjBtn() {
   const btn = document.getElementById('proj-multi-btn');
+  let label;
   if (selectedProjects.length === 0) {
-    btn.textContent = 'All Projects'; btn.classList.remove('has-sel');
+    label = 'All Projects'; btn.classList.remove('has-sel');
   } else if (selectedProjects.length === 1) {
     const p = Arc.Projects.getById(selectedProjects[0]);
-    btn.textContent = p ? p.name : '1 selected'; btn.classList.add('has-sel');
+    label = p ? p.name : '1 selected'; btn.classList.add('has-sel');
   } else {
-    btn.textContent = `${selectedProjects.length} projects`; btn.classList.add('has-sel');
+    label = `${selectedProjects.length} projects`; btn.classList.add('has-sel');
   }
+  btn.innerHTML = `${Arc.esc(label)}<span class="pmb-arr">${Arc.icon('chevron-down', 12)}</span>`;
 }
 
 // ── Label filter pills ───────────────────────────────────────────────
@@ -656,12 +664,12 @@ function renderTaskCard(task, bucketId, shared) {
     ? `<div class="card-action-btn" onclick="confirmLeaveShared('${task.id}')" title="Remove from my board" style="color:var(--red)">${Arc.icon('x', 12)}</div>`
     : `${canShare ? `<div class="card-action-btn" onclick="cardShareModal('${task.id}')" title="Share">${Arc.icon('share', 11)}</div>` : ''}
        <div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">${Arc.icon('pin', 12)}</div>
-       <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">${Arc.icon('x', 12)}</div>`;
+       <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">${Arc.icon('trash', 11)}</div>`;
 
   return `<div class="task-card ${isDone?'done-card':''} ${peopleCluster?'has-people':''}"
     draggable="true" ondragstart="onDragStart(event,'${task.id}')" ondragend="onDragEnd(event)"
     onclick="editTaskModal('${task.id}')">
-    ${isPinned ? `<div class="tc-pin-dot" title="Pinned to Focus">${Arc.icon('pin', 12)}</div>` : ''}
+    ${isPinned ? `<div class="tc-pin-dot" title="Pinned to Focus">${Arc.icon('pin-fill', 13, 1.5)}</div>` : ''}
     <div class="task-card-actions" onclick="event.stopPropagation()">${actions}</div>
     <div class="task-card-title">${Arc.esc(task.title)}</div>
     ${metaParts.length || labelPills || stBadge ? `<div class="task-card-meta">${metaParts.join('')}${stBadge}${labelPills}</div>` : ''}
@@ -759,7 +767,7 @@ function manageBuckets() {
     <div class="modal-hdr"><div><div class="modal-title">Manage Columns</div><div class="modal-sub">Customise your kanban board</div></div><button class="close-btn" onclick="closeModal()">✕</button></div>
     <div style="margin-bottom:16px">${rows}</div>
     <div style="margin-bottom:16px"><button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="closeModal();newBucketModal()">＋ Add New Column</button></div>
-    <div><button class="btn btn-ghost btn-sm" style="color:var(--muted)" onclick="if(confirm('Reset to default columns?'))doResetBuckets()">↺ Reset to defaults</button></div>
+    <div><button class="btn btn-ghost btn-sm" style="color:var(--muted)" onclick="if(confirm('Reset to default columns?'))doResetBuckets()">${Arc.icon('rotate-ccw', 12)} Reset to defaults</button></div>
     <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">Done</button></div>
   </div>`);
 }

@@ -147,7 +147,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
   </div>
 </div>
 
-<script src="data.js?v=8"></script>
+<script src="data.js?v=9"></script>
 <script>
 Arc.applyTheme();
 document.getElementById('nav-container').innerHTML = Arc.navHtml('lists');
@@ -180,7 +180,7 @@ function buildCard(cl) {
         onmousedown="event.stopPropagation()"
         onblur="saveTitle('${cl.id}',this.value)"
         onkeydown="if(event.key==='Enter')this.blur()">
-      <button class="cl-hdr-btn" onmousedown="event.stopPropagation()" onclick="deleteChecklist('${cl.id}')" title="Delete list">✕</button>
+      <button class="cl-hdr-btn" onmousedown="event.stopPropagation()" onclick="deleteChecklist('${cl.id}')" title="Delete list">${Arc.icon('trash', 11)}</button>
     </div>
     <div class="cl-items" id="cli-${cl.id}">
       ${active.map(i => itemHtml(cl.id, i)).join('')}

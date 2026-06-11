@@ -135,9 +135,9 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
       <div class="cal-toolbar">
         <div class="cal-nav">
-          <button class="cal-nav-btn" onclick="navigate(-1)" title="Previous">‹</button>
+          <button class="cal-nav-btn" onclick="navigate(-1)" title="Previous"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="15 18 9 12 15 6"/></svg></button>
           <button class="btn btn-ghost btn-sm" onclick="goToday()" style="padding:5px 12px">Today</button>
-          <button class="cal-nav-btn" onclick="navigate(1)" title="Next">›</button>
+          <button class="cal-nav-btn" onclick="navigate(1)" title="Next"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg></button>
         </div>
         <div class="cal-title" id="cal-title"></div>
         <button class="btn btn-primary btn-sm" onclick="newEventModal(null)">＋ New Event</button>
@@ -161,7 +161,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=8"></script>
+<script src="data.js?v=9"></script>
 <script>
 const DAYS_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAYS_LONG   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -265,9 +265,9 @@ function renderMiniCal() {
   const hdrs = ['S','M','T','W','T','F','S'].map(h => `<div class="mc-dh">${h}</div>`).join('');
   document.getElementById('mini-cal').innerHTML =
     `<div class="mini-cal-hdr">
-      <button class="mini-cal-nav" onclick="miniCalPrev()">‹</button>
+      <button class="mini-cal-nav" onclick="miniCalPrev()">${Arc.icon('chevron-left', 12)}</button>
       <div class="mini-cal-title">${MONTHS_SHORT[m]} ${y}</div>
-      <button class="mini-cal-nav" onclick="miniCalNext()">›</button>
+      <button class="mini-cal-nav" onclick="miniCalNext()">${Arc.icon('chevron-right', 12)}</button>
     </div>
     <div class="mini-cal-grid">${hdrs}${cells}</div>`;
 }

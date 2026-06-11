@@ -127,11 +127,24 @@ const Arc = (() => {
     cloud:    '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
     columns:  '<path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/>',
     grid:     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+    'chevron-down':  '<polyline points="6 9 12 15 18 9"/>',
+    'chevron-left':  '<polyline points="15 18 9 12 15 6"/>',
+    'chevron-right': '<polyline points="9 18 15 12 9 6"/>',
+    'arrow-right':   '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+    'rotate-ccw':    '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
+    expand:   '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>',
+    sliders:  '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+    book:     '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    chart:    '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+    'pin-fill': '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
   };
+  const FILLED_ICONS = new Set(['pin-fill']);
   const icon = (name, size = 16, sw = 2) => {
     const p = ICON_PATHS[name];
     if (!p) return '';
-    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px">${p}</svg>`;
+    const fill = FILLED_ICONS.has(name) ? 'currentColor' : 'none';
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${fill}" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px">${p}</svg>`;
   };
 
   const DB = {
@@ -412,9 +425,19 @@ const Arc = (() => {
     _mine: [], _withMe: [],
     available() { return !!(window._arcDb && window._arcUser); },
     _col() { return window._arcDb.collection('shared_items'); },
+    // Hydrate from the local snapshot so shared cards (and their avatars)
+    // render with the very first paint instead of after the network round-trip
+    _hydrate() {
+      try {
+        const c = JSON.parse(localStorage.getItem('arc_shared_cache'));
+        if (c) { this._mine = c.mine || []; this._withMe = c.withMe || []; }
+      } catch {}
+    },
+    _persist() {
+      try { localStorage.setItem('arc_shared_cache', JSON.stringify({ mine: this._mine, withMe: this._withMe })); } catch {}
+    },
     async load() {
-      this._mine = []; this._withMe = [];
-      if (!this.available()) return;
+      if (!this.available()) { this._mine = []; this._withMe = []; return; }
       const u = window._arcUser;
       try {
         const [mine, withMe] = await Promise.all([
@@ -425,6 +448,7 @@ const Arc = (() => {
         ]);
         this._mine   = mine.docs.map(d => ({ id: d.id, ...d.data() }));
         this._withMe = withMe.docs.map(d => ({ id: d.id, ...d.data() }));
+        this._persist();
       } catch (e) { console.warn('Arcus: could not load shared items', e); }
     },
     isSharedByMe(id) { return this._mine.some(s => s.id === id); },
@@ -457,6 +481,7 @@ const Arc = (() => {
           members: firebase.firestore.FieldValue.arrayUnion(e), ts: Date.now(),
         });
         existing.members.push(e);
+        this._persist();
       } else {
         const doc = {
           type, data: { ...item },
@@ -470,6 +495,7 @@ const Arc = (() => {
         };
         await this._col().doc(item.id).set(doc);
         this._mine.push({ id: item.id, ...doc });
+        this._persist();
       }
     },
     async unshare(id, email) {
@@ -482,12 +508,14 @@ const Arc = (() => {
         await this._col().doc(id).delete();
         this._mine = this._mine.filter(x => x.id !== id);
       }
+      this._persist();
     },
     async unshareAll(id) {
       if (!this.isSharedByMe(id)) return;
       try { await this._col().doc(id).delete(); }
       catch (e) { console.warn('Arcus: unshare failed', e); }
       this._mine = this._mine.filter(x => x.id !== id);
+      this._persist();
     },
     // Owner: push a local edit to the shared doc (fire-and-forget)
     pushUpdate(item) {
@@ -509,6 +537,7 @@ const Arc = (() => {
         members: firebase.firestore.FieldValue.arrayRemove(e), ts: Date.now(),
       });
       this._withMe = this._withMe.filter(x => x.id !== id);
+      this._persist();
     },
     // Comments on shared items live inside the shared doc (visible to everyone)
     commentsOf(id) { return this.get(id)?.comments || []; },
@@ -537,9 +566,19 @@ const Arc = (() => {
     _col() { return window._arcDb.collection('connections'); },
     pairId(a, b) { return [String(a).toLowerCase().trim(), String(b).toLowerCase().trim()].sort().join('__'); },
     myEmail() { return (window._arcUser?.email || '').toLowerCase(); },
+    // Hydrate from the local snapshot so people (avatars, filter circles)
+    // render with the first paint instead of after the network round-trip
+    _hydrate() {
+      try {
+        const c = JSON.parse(localStorage.getItem('arc_people_cache'));
+        if (Array.isArray(c)) this._list = c;
+      } catch {}
+    },
+    _persist() {
+      try { localStorage.setItem('arc_people_cache', JSON.stringify(this._list)); } catch {}
+    },
     async load() {
-      this._list = [];
-      if (!this.available() || !this.myEmail()) return;
+      if (!this.available() || !this.myEmail()) { this._list = []; return; }
       try {
         const me = this.myEmail();
         const [out, inc] = await Promise.all([
@@ -557,6 +596,7 @@ const Arc = (() => {
           ...out.docs.map(d => norm(d, 'out')),
           ...inc.docs.map(d => norm(d, 'in')),
         ];
+        this._persist();
       } catch (e) { console.warn('Arcus: could not load people', e); }
     },
     connected()    { return this._list.filter(p => p.status === 'accepted'); },
@@ -598,6 +638,7 @@ const Arc = (() => {
       };
       await this._col().doc(this.pairId(me, e)).set(doc);
       this._list.push({ id: this.pairId(me, e), direction: 'out', status: 'pending', email: e, name: doc.toName, photo: null });
+      this._persist();
     },
     async accept(id) {
       const u = window._arcUser;
@@ -608,12 +649,18 @@ const Arc = (() => {
       });
       const p = this._list.find(x => x.id === id);
       if (p) p.status = 'accepted';
+      this._persist();
     },
     async remove(id) {   // decline an invite, cancel an outgoing one, or disconnect
       await this._col().doc(id).delete();
       this._list = this._list.filter(x => x.id !== id);
+      this._persist();
     },
   };
+
+  // Instant-paint hydration from the last session's snapshots
+  Shared._hydrate();
+  People._hydrate();
 
   // ── Avatar HTML ──────────────────────────────────────────────────────
   function avatarHtml(size = 34) {
@@ -996,11 +1043,11 @@ const Arc = (() => {
           </div>
           <div style="margin-bottom:12px">A personal productivity suite combining Gantt-style goal planning, a flexible Kanban task board, and a rich multi-entry journal — all in one private, offline-first app. Your data never leaves your device.</div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px">
-            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">📊 Gantt Planner</span>
-            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">✅ Kanban Board</span>
-            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">📓 Journal</span>
-            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">📅 Events</span>
-            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22)">🌙 Dark &amp; Light</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22);display:inline-flex;align-items:center;gap:5px">${icon('chart', 11)} Gantt Planner</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22);display:inline-flex;align-items:center;gap:5px">${icon('columns', 11)} Kanban Board</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22);display:inline-flex;align-items:center;gap:5px">${icon('book', 11)} Journal</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22);display:inline-flex;align-items:center;gap:5px">${icon('calendar', 11)} Events</span>
+            <span style="font-size:10px;font-weight:600;padding:2px 9px;border-radius:10px;background:rgba(123,121,247,.12);color:#7b79f7;border:1px solid rgba(123,121,247,.22);display:inline-flex;align-items:center;gap:5px">${icon('moon', 11)} Dark &amp; Light</span>
           </div>
           <div style="padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);line-height:1.8">
             <div>© 2025 Arcus Labs, Inc. All rights reserved.</div>

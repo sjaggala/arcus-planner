@@ -47,11 +47,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .focus-link { font-size: 11px; color: var(--accent); font-weight: 600; cursor: pointer; }
 .focus-link:hover { opacity: .8; }
 
-/* Quick task add */
-.quick-add { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
-.quick-add input { flex: 1; background: var(--s3); border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; color: var(--text); font-size: 12px; }
-.quick-add input:focus { border-color: var(--accent); outline: none; }
-.quick-add input::placeholder { color: var(--dim); }
 
 /* Journal strip */
 .journal-strip { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; gap: 16px; align-items: flex-start; }
@@ -125,15 +120,13 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
       <div class="focus-panel-hdr">
         <div class="section-title">
           Tasks Due
-          <span class="section-title-action" onclick="location.href='tasks.html'">Open Board</span>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="location.href='tasks.html?new=1'">＋ Task</button>
+            <span class="section-title-action" style="margin-left:0" onclick="location.href='tasks.html'">Open Board</span>
+          </span>
         </div>
       </div>
       <div class="focus-items" id="tasks-today"></div>
-      <div class="quick-add">
-        <input id="quick-task-inp" placeholder="Quick add task… (press Enter)" maxlength="80"
-               onkeydown="if(event.key==='Enter')quickAddTask()">
-        <button class="btn btn-primary btn-sm" onclick="quickAddTask()">Add</button>
-      </div>
     </div>
 
     <!-- Col 1 Row 2: Active Goals Today -->
@@ -173,7 +166,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=8"></script>
+<script src="data.js?v=9"></script>
 <script>
 const DAYS_LONG   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -476,21 +469,6 @@ function saveGoalFromHome() {
   };
   const gs = Arc.Goals.getAll(); gs.push(g); Arc.Goals.save(gs);
   closeModal(); renderStats(); renderGoalsToday();
-}
-
-function quickAddTask() {
-  const inp = document.getElementById('quick-task-inp');
-  const title = inp.value.trim();
-  if (!title) return;
-  Arc.Tasks.add({
-    id: Arc.uid(), title,
-    priority: 'medium', dueDate: Arc.today(),
-    bucketId: 'b_todo', projectId: '',
-    createdAt: new Date().toISOString(),
-  });
-  inp.value = '';
-  renderStats();
-  renderTasksToday();
 }
 
 function onProfileSaved() { renderGreeting(); }
