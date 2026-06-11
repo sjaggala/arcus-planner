@@ -189,6 +189,15 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 /* Sub-task progress badge on card */
 .tc-st-prog { font-size:10px; font-weight:600; padding:1px 6px; border-radius:6px; background:var(--s3); color:var(--muted); border:1px solid var(--border); }
 .tc-st-prog.complete { background:rgba(62,201,122,.12); color:var(--green); border-color:rgba(62,201,122,.3); }
+
+/* ── Shared task indicators ── */
+.tc-owner-ava { width:18px; height:18px; border-radius:50%; object-fit:cover; flex-shrink:0; display:inline-flex; border:1px solid var(--border2); }
+.tc-owner-ini { background:linear-gradient(135deg,#7b79f7,#a78bfa); color:#fff; font-size:9px; font-weight:700; align-items:center; justify-content:center; display:inline-flex; }
+.tc-shared-chip { font-size:10px; font-weight:600; padding:1px 7px; border-radius:8px; background:rgba(123,121,247,.12); color:var(--accent); border:1px solid rgba(123,121,247,.25); }
+.ts-member { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; background:var(--s3); border:1px solid var(--border); border-radius:14px; padding:3px 6px 3px 10px; margin:0 6px 6px 0; }
+.ts-member button { width:15px; height:15px; border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:9px; padding:0; line-height:1; }
+.ts-member button:hover { color:var(--red); }
+.ts-note { font-size:12px; color:var(--muted); background:var(--s3); border:1px solid var(--border); border-radius:8px; padding:8px 12px; line-height:1.6; }
 </style>
 </head>
 <body>
@@ -260,6 +269,16 @@ function onDrop(e, bucketId) {
   e.preventDefault(); dragEnterCount = 0; e.currentTarget.classList.remove('drag-over');
   const taskId = draggedTaskId || e.dataTransfer.getData('text/plain');
   if (!taskId) return;
+  // Task shared with me — update the shared doc, not my own store
+  if (Arc.Shared.isWithMe(taskId)) {
+    const s = Arc.Shared.get(taskId);
+    if (s && s.data.bucketId !== bucketId) {
+      Arc.Shared.updateAsMember(taskId, { ...s.data, bucketId }).catch(err => console.warn(err));
+      renderBoard();
+    }
+    draggedTaskId = null;
+    return;
+  }
   const task = Arc.Tasks.getAll().find(t => t.id === taskId);
   if (task && task.bucketId !== bucketId) {
     Arc.Tasks.update({ ...task, bucketId });
@@ -403,12 +422,21 @@ function renderBoard() {
   const buckets = Arc.Buckets.getAll();
   const allTasks = Arc.Tasks.getAll();
 
+  // Tasks other people shared with me — mapped into my columns by bucketId,
+  // falling back to the first column when the id doesn't exist on my board
+  const bucketIds = buckets.map(b => b.id);
+  const fallbackBucket = bucketIds[0];
+  const sharedWithMe = Arc.Shared.withMeOfType('task');
+
   board.innerHTML = '';
 
   buckets.forEach(bucket => {
     let tasks = allTasks.filter(t => t.bucketId === bucket.id);
     if (selectedProjects.length) tasks = tasks.filter(t => selectedProjects.includes(t.projectId));
     if (selectedLabels.length)   tasks = tasks.filter(t => (t.labels||[]).some(lid => selectedLabels.includes(lid)));
+
+    const shared = sharedWithMe.filter(s =>
+      (bucketIds.includes(s.data.bucketId) ? s.data.bucketId : fallbackBucket) === bucket.id);
 
     const col = document.createElement('div');
     col.className = 'bucket-col';
@@ -417,13 +445,14 @@ function renderBoard() {
     col.innerHTML = `
       <div class="bucket-header">
         <div class="bucket-name">${Arc.esc(bucket.name)}</div>
-        <div class="bucket-count">${tasks.length}</div>
+        <div class="bucket-count">${tasks.length + shared.length}</div>
         <button class="bucket-add-btn" onclick="newTaskModal('${bucket.id}')" title="Add task">+</button>
       </div>
       <div class="bucket-cards" id="bc-${bucket.id}"
            ondragover="onDragOver(event)" ondragenter="onDragEnter(event)"
            ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${bucket.id}')">
         ${tasks.map(t => renderTaskCard(t, bucket.id)).join('')}
+        ${shared.map(s => renderTaskCard(s.data, bucket.id, s)).join('')}
       </div>`;
     board.appendChild(col);
   });
@@ -438,20 +467,32 @@ function renderBoard() {
 // ======================================================
 // TASK CARD
 // ======================================================
-function renderTaskCard(task, bucketId) {
-  const pri    = Arc.PRIORITIES.find(p => p.val === task.priority) || Arc.PRIORITIES[1];
-  const proj   = task.projectId ? Arc.Projects.getById(task.projectId) : null;
+function renderTaskCard(task, bucketId, shared) {
+  const proj   = (!shared && task.projectId) ? Arc.Projects.getById(task.projectId) : null;
   const isDone = bucketId === 'b_done';
   const isOd   = task.dueDate && task.dueDate < Arc.today() && !isDone;
-  const isPinned = Arc.PinnedTasks.isPinned(task.id);
+  const isPinned = !shared && Arc.PinnedTasks.isPinned(task.id);
+  const sharedByMe = !shared && Arc.Shared.isSharedByMe(task.id);
 
   const metaParts = [];
   if (task.dueDate) metaParts.push(`<span class="tc-date ${isOd?'tc-overdue':''}">${isOd?'⚠ ':''}${fmtDate(task.dueDate)}</span>`);
   if (task.priority === 'high') metaParts.push(`<span class="tc-high">High</span>`);
   if (proj) metaParts.push(`<span class="tc-proj">${Arc.esc(proj.name)}</span>`);
 
-  // Label pills
-  const labelPills = (task.labels||[]).map(lid => {
+  // Shared indicators: owner's avatar on tasks shared WITH me,
+  // a member-count chip on my tasks shared with others
+  if (shared) {
+    metaParts.push(shared.ownerPhoto
+      ? `<img class="tc-owner-ava" src="${Arc.esc(shared.ownerPhoto)}" title="Shared by ${Arc.esc(shared.ownerName)}" alt="">`
+      : `<span class="tc-owner-ava tc-owner-ini" title="Shared by ${Arc.esc(shared.ownerName)}">${Arc.esc((shared.ownerName||'?').charAt(0).toUpperCase())}</span>`);
+  }
+  if (sharedByMe) {
+    const ms = Arc.Shared.membersOf(task.id);
+    metaParts.push(`<span class="tc-shared-chip" title="Shared with ${Arc.esc(ms.join(', '))}">👥 ${ms.length}</span>`);
+  }
+
+  // Label pills (labels are personal — hidden on tasks shared with me)
+  const labelPills = shared ? '' : (task.labels||[]).map(lid => {
     const l = Arc.Labels.getById(lid); if (!l) return '';
     return `<span class="tc-label-pill" style="background:${l.color};color:#fff">${Arc.esc(l.name)}</span>`;
   }).join('');
@@ -463,14 +504,16 @@ function renderTaskCard(task, bucketId) {
     ? `<span class="tc-st-prog ${stDone === sts.length ? 'complete' : ''}">✓ ${stDone}/${sts.length}</span>`
     : '';
 
+  const actions = shared
+    ? `<div class="card-action-btn" onclick="confirmLeaveShared('${task.id}')" title="Remove from my board" style="color:var(--red)">✕</div>`
+    : `<div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">📌</div>
+       <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">✕</div>`;
+
   return `<div class="task-card ${isDone?'done-card':''}"
     draggable="true" ondragstart="onDragStart(event,'${task.id}')" ondragend="onDragEnd(event)"
     onclick="editTaskModal('${task.id}')">
     ${isPinned ? `<div class="tc-pin-dot" title="Pinned to Focus">📌</div>` : ''}
-    <div class="task-card-actions" onclick="event.stopPropagation()">
-      <div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">📌</div>
-      <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">✕</div>
-    </div>
+    <div class="task-card-actions" onclick="event.stopPropagation()">${actions}</div>
     <div class="task-card-title">${Arc.esc(task.title)}</div>
     ${metaParts.length || labelPills || stBadge ? `<div class="task-card-meta">${metaParts.join('')}${stBadge}${labelPills}</div>` : ''}
   </div>`;
@@ -591,10 +634,13 @@ function manageLabelsModal(returnToTaskId) {
 function newTaskModal(bucketId) { taskModal(null, bucketId); }
 function editTaskModal(id) {
   const task = Arc.Tasks.getAll().find(t => t.id === id);
-  if (task) { setUrlParam('tid', id); taskModal(task, task.bucketId); }
+  if (task) { setUrlParam('tid', id); taskModal(task, task.bucketId); return; }
+  // Task shared with me — edit the shared copy
+  const s = Arc.Shared.get(id);
+  if (s && Arc.Shared.isWithMe(id)) { setUrlParam('tid', id); taskModal(s.data, s.data.bucketId, s); }
 }
 
-function taskModal(task, defaultBucketId) {
+function taskModal(task, defaultBucketId, shared) {
   const isEdit = !!task;
   const t = task || { title:'', description:'', priority:'medium', dueDate:'', projectId:'', bucketId: defaultBucketId||'b_backlog', labels:[] };
   const buckets  = Arc.Buckets.getAll();
@@ -615,6 +661,24 @@ function taskModal(task, defaultBucketId) {
   // Populate subtask buffer from existing task
   window._stBuf = (t.subtasks || []).map(s => ({ ...s }));
 
+  // Sharing section: owners manage members; members see who shared it.
+  // Sharing requires sign-in and an already-saved task.
+  const canShare = !!(window._arcUser && window._arcDb);
+  const shareSection = !isEdit ? '' : (shared
+    ? `<div class="form-group"><label class="form-lbl">Sharing</label>
+        <div class="ts-note">Shared by <strong>${Arc.esc(shared.ownerName)}</strong> — your changes sync back to them.</div>
+      </div>`
+    : (canShare ? `<div class="form-group">
+        <label class="form-lbl">Sharing</label>
+        <div id="ts-members"></div>
+        <div style="display:flex;gap:8px">
+          <input class="form-inp" id="ts-email" type="email" placeholder="Share with (their Google email)…" style="flex:1"
+            onkeydown="if(event.key==='Enter'){arcTaskShareAdd('${t.id}');event.preventDefault()}">
+          <button type="button" class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="arcTaskShareAdd('${t.id}')">Share</button>
+        </div>
+        <div id="ts-err" style="font-size:11px;color:var(--red);min-height:14px;margin-top:3px"></div>
+      </div>` : ''));
+
   const formHtml = `
     <div class="form-group"><label class="form-lbl">Task Title *</label><input class="form-inp" id="tm-title" placeholder="What needs to be done?" value="${Arc.esc(t.title)}" maxlength="80"></div>
     <div class="form-group"><label class="form-lbl">Description</label><textarea class="form-inp" id="tm-desc" rows="2" placeholder="Additional details…">${Arc.esc(t.description||'')}</textarea></div>
@@ -626,6 +690,9 @@ function taskModal(task, defaultBucketId) {
       <div class="form-group"><label class="form-lbl">Priority</label><select class="form-inp" id="tm-pri">${prioOpts}</select></div>
       <div class="form-group"><label class="form-lbl">Due Date</label><input type="date" class="form-inp" id="tm-due" value="${t.dueDate||''}"></div>
     </div>
+    ${shared ? `
+    <div class="form-group"><label class="form-lbl">Column</label><select class="form-inp" id="tm-bucket">${bucketOpts}</select></div>
+    ` : `
     <div class="form-row">
       <div class="form-group"><label class="form-lbl">Column</label><select class="form-inp" id="tm-bucket">${bucketOpts}</select></div>
       <div class="form-group"><label class="form-lbl">Project (optional)</label><select class="form-inp" id="tm-proj">${projOpts}</select></div>
@@ -636,7 +703,8 @@ function taskModal(task, defaultBucketId) {
         <span class="lbl-manage-link" onclick="manageLabelsModal('${t.id||''}')">＋ Manage Labels</span>
       </div>
       <div class="label-chips" id="task-label-chips">${labelChips}</div>
-    </div>`;
+    </div>`}
+    ${shareSection}`;
 
   showModal(`<div class="modal ${isEdit?'modal-split':''}">
     <div class="modal-hdr">
@@ -657,15 +725,70 @@ function taskModal(task, defaultBucketId) {
       </div>
     </div>` : formHtml}
     <div class="modal-foot">
-      ${isEdit?`<button class="btn btn-ghost" style="margin-right:auto;color:var(--red)" onclick="confirmDelTask('${t.id}')">Delete</button>`:''}
+      ${isEdit ? (shared
+        ? `<button class="btn btn-ghost" style="margin-right:auto;color:var(--red)" onclick="confirmLeaveShared('${t.id}')">Remove from my board</button>`
+        : `<button class="btn btn-ghost" style="margin-right:auto;color:var(--red)" onclick="confirmDelTask('${t.id}')">Delete</button>`) : ''}
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveTask(${isEdit?`'${t.id}'`:'null'})">${isEdit?'Save':'Add Task'}</button>
     </div>
   </div>`);
 
   if (isEdit) { initRTE('cm-rte', t.id); }
+  if (isEdit && !shared) tsRenderMembers(t.id);
   // Render initial subtask list
   stRender();
+}
+
+// ── Task sharing (owner side) ─────────────────────────────────────────
+function tsRenderMembers(taskId) {
+  const el = document.getElementById('ts-members');
+  if (!el) return;
+  const ms = Arc.Shared.membersOf(taskId);
+  el.innerHTML = ms.length
+    ? ms.map(m => `<span class="ts-member">${Arc.esc(m)}<button onclick="arcTaskShareRemove('${taskId}','${Arc.esc(m)}')" title="Remove access">✕</button></span>`).join('')
+    : `<div style="font-size:11px;color:var(--dim);margin-bottom:6px">Not shared — add someone's email to collaborate on this task.</div>`;
+}
+
+async function arcTaskShareAdd(taskId) {
+  const inp = document.getElementById('ts-email');
+  const err = document.getElementById('ts-err');
+  const email = inp?.value?.trim();
+  if (!email) { inp?.focus(); return; }
+  if (err) err.textContent = '';
+  const task = Arc.Tasks.getAll().find(t => t.id === taskId);
+  if (!task) return;
+  try {
+    await Arc.Shared.share('task', task, email);
+    if (inp) inp.value = '';
+    tsRenderMembers(taskId);
+    renderBoard();
+  } catch (e) {
+    if (err) err.textContent = e.message || 'Could not share — check the email and try again.';
+  }
+}
+
+async function arcTaskShareRemove(taskId, email) {
+  try { await Arc.Shared.unshare(taskId, email); }
+  catch (e) { alert('Could not remove: ' + (e.message || e)); }
+  tsRenderMembers(taskId);
+  renderBoard();
+}
+
+// ── Leave a task shared with me ───────────────────────────────────────
+function confirmLeaveShared(id) {
+  const s = Arc.Shared.get(id);
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr"><div class="modal-title">Remove Shared Task?</div><button class="close-btn" onclick="closeModal()">✕</button></div>
+    <p style="color:var(--muted);font-size:13px">Remove <strong>${Arc.esc(s?.data?.title || 'this task')}</strong> from your board? ${Arc.esc(s?.ownerName || 'The owner')} keeps the task — you just stop collaborating on it.</p>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" onclick="doLeaveShared('${id}')">Remove</button></div>
+  </div>`);
+}
+
+async function doLeaveShared(id) {
+  try { await Arc.Shared.leave(id); }
+  catch (e) { alert('Could not remove: ' + (e.message || e)); }
+  closeModal();
+  renderBoard();
 }
 
 // ── Subtask helpers ────────────────────────────────────────────────────
@@ -826,7 +949,11 @@ function fmtCommentTime(iso) {
 }
 
 function renderCommentsList(entityId) {
-  const comments = (Arc.Comments && Arc.Comments.forEntity(entityId)) || [];
+  // Comments on shared tasks live in the shared doc so everyone sees them
+  const sharedItem = Arc.Shared.get(entityId);
+  const comments = sharedItem
+    ? [...(sharedItem.comments || [])].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    : ((Arc.Comments && Arc.Comments.forEntity(entityId)) || []);
   if (!comments.length) return `<div class="comment-empty">No updates yet — add the first one below.</div>`;
   return comments.map(c => `<div class="comment-item">
     <div class="comment-meta">
@@ -835,6 +962,11 @@ function renderCommentsList(entityId) {
     </div>
     <div class="comment-body">${c.html || Arc.esc(c.text || '')}</div>
   </div>`).join('');
+}
+
+function refreshCommentsList(entityId, scrollToEnd) {
+  const list = document.getElementById('cm-list');
+  if (list) { list.innerHTML = renderCommentsList(entityId); if (scrollToEnd) list.scrollTop = list.scrollHeight; }
 }
 
 function postComment(entityId) {
@@ -846,17 +978,34 @@ function postComment(entityId) {
   // Store both html (for rich display) and text (for fallback)
   const div = document.createElement('div'); div.innerHTML = html;
   const text = div.textContent || div.innerText || '';
+  const sharedItem = Arc.Shared.get(entityId);
+  if (sharedItem) {
+    const by = (window._arcUser?.displayName || '').split(' ')[0] || null;
+    const c = { id: Arc.uid(), text, html, by, createdAt: new Date().toISOString() };
+    Arc.Shared.addComment(entityId, c)
+      .then(() => refreshCommentsList(entityId, true))
+      .catch(e => alert('Could not post: ' + (e.message || e)));
+    clearRte('cm-rte');
+    refreshCommentsList(entityId, true); // optimistic — cache already updated
+    return;
+  }
   Arc.Comments.add(entityId, text, html);
   clearRte('cm-rte');
-  const list = document.getElementById('cm-list');
-  if (list) { list.innerHTML = renderCommentsList(entityId); list.scrollTop = list.scrollHeight; }
+  refreshCommentsList(entityId, true);
 }
 
 function deleteComment(entityId, commentId) {
   if (!Arc.Comments) return;
+  const sharedItem = Arc.Shared.get(entityId);
+  if (sharedItem) {
+    Arc.Shared.deleteComment(entityId, commentId)
+      .then(() => refreshCommentsList(entityId))
+      .catch(e => alert('Could not delete: ' + (e.message || e)));
+    refreshCommentsList(entityId); // optimistic
+    return;
+  }
   Arc.Comments.delete(entityId, commentId);
-  const list = document.getElementById('cm-list');
-  if (list) list.innerHTML = renderCommentsList(entityId);
+  refreshCommentsList(entityId);
 }
 
 // ======================================================
@@ -865,9 +1014,16 @@ function deleteComment(entityId, commentId) {
 function saveTask(id) {
   const title = document.getElementById('tm-title').value.trim();
   if (!title) { document.getElementById('tm-title').style.borderColor='var(--red)'; document.getElementById('tm-title').focus(); return; }
-  const existing = id ? Arc.Tasks.getAll().find(t=>t.id===id) : null;
+  // Task shared with me: edit the shared copy; the owner's project/labels
+  // are personal to them and aren't shown in my form, so carry them over.
+  const sharedWithMe = id && Arc.Shared.isWithMe(id);
+  const existing = id
+    ? (sharedWithMe ? Arc.Shared.get(id)?.data : Arc.Tasks.getAll().find(t=>t.id===id))
+    : null;
   // Collect selected labels
-  const labels = Arc.Labels.getAll().filter(l => document.getElementById(`lchip-${l.id}`)?.classList.contains('sel')).map(l=>l.id);
+  const labels = sharedWithMe
+    ? (existing?.labels || [])
+    : Arc.Labels.getAll().filter(l => document.getElementById(`lchip-${l.id}`)?.classList.contains('sel')).map(l=>l.id);
   const task = {
     id: id || Arc.uid(),
     title,
@@ -875,11 +1031,16 @@ function saveTask(id) {
     priority:    document.getElementById('tm-pri').value,
     dueDate:     document.getElementById('tm-due').value,
     bucketId:    document.getElementById('tm-bucket').value,
-    projectId:   document.getElementById('tm-proj').value,
+    projectId:   sharedWithMe ? (existing?.projectId || '') : document.getElementById('tm-proj').value,
     labels,
     subtasks:    window._stBuf || [],
     createdAt:   existing?.createdAt || new Date().toISOString(),
   };
+  if (sharedWithMe) {
+    Arc.Shared.updateAsMember(id, task).catch(e => console.warn('Arcus: shared save failed', e));
+    closeModal(); renderBoard();
+    return;
+  }
   id ? Arc.Tasks.update(task) : Arc.Tasks.add(task);
   if (task.bucketId === 'b_done') Arc.PinnedTasks.unpin(task.id);
   closeModal(); renderBoard();

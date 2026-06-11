@@ -104,21 +104,6 @@ a { text-decoration: none; color: inherit; }
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: .45; transform: scale(.78); }
 }
-/* Shared-workspace indicator badge */
-.nav-ws-badge {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 11px; font-weight: 600; padding: 4px 6px 4px 11px;
-  border-radius: 20px; background: rgba(123,121,247,.1); color: var(--accent);
-  border: 1px solid rgba(123,121,247,.4); white-space: nowrap;
-  letter-spacing: .2px;
-}
-.nav-ws-exit {
-  width: 17px; height: 17px; border-radius: 50%; border: none;
-  background: rgba(123,121,247,.18); color: var(--accent); cursor: pointer;
-  font-size: 9px; line-height: 1; display: flex; align-items: center;
-  justify-content: center; padding: 0; transition: background .15s, color .15s;
-}
-.nav-ws-exit:hover { background: var(--accent); color: #fff; }
 .share-loading { font-size: 12px; color: var(--dim); padding: 6px 2px; }
 .nav-gear { width: 32px; height: 32px; border-radius: 8px; background: var(--nav-gear-bg); border: 1px solid var(--nav-gear-bdr); color: var(--nav-gear-color); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: color .15s, background .15s; }
 .nav-gear:hover { color: var(--nav-gear-hover); background: rgba(128,128,128,.12); }
