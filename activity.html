@@ -75,7 +75,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     <span class="audit-type-pill" data-type="event" onclick="setTypeFilter('event')">Events</span>
     <span class="audit-type-pill" data-type="journal" onclick="setTypeFilter('journal')">Journal</span>
     <div class="audit-sep"></div>
-    <div class="audit-clear-btn" onclick="confirmClear()">🗑 Clear All</div>
+    <div class="audit-clear-btn" onclick="confirmClear()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-1px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Clear All</div>
   </div>
 
   <!-- Activity panel -->
@@ -88,7 +88,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=7"></script>
+<script src="data.js?v=8"></script>
 <script>
 const TYPE_LABEL = {
   project: 'Project', goal: 'Goal', task: 'Task', event: 'Event', journal: 'Journal',

@@ -102,6 +102,38 @@ const Arc = (() => {
   const dateStr = d  => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const today   = () => dateStr(new Date());
 
+  // ── Outline icon set (Feather-style, stroke = currentColor) ─────────
+  // Single consistent line-icon style used across the whole app instead
+  // of emoji / system glyphs.
+  const ICON_PATHS = {
+    share:    '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
+    pin:      '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+    x:        '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+    trash:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
+    plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    gear:     '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    user:     '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    users:    '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    edit:     '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
+    list:     '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+    tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+    'log-out':'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+    filter:   '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+    upload:   '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
+    folder:   '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+    moon:     '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+    sun:      '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+    cloud:    '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
+    columns:  '<path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/>',
+    grid:     '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+  };
+  const icon = (name, size = 16, sw = 2) => {
+    const p = ICON_PATHS[name];
+    if (!p) return '';
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px">${p}</svg>`;
+  };
+
   const DB = {
     _localSaveTimer: null,
     get(k)    { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
@@ -640,31 +672,31 @@ const Arc = (() => {
             <div class="arc-pmenu-body">
               ${isLocalMode ? `
               <button class="arc-pmenu-item arc-pmenu-signin" onclick="arcCloseProfileMenu();arcSignInFromLocal()">
-                <span class="apm-icon">☁</span> Sign in with Google
+                <span class="apm-icon">${icon('cloud', 14)}</span> Sign in with Google
               </button>
               <div class="arc-pmenu-div"></div>
               ` : ''}
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openProfileModal()">
-                <span class="apm-icon">✎</span> Edit Profile
+                <span class="apm-icon">${icon('edit', 13)}</span> Edit Profile
               </button>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();location.href='activity.html'">
-                <span class="apm-icon">📋</span> Recent Activity
+                <span class="apm-icon">${icon('list', 14)}</span> Recent Activity
               </button>
               <div class="arc-pmenu-div"></div>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();Arc.openLabelManager()">
-                <span class="apm-icon">🏷</span> Manage Labels
+                <span class="apm-icon">${icon('tag', 13)}</span> Manage Labels
               </button>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();location.href='people.html'">
-                <span class="apm-icon">👥</span> People &amp; Sharing
+                <span class="apm-icon">${icon('users', 14)}</span> People &amp; Sharing
               </button>
               <div class="arc-pmenu-div"></div>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();openSettings()">
-                <span class="apm-icon">⚙</span> Settings
+                <span class="apm-icon">${icon('gear', 14)}</span> Settings
               </button>
               ${!isLocalMode ? `
               <div class="arc-pmenu-div"></div>
               <button class="arc-pmenu-item" onclick="arcCloseProfileMenu();arcSignOut()" style="color:var(--red)">
-                <span class="apm-icon">↩</span> Sign Out
+                <span class="apm-icon">${icon('log-out', 13)}</span> Sign Out
               </button>` : ''}
             </div>
           </div>
@@ -742,7 +774,7 @@ const Arc = (() => {
       <div style="display:flex;align-items:center;gap:18px;padding:16px;background:var(--s3);border:1px solid var(--border);border-radius:10px;margin-bottom:20px">
         <div style="position:relative;cursor:pointer;flex-shrink:0" onclick="document.getElementById('arc-av-inp').click()" title="Click to change photo">
           <div id="arc-av-preview">${ava}</div>
-          <div style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid var(--modal-bg)">✎</div>
+          <div style="position:absolute;bottom:-2px;right:-2px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid var(--modal-bg)">${icon('edit', 10)}</div>
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:15px;font-weight:700;margin-bottom:2px">${esc(Profile.fullName())}</div>
@@ -912,8 +944,8 @@ const Arc = (() => {
             <div style="font-size:11px;color:var(--muted);margin-top:2px">Choose your display mode</div>
           </div>
           <div class="theme-toggle">
-            <button class="theme-btn ${theme==='dark'?'active':''}" onclick="arcSetTheme('dark')">🌙 Dark</button>
-            <button class="theme-btn ${theme==='light'?'active':''}" onclick="arcSetTheme('light')">☀️ Light</button>
+            <button class="theme-btn ${theme==='dark'?'active':''}" onclick="arcSetTheme('dark')">${icon('moon', 13)} Dark</button>
+            <button class="theme-btn ${theme==='light'?'active':''}" onclick="arcSetTheme('light')">${icon('sun', 13)} Light</button>
           </div>
         </div>
       </div>
@@ -927,10 +959,10 @@ const Arc = (() => {
           </div>
           <div style="display:flex;gap:8px">
             ${fname
-              ? `<button class="btn btn-ghost" id="fs-save-btn" style="flex:1;justify-content:center" onclick="arcFSSave(this)">⬇ Save Now</button>
-                 <button class="btn btn-ghost" onclick="arcFSPick(this)">📁 Change Folder</button>
+              ? `<button class="btn btn-ghost" id="fs-save-btn" style="flex:1;justify-content:center" onclick="arcFSSave(this)">${icon('download', 13)} Save Now</button>
+                 <button class="btn btn-ghost" onclick="arcFSPick(this)">${icon('folder', 13)} Change Folder</button>
                  <button class="btn btn-ghost" style="color:var(--muted)" onclick="arcFSClear()">✕ Clear</button>`
-              : `<button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="arcFSPick(this)">📁 Choose Save Folder…</button>`}
+              : `<button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="arcFSPick(this)">${icon('folder', 13)} Choose Save Folder…</button>`}
           </div>
         ` : `
           <div style="font-size:12px;color:var(--muted);background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 13px">
@@ -947,8 +979,8 @@ const Arc = (() => {
           <div><div style="font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--accent);line-height:1">${bs}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Buckets</div></div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="Arc.exportAllData()">⬇ Export Backup</button>
-          <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="Arc.importData()">⬆ Import Backup</button>
+          <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="Arc.exportAllData()">${icon('download', 13)} Export Backup</button>
+          <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="Arc.importData()">${icon('upload', 13)} Import Backup</button>
         </div>
         <div class="form-hint" style="margin-top:6px">Export saves all your data as a JSON file. Import replaces everything from a backup file.</div>
       </div>
@@ -980,7 +1012,7 @@ const Arc = (() => {
     </div>`);
   }
 
-  return { uid, esc, dateStr, today, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
+  return { uid, esc, dateStr, today, icon, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
            Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, Checklists, Shared, People, FolderSave,
            avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager };
 })();

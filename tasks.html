@@ -25,13 +25,14 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .fpill { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:500; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; transition:all .15s; }
 .fpill:hover { color:var(--text); border-color:var(--border2); }
 .fpill.on { background:rgba(123,121,247,.1); color:var(--accent); border-color:var(--accent); }
-.pf-btn { height:32px; min-width:32px; border-radius:20px; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; padding:0 5px; transition:all .15s; }
-.pf-btn:hover { border-color:var(--border2); color:var(--text); }
-.pf-btn.on { border-color:var(--accent); }
-.pf-ava { display:inline-flex; margin-left:-7px; border-radius:50%; }
+/* Person filter: bare overlapping avatars + a round filter button */
+.pf-btn { border:none; background:transparent; padding:0; display:flex; align-items:center; cursor:pointer; }
+.pf-ava { display:inline-flex; border-radius:50%; position:relative; margin-left:-9px; box-shadow:0 0 0 2px var(--s1); }
 .pf-ava:first-child { margin-left:0; }
-.pf-ava.active { box-shadow:0 0 0 2px var(--accent); }
-.pf-more { font-size:10px; font-weight:700; color:var(--muted); margin-left:4px; padding-right:2px; }
+.pf-ava.active { box-shadow:0 0 0 2px var(--accent); z-index:4 !important; }
+.pf-filter-circle { width:27px; height:27px; border-radius:50%; border:1px solid var(--border); background:var(--s1); color:var(--muted); display:flex; align-items:center; justify-content:center; margin-left:7px; transition:all .15s; flex-shrink:0; }
+.pf-btn:hover .pf-filter-circle { border-color:var(--border2); color:var(--text); }
+.pf-filter-circle.on { border-color:var(--accent); color:var(--accent); background:rgba(123,121,247,.08); }
 .pmd-item.on { background:rgba(123,121,247,.1); color:var(--accent); }
 
 /* ── Multi-select project dropdown ── */
@@ -122,7 +123,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .card-action-btn { width:23px; height:23px; border-radius:6px; background:var(--s3); border:1px solid var(--border); color:var(--muted); display:flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; transition:color .15s,background .15s; }
 .card-action-btn:hover { color:var(--text); background:var(--s2); }
 .card-action-btn.pinned { color:#f5c542; border-color:#f5c542; background:rgba(245,197,66,.1); }
-.tc-pin-dot { position:absolute; top:10px; right:10px; font-size:12px; line-height:1; opacity:.75; pointer-events:none; transition:opacity .15s; }
+.tc-pin-dot { position:absolute; top:10px; right:10px; line-height:1; color:#f5c542; opacity:.9; pointer-events:none; transition:opacity .15s; }
 .task-card:hover .tc-pin-dot { opacity:0; }
 
 /* ── Empty ── */
@@ -261,12 +262,12 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     <span class="filter-lbl">Shared:</span>
     <div class="fpill" id="f-shared" onclick="toggleSharedOnly()">Shared only</div>
     <div class="proj-multi-wrap" id="pf-wrap">
-      <button class="pf-btn" id="pf-btn" onclick="togglePersonDd(event)" title="Filter by person">👤</button>
+      <button class="pf-btn" id="pf-btn" onclick="togglePersonDd(event)" title="Filter by person"></button>
       <div class="proj-multi-dropdown" id="pf-dd"></div>
     </div>
   </div>
   <div class="tb-sep"></div>
-  <button class="btn btn-ghost btn-sm" onclick="manageBuckets()">⚙ Columns</button>
+  <button class="btn btn-ghost btn-sm" onclick="manageBuckets()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-2px"><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/></svg> Columns</button>
 </div>
 
 <div class="kanban-wrap">
@@ -278,7 +279,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=7"></script>
+<script src="data.js?v=8"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -432,7 +433,7 @@ function togglePersonDd(e) {
   if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
   const people = personFilterList();
   dd.innerHTML = `
-    <div class="pmd-item" onclick="setPersonFilter(null)"><span style="width:22px;text-align:center">✕</span><span>Everyone</span></div>
+    <div class="pmd-item" onclick="setPersonFilter(null)"><span style="width:22px;display:flex;justify-content:center">${Arc.icon('users', 14)}</span><span>Everyone</span></div>
     ${people.length ? `<div class="pmd-divider"></div>` : ''}
     ${people.map(p => `<div class="pmd-item ${personFilter === p.email ? 'on' : ''}" onclick="setPersonFilter('${Arc.esc(p.email)}')">
       ${arcPersonAva(p, 22)}<span>${Arc.esc(p.name)}</span>
@@ -452,21 +453,21 @@ function updatePersonBtn() {
   const btn = document.getElementById('pf-btn');
   if (!btn) return;
   const people = personFilterList();
-  btn.classList.toggle('on', !!personFilter);
+  const filterCircle = `<span class="pf-filter-circle ${personFilter ? 'on' : ''}">${Arc.icon('filter', 12)}</span>`;
   if (!people.length) {
-    btn.innerHTML = '👤';
+    btn.innerHTML = filterCircle;
     btn.title = 'Filter by person';
     return;
   }
-  // Show real profile circles — active person first, max 3, then a +n count
+  // Bare overlapping profile circles (first in front, max 3) + filter button
   let list = [...people];
   if (personFilter) {
     list.sort((a, b) => (a.email === personFilter ? -1 : 0) - (b.email === personFilter ? -1 : 0));
   }
   const shown = list.slice(0, 3);
-  btn.innerHTML = shown.map(p =>
-    `<span class="pf-ava ${p.email === personFilter ? 'active' : ''}" title="${Arc.esc(p.name)}">${arcPersonAva(p, 24)}</span>`
-  ).join('') + (people.length > 3 ? `<span class="pf-more">+${people.length - 3}</span>` : '');
+  btn.innerHTML = shown.map((p, i) =>
+    `<span class="pf-ava ${p.email === personFilter ? 'active' : ''}" style="z-index:${3 - i}" title="${Arc.esc(p.name)}">${arcPersonAva(p, 26)}</span>`
+  ).join('') + filterCircle;
   btn.title = personFilter
     ? `Showing ${Arc.People.nameFor(personFilter)} — click to change`
     : 'Filter by person';
@@ -588,7 +589,7 @@ function renderBoard() {
       <div class="bucket-header">
         <div class="bucket-name">${Arc.esc(bucket.name)}</div>
         <div class="bucket-count">${tasks.length + shared.length}</div>
-        <button class="bucket-add-btn" onclick="newTaskModal('${bucket.id}')" title="Add task">+</button>
+        <button class="bucket-add-btn" onclick="newTaskModal('${bucket.id}')" title="Add task">${Arc.icon('plus', 13)}</button>
       </div>
       <div class="bucket-cards" id="bc-${bucket.id}"
            ondragover="onDragOver(event)" ondragenter="onDragEnter(event)"
@@ -602,7 +603,7 @@ function renderBoard() {
   const addCol = document.createElement('div');
   addCol.className = 'bucket-col new-col';
   addCol.onclick = () => newBucketModal();
-  addCol.innerHTML = `<span style="font-size:20px">⊕</span> Add Column`;
+  addCol.innerHTML = `${Arc.icon('plus', 16)} Add Column`;
   board.appendChild(addCol);
 }
 
@@ -652,15 +653,15 @@ function renderTaskCard(task, bucketId, shared) {
 
   const canShare = !!(window._arcUser && window._arcDb);
   const actions = shared
-    ? `<div class="card-action-btn" onclick="confirmLeaveShared('${task.id}')" title="Remove from my board" style="color:var(--red)">✕</div>`
-    : `${canShare ? `<div class="card-action-btn" onclick="cardShareModal('${task.id}')" title="Share">👥</div>` : ''}
-       <div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">📌</div>
-       <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">✕</div>`;
+    ? `<div class="card-action-btn" onclick="confirmLeaveShared('${task.id}')" title="Remove from my board" style="color:var(--red)">${Arc.icon('x', 12)}</div>`
+    : `${canShare ? `<div class="card-action-btn" onclick="cardShareModal('${task.id}')" title="Share">${Arc.icon('share', 11)}</div>` : ''}
+       <div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">${Arc.icon('pin', 12)}</div>
+       <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">${Arc.icon('x', 12)}</div>`;
 
   return `<div class="task-card ${isDone?'done-card':''} ${peopleCluster?'has-people':''}"
     draggable="true" ondragstart="onDragStart(event,'${task.id}')" ondragend="onDragEnd(event)"
     onclick="editTaskModal('${task.id}')">
-    ${isPinned ? `<div class="tc-pin-dot" title="Pinned to Focus">📌</div>` : ''}
+    ${isPinned ? `<div class="tc-pin-dot" title="Pinned to Focus">${Arc.icon('pin', 12)}</div>` : ''}
     <div class="task-card-actions" onclick="event.stopPropagation()">${actions}</div>
     <div class="task-card-title">${Arc.esc(task.title)}</div>
     ${metaParts.length || labelPills || stBadge ? `<div class="task-card-meta">${metaParts.join('')}${stBadge}${labelPills}</div>` : ''}
@@ -892,7 +893,7 @@ function tsRenderShareRow(taskId, shared) {
     return `<span class="ts-ava-wrap" title="${Arc.esc(p.name)} — click to remove" onclick="arcTaskShareRemove('${taskId}','${Arc.esc(m)}')">${arcPersonAva(p, 28)}</span>`;
   }).join('') + `
     <div style="position:relative;display:inline-flex">
-      <button class="ts-add-btn" title="Share this task" onclick="tsToggleShareDd(event,'${taskId}')"><span style="font-size:13px">👥</span> Share</button>
+      <button class="ts-add-btn" title="Share this task" onclick="tsToggleShareDd(event,'${taskId}')">${Arc.icon('share', 12)} Share</button>
       <div class="ts-share-dd hidden" id="ts-share-dd"></div>
     </div>`;
 }
@@ -973,7 +974,7 @@ function csmRender(taskId) {
       <div class="csm-row csm-add" onclick="csmAdd('${taskId}','${Arc.esc(p.email)}')">
         ${arcPersonAva(p, 28)}
         <div class="csm-info"><div class="csm-name">${Arc.esc(p.name)}</div><div class="csm-mail">${Arc.esc(p.email)}</div></div>
-        <span class="csm-plus">＋</span>
+        <span class="csm-plus">${Arc.icon('plus', 14)}</span>
       </div>`).join('') : ''}
     ${!ms.length && !candidates.length ? `<div style="font-size:12px;color:var(--dim);padding:4px 0 10px;line-height:1.7">No connected people yet — add them on the <strong>People &amp; Sharing</strong> page, or share by email below.</div>` : ''}
     <div class="csm-lbl">Or by email</div>

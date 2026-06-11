@@ -129,19 +129,19 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <div id="nav-container"></div>
 
 <div class="focus-toolbar">
-  <div class="focus-title">📌 Focus Board</div>
+  <div class="focus-title">Focus Board</div>
   <span class="focus-count" id="focus-count">0 pinned</span>
-  <button class="btn btn-ghost btn-sm" id="grid-toggle-btn" onclick="toggleGrid()">⊞ Grid: On</button>
+  <button class="btn btn-ghost btn-sm" id="grid-toggle-btn" onclick="toggleGrid()">Grid: On</button>
   <button class="btn btn-ghost btn-sm" onclick="autoArrange()">↔ Auto-arrange</button>
   <button class="btn btn-ghost btn-sm" onclick="window.location.href='tasks.html'">→ Task Board</button>
 </div>
 
 <div class="focus-canvas show-grid" id="focus-canvas">
   <div class="focus-empty" id="focus-empty">
-    <div style="font-size:48px;margin-bottom:14px">📌</div>
+    <div style="margin-bottom:14px;color:var(--dim);display:flex;justify-content:center"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></div>
     <h3>Your Focus Board is empty</h3>
     <p>Pin tasks from the Task Board to see them here as sticky notes. Focus only on what matters today.</p>
-    <div class="arrow-hint">Go to Tasks → hover a card → click 📌 to pin it here</div>
+    <div class="arrow-hint">Go to Tasks → hover a card → click the pin to pin it here</div>
     <button class="btn btn-primary" style="margin-top:18px;pointer-events:all" onclick="window.location.href='tasks.html'">Open Task Board</button>
   </div>
 </div>
@@ -151,7 +151,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=7"></script>
+<script src="data.js?v=8"></script>
 <script>
 // ── Note color palette ────────────────────────────────────────────────
 const NOTE_COLORS = [
@@ -178,7 +178,7 @@ function toggleGrid() {
   const canvas = document.getElementById('focus-canvas');
   canvas.classList.toggle('show-grid', showGrid);
   const btn = document.getElementById('grid-toggle-btn');
-  if (btn) btn.textContent = `⊞ Grid: ${showGrid ? 'On' : 'Off'}`;
+  if (btn) btn.textContent = `Grid: ${showGrid ? 'On' : 'Off'}`;
   Arc.Settings.set('focus_grid', showGrid);
 }
 
@@ -191,7 +191,7 @@ function init() {
   const canvas = document.getElementById('focus-canvas');
   canvas.classList.toggle('show-grid', showGrid);
   const btn = document.getElementById('grid-toggle-btn');
-  if (btn) btn.textContent = `⊞ Grid: ${showGrid ? 'On' : 'Off'}`;
+  if (btn) btn.textContent = `Grid: ${showGrid ? 'On' : 'Off'}`;
   renderBoard();
 }
 
