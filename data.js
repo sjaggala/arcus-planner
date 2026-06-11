@@ -270,11 +270,11 @@ const Arc = (() => {
     _k: 'arc_comments',
     getAll()          { return DB.get(this._k) || {}; },
     forEntity(id)     { return (this.getAll()[id] || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt)); },
-    add(entityId, text) {
+    add(entityId, text, html) {
       if (!text || !text.trim()) return null;
       const all = this.getAll();
       if (!all[entityId]) all[entityId] = [];
-      const c = { id: uid(), text: text.trim(), createdAt: new Date().toISOString() };
+      const c = { id: uid(), text: text.trim(), html: html || null, createdAt: new Date().toISOString() };
       all[entityId].push(c);
       DB.set(this._k, all);
       return c;

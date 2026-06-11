@@ -859,19 +859,6 @@ function deleteComment(entityId, commentId) {
   if (list) list.innerHTML = renderCommentsList(entityId);
 }
 
-// Extend Comments.add to support html parameter
-const _origCommentsAdd = Arc.Comments.add.bind(Arc.Comments);
-Arc.Comments.add = function(entityId, text, html) {
-  if (!text || !text.trim()) return null;
-  const all = this.getAll();
-  if (!all[entityId]) all[entityId] = [];
-  const c = { id: Arc.uid(), text: text.trim(), html: html || null, createdAt: new Date().toISOString() };
-  all[entityId].push(c);
-  const DB = { set: (k,v) => localStorage.setItem(k, JSON.stringify(v)) };
-  DB.set(this._k, all);
-  return c;
-};
-
 // ======================================================
 // SAVE TASK
 // ======================================================
