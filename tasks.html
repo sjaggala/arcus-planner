@@ -22,6 +22,13 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .filter-set { display:flex; gap:6px; align-items:center; }
 .filter-lbl { font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted); }
 .tb-sep { width:1px;height:22px;background:var(--border);margin:0 2px; flex-shrink:0; }
+.fpill { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:500; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; transition:all .15s; }
+.fpill:hover { color:var(--text); border-color:var(--border2); }
+.fpill.on { background:rgba(123,121,247,.1); color:var(--accent); border-color:var(--accent); }
+.pf-btn { width:30px; height:30px; border-radius:50%; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; padding:0; transition:all .15s; overflow:hidden; }
+.pf-btn:hover { border-color:var(--border2); color:var(--text); }
+.pf-btn.on { border-color:var(--accent); box-shadow:0 0 0 2px rgba(123,121,247,.25); }
+.pmd-item.on { background:rgba(123,121,247,.1); color:var(--accent); }
 
 /* ── Multi-select project dropdown ── */
 .proj-multi-wrap { position:relative; }
@@ -233,6 +240,15 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     <div class="label-filter-wrap" id="label-filter-wrap"></div>
   </div>
   <div class="tb-sep"></div>
+  <div class="filter-set">
+    <span class="filter-lbl">Shared:</span>
+    <div class="fpill" id="f-shared" onclick="toggleSharedOnly()">Shared only</div>
+    <div class="proj-multi-wrap" id="pf-wrap">
+      <button class="pf-btn" id="pf-btn" onclick="togglePersonDd(event)" title="Filter by person">👤</button>
+      <div class="proj-multi-dropdown" id="pf-dd"></div>
+    </div>
+  </div>
+  <div class="tb-sep"></div>
   <button class="btn btn-ghost btn-sm" onclick="manageBuckets()">⚙ Columns</button>
 </div>
 
@@ -254,6 +270,8 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 // ======================================================
 let selectedProjects = []; // array of project IDs; empty = all
 let selectedLabels   = []; // array of label IDs;   empty = all
+let sharedOnly   = false;  // show only shared items
+let personFilter = null;   // email — show only items involving this person
 let openDropdown = null;
 let projDropdownOpen = false;
 
@@ -318,8 +336,12 @@ function init() {
     const saved = JSON.parse(localStorage.getItem('arc_tasks_filter') || '{}');
     if (Array.isArray(saved.projects)) selectedProjects = saved.projects;
     if (Array.isArray(saved.labels))   selectedLabels   = saved.labels;
+    if (typeof saved.sharedOnly === 'boolean') sharedOnly = saved.sharedOnly;
+    if (saved.person) personFilter = saved.person;
   } catch {}
 
+  updateSharedPill();
+  updatePersonBtn();
   buildProjDropdown();
   buildLabelFilterPills();
   renderBoard();
@@ -339,6 +361,11 @@ function init() {
     if (sdd && !sdd.classList.contains('hidden') && !sdd.contains(e.target)) {
       sdd.classList.add('hidden');
     }
+    // Close person filter dropdown
+    const pfWrap = document.getElementById('pf-wrap');
+    if (pfWrap && !pfWrap.contains(e.target)) {
+      document.getElementById('pf-dd')?.classList.remove('open');
+    }
   });
 
   const tid = new URLSearchParams(location.search).get('tid');
@@ -351,7 +378,73 @@ window.closeModal = (orig => () => { orig(); setUrlParam('tid', null); })(window
 // FILTER
 // ======================================================
 function saveTasksFilter() {
-  localStorage.setItem('arc_tasks_filter', JSON.stringify({ projects: selectedProjects, labels: selectedLabels }));
+  localStorage.setItem('arc_tasks_filter', JSON.stringify({
+    projects: selectedProjects, labels: selectedLabels,
+    sharedOnly, person: personFilter,
+  }));
+}
+
+// ── Shared / person filters ──────────────────────────────────────────
+function toggleSharedOnly() {
+  sharedOnly = !sharedOnly;
+  updateSharedPill();
+  saveTasksFilter(); renderBoard();
+}
+
+function updateSharedPill() {
+  document.getElementById('f-shared')?.classList.toggle('on', sharedOnly);
+}
+
+// Everyone I could be collaborating with: connected people + owners of items shared with me
+function personFilterList() {
+  const map = {};
+  Arc.People.connected().forEach(p => {
+    map[p.email] = { email: p.email, name: Arc.People.nameFor(p.email), photo: p.photo };
+  });
+  Arc.Shared._withMe.forEach(s => {
+    const e = (s.ownerEmail || '').toLowerCase();
+    if (e && !map[e]) map[e] = { email: e, name: s.ownerName || e, photo: s.ownerPhoto || null };
+  });
+  return Object.values(map);
+}
+
+function togglePersonDd(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('pf-dd');
+  if (!dd) return;
+  if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+  const people = personFilterList();
+  dd.innerHTML = `
+    <div class="pmd-item" onclick="setPersonFilter(null)"><span style="width:22px;text-align:center">✕</span><span>Everyone</span></div>
+    ${people.length ? `<div class="pmd-divider"></div>` : ''}
+    ${people.map(p => `<div class="pmd-item ${personFilter === p.email ? 'on' : ''}" onclick="setPersonFilter('${Arc.esc(p.email)}')">
+      ${arcPersonAva(p, 22)}<span>${Arc.esc(p.name)}</span>
+    </div>`).join('')}
+    ${!people.length ? `<div style="font-size:11px;color:var(--dim);padding:8px 10px;line-height:1.6">No people yet — connect with someone on the People &amp; Sharing page.</div>` : ''}`;
+  dd.classList.add('open');
+}
+
+function setPersonFilter(email) {
+  personFilter = email || null;
+  document.getElementById('pf-dd')?.classList.remove('open');
+  updatePersonBtn();
+  saveTasksFilter(); renderBoard();
+}
+
+function updatePersonBtn() {
+  const btn = document.getElementById('pf-btn');
+  if (!btn) return;
+  if (personFilter) {
+    const p = personFilterList().find(x => x.email === personFilter)
+      || { name: personFilter, email: personFilter, photo: null };
+    btn.innerHTML = arcPersonAva(p, 28);
+    btn.classList.add('on');
+    btn.title = `Showing ${p.name} — click to change`;
+  } else {
+    btn.innerHTML = '👤';
+    btn.classList.remove('on');
+    btn.title = 'Filter by person';
+  }
 }
 
 // ── Project multi-select ─────────────────────────────────────────────
@@ -454,9 +547,13 @@ function renderBoard() {
     let tasks = allTasks.filter(t => t.bucketId === bucket.id);
     if (selectedProjects.length) tasks = tasks.filter(t => selectedProjects.includes(t.projectId));
     if (selectedLabels.length)   tasks = tasks.filter(t => (t.labels||[]).some(lid => selectedLabels.includes(lid)));
+    if (sharedOnly)   tasks = tasks.filter(t => Arc.Shared.isSharedByMe(t.id));
+    if (personFilter) tasks = tasks.filter(t => Arc.Shared.membersOf(t.id).includes(personFilter));
 
-    const shared = sharedWithMe.filter(s =>
+    let shared = sharedWithMe.filter(s =>
       (bucketIds.includes(s.data.bucketId) ? s.data.bucketId : fallbackBucket) === bucket.id);
+    if (personFilter) shared = shared.filter(s =>
+      (s.ownerEmail || '').toLowerCase() === personFilter || (s.members || []).includes(personFilter));
 
     const col = document.createElement('div');
     col.className = 'bucket-col';

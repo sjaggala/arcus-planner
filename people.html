@@ -22,13 +22,12 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 [data-theme="light"] body { background: #ffffff; }
 
-/* Layout: side nav + main */
-.pg-layout { display: flex; gap: 24px; align-items: flex-start; }
-.pg-nav { width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; }
-.pg-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 9px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border: 1px solid transparent; transition: all .13s; }
+/* Layout: side nav + main, separated by a vertical line */
+.pg-layout { display: flex; gap: 24px; align-items: stretch; }
+.pg-nav { width: 195px; flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; border-right: 1px solid var(--border); padding-right: 18px; }
+.pg-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 9px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border: 1px solid transparent; transition: all .13s; height: fit-content; }
 .pg-nav-item:hover { color: var(--text); background: var(--s2); }
 .pg-nav-item.on { color: var(--text); background: var(--s2); border-color: var(--border); font-weight: 600; }
-.pg-nav-icon { font-size: 14px; width: 18px; text-align: center; }
 .pg-nav-count { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--muted); background: var(--s3); border-radius: 10px; padding: 1px 8px; }
 .pg-main { flex: 1; min-width: 0; }
 
@@ -42,17 +41,29 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .pp-invite-form { display: flex; gap: 8px; align-items: center; margin-left: auto; }
 .pp-invite-form .form-inp { width: 230px; font-size: 12px; padding: 6px 10px; }
 
-/* People split: list + detail */
+/* People split: list + detail (detail hidden until a person is selected) */
 .pp-split { display: flex; min-height: calc(100vh - 320px); }
 .pp-listcol { flex: 1; min-width: 0; }
-.pp-detail { width: 380px; flex-shrink: 0; border-left: 1px solid var(--border); background: transparent; }
+.pp-detail { display: none; width: 380px; flex-shrink: 0; border-left: 1px solid var(--border); background: transparent; margin-left: 18px; }
+.pp-split.open .pp-detail { display: block; }
 
-/* People list rows */
-.pp-row { display: flex; align-items: center; gap: 12px; padding: 11px 16px 11px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+/* People list rows — column grid */
+.pp-row, .pp-cols-hdr {
+  display: grid; gap: 12px; align-items: center;
+  grid-template-columns: minmax(150px,1.4fr) minmax(170px,1.6fr) minmax(90px,1fr) minmax(90px,1fr) minmax(100px,1fr) minmax(90px,1fr) 150px;
+  padding: 10px 16px 10px 12px; border-bottom: 1px solid var(--border);
+}
+/* When the detail panel is open, collapse to the essential columns */
+.pp-split.open .pp-row, .pp-split.open .pp-cols-hdr {
+  grid-template-columns: minmax(150px,1.4fr) minmax(170px,1.6fr) 150px;
+}
+.pp-split.open .pp-c-x { display: none; }
+.pp-cols-hdr { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); padding-top: 12px; padding-bottom: 8px; }
+.pp-row { cursor: pointer; transition: background .1s; }
 .pp-row:hover { background: rgba(123,121,247,.05); }
 .pp-row.sel { background: rgba(123,121,247,.07); box-shadow: inset 3px 0 0 var(--accent); }
 .pp-row-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pp-row-email { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-cell { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pp-group-lbl { padding: 16px 12px 7px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
 
 /* Status chips */
@@ -75,7 +86,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .pd-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 0 18px 18px; }
 .pd-saved { font-size: 11px; color: var(--green); align-self: center; margin-right: auto; opacity: 0; transition: opacity .2s; }
 .pd-saved.show { opacity: 1; }
-.pd-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 300px; color: var(--dim); font-size: 12.5px; gap: 8px; padding: 20px; text-align: center; line-height: 1.7; }
 
 /* Shared tables */
 .sh-table { width: 100%; }
@@ -182,15 +192,15 @@ function render() {
   el.innerHTML = `<div class="pg-layout">
     <div class="pg-nav">
       <div class="pg-nav-item ${section==='people'?'on':''}" onclick="setSection('people')">
-        <span class="pg-nav-icon">👤</span> People
+        People
         <span class="pg-nav-count">${Arc.People.connected().length}${pendingCount ? ` · ${pendingCount}⏳` : ''}</span>
       </div>
       <div class="pg-nav-item ${section==='by-me'?'on':''}" onclick="setSection('by-me')">
-        <span class="pg-nav-icon">📤</span> Shared by me
+        Shared by me
         <span class="pg-nav-count">${Arc.Shared._mine.length}</span>
       </div>
       <div class="pg-nav-item ${section==='with-me'?'on':''}" onclick="setSection('with-me')">
-        <span class="pg-nav-icon">📥</span> Shared with me
+        Shared with me
         <span class="pg-nav-count">${Arc.Shared._withMe.length}</span>
       </div>
     </div>
@@ -220,7 +230,7 @@ function renderPeopleSection() {
         : `<button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="ppToggleInvite(true)">＋ Send Invite</button>`}
     </div>
     ${inviteOpen ? `<div id="pp-err" style="font-size:11px;color:var(--red);padding:6px 20px 0;min-height:14px;text-align:right"></div>` : ''}
-    <div class="pp-split">
+    <div class="pp-split ${selEmail ? 'open' : ''}" id="pp-split">
       <div class="pp-listcol" id="pp-listcol"></div>
       <div class="pp-detail" id="pp-detail"></div>
     </div>
@@ -238,15 +248,28 @@ function ppToggleInvite(open) {
 function renderPeopleList() {
   const el = document.getElementById('pp-listcol');
   if (!el) return;
-  const row = (p, right) => `<div class="pp-row ${selEmail===p.email?'sel':''}" onclick="ppSelect('${Arc.esc(p.email)}')">
-    ${arcPersonAva({ ...p, name: Arc.People.nameFor(p.email) }, 32)}
-    <div style="flex-shrink:0;min-width:0;max-width:38%">
-      <div class="pp-row-name">${Arc.esc(Arc.People.nameFor(p.email))}</div>
-    </div>
-    <div class="pp-row-email">${Arc.esc(p.email)}</div>
-    ${right}</div>`;
+  const row = (p, right) => {
+    const m = Arc.People.metaFor(p.email);
+    return `<div class="pp-row ${selEmail===p.email?'sel':''}" onclick="ppSelect('${Arc.esc(p.email)}')">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        ${arcPersonAva({ ...p, name: Arc.People.nameFor(p.email) }, 30)}
+        <span class="pp-row-name">${Arc.esc(Arc.People.nameFor(p.email))}</span>
+      </div>
+      <div class="pp-cell">${Arc.esc(p.email)}</div>
+      <div class="pp-cell pp-c-x">${Arc.esc(m.company || '—')}</div>
+      <div class="pp-cell pp-c-x">${Arc.esc(m.role || '—')}</div>
+      <div class="pp-cell pp-c-x">${Arc.esc(m.phone || '—')}</div>
+      <div class="pp-cell pp-c-x">${Arc.esc(m.location || '—')}</div>
+      <div style="display:flex;justify-content:flex-end;gap:6px;align-items:center">${right}</div>
+    </div>`;
+  };
 
-  let html = '';
+  let html = `<div class="pp-cols-hdr">
+    <div>Name</div><div>Email</div>
+    <div class="pp-c-x">Company</div><div class="pp-c-x">Role</div>
+    <div class="pp-c-x">Phone</div><div class="pp-c-x">Location</div>
+    <div style="text-align:right">Status</div>
+  </div>`;
   const pin = Arc.People.pendingIn();
   if (pin.length) {
     html += `<div class="pp-group-lbl">Invites for you</div>` + pin.map(p => row(p, `
@@ -270,6 +293,7 @@ function renderPeopleList() {
 
 function ppSelect(email) {
   selEmail = (selEmail === email) ? null : email;
+  document.getElementById('pp-split')?.classList.toggle('open', !!selEmail);
   renderPeopleList();
   renderPersonDetail();
 }
@@ -278,13 +302,7 @@ function renderPersonDetail() {
   const el = document.getElementById('pp-detail');
   if (!el) return;
   const p = selEmail ? Arc.People.byEmail(selEmail) : null;
-  if (!p) {
-    el.innerHTML = `<div class="pd-empty">
-      <div style="font-size:26px">👈</div>
-      Select a person from the list to<br>view and edit their details.
-    </div>`;
-    return;
-  }
+  if (!p) { el.innerHTML = ''; return; }
   const m = Arc.People.metaFor(p.email);
   const name = Arc.People.nameFor(p.email);
   const fld = (id, lbl, val, ph) => `<div class="form-group">
