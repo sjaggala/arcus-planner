@@ -25,9 +25,13 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .fpill { padding:4px 12px; border-radius:20px; font-size:12px; font-weight:500; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; transition:all .15s; }
 .fpill:hover { color:var(--text); border-color:var(--border2); }
 .fpill.on { background:rgba(123,121,247,.1); color:var(--accent); border-color:var(--accent); }
-.pf-btn { width:30px; height:30px; border-radius:50%; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; padding:0; transition:all .15s; overflow:hidden; }
+.pf-btn { height:32px; min-width:32px; border-radius:20px; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; padding:0 5px; transition:all .15s; }
 .pf-btn:hover { border-color:var(--border2); color:var(--text); }
-.pf-btn.on { border-color:var(--accent); box-shadow:0 0 0 2px rgba(123,121,247,.25); }
+.pf-btn.on { border-color:var(--accent); }
+.pf-ava { display:inline-flex; margin-left:-7px; border-radius:50%; }
+.pf-ava:first-child { margin-left:0; }
+.pf-ava.active { box-shadow:0 0 0 2px var(--accent); }
+.pf-more { font-size:10px; font-weight:700; color:var(--muted); margin-left:4px; padding-right:2px; }
 .pmd-item.on { background:rgba(123,121,247,.1); color:var(--accent); }
 
 /* ── Multi-select project dropdown ── */
@@ -209,8 +213,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .ts-ava-wrap { cursor:pointer; border-radius:50%; display:inline-flex; transition:transform .12s, opacity .12s; }
 .ts-ava-wrap:hover { transform:scale(1.12); opacity:.85; }
 .ts-shared-by { font-size:11px; color:var(--muted); font-weight:600; white-space:nowrap; }
-.ts-add-btn { width:30px; height:30px; border-radius:50%; border:1px dashed var(--border2); background:var(--s3); color:var(--muted); cursor:pointer; font-size:17px; font-weight:400; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; transition:all .15s; }
-.ts-add-btn:hover { border-color:var(--accent); border-style:solid; color:var(--accent); background:rgba(123,121,247,.08); }
+.ts-add-btn { height:28px; padding:0 13px; border-radius:14px; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; font-size:11px; font-weight:600; line-height:1; display:flex; align-items:center; gap:6px; transition:all .15s; white-space:nowrap; }
+.ts-add-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(123,121,247,.08); }
 .ts-share-dd { position:absolute; top:36px; left:0; z-index:300; min-width:235px; background:var(--s2); border:1px solid var(--border2); border-radius:10px; padding:5px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
 .ts-share-dd.hidden { display:none; }
 .ts-dd-person { display:flex; align-items:center; gap:9px; padding:6px 8px; border-radius:7px; cursor:pointer; transition:background .12s; }
@@ -220,6 +224,19 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .ts-dd-empty { font-size:11px; color:var(--dim); padding:10px 8px; text-align:center; line-height:1.6; }
 .ts-dd-sep { height:1px; background:var(--border); margin:4px 2px; }
 .ts-dd-inp { font-size:11px; padding:5px 9px; margin:2px; width:calc(100% - 4px); }
+
+/* ── Quick share modal (from card hover) ── */
+.csm-lbl { font-size:10px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin:14px 0 7px; }
+.csm-lbl:first-child { margin-top:0; }
+.csm-row { display:flex; align-items:center; gap:10px; padding:7px 11px; border:1px solid var(--border); border-radius:9px; margin-bottom:6px; }
+.csm-row.csm-add { cursor:pointer; transition:border-color .15s, background .15s; }
+.csm-row.csm-add:hover { border-color:var(--accent); background:rgba(123,121,247,.05); }
+.csm-info { flex:1; min-width:0; }
+.csm-name { font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.csm-mail { font-size:10.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.csm-x { width:22px; height:22px; border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:11px; border-radius:5px; flex-shrink:0; padding:0; }
+.csm-x:hover { color:var(--red); }
+.csm-plus { color:var(--accent); font-weight:700; font-size:15px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -434,17 +451,25 @@ function setPersonFilter(email) {
 function updatePersonBtn() {
   const btn = document.getElementById('pf-btn');
   if (!btn) return;
-  if (personFilter) {
-    const p = personFilterList().find(x => x.email === personFilter)
-      || { name: personFilter, email: personFilter, photo: null };
-    btn.innerHTML = arcPersonAva(p, 28);
-    btn.classList.add('on');
-    btn.title = `Showing ${p.name} — click to change`;
-  } else {
+  const people = personFilterList();
+  btn.classList.toggle('on', !!personFilter);
+  if (!people.length) {
     btn.innerHTML = '👤';
-    btn.classList.remove('on');
     btn.title = 'Filter by person';
+    return;
   }
+  // Show real profile circles — active person first, max 3, then a +n count
+  let list = [...people];
+  if (personFilter) {
+    list.sort((a, b) => (a.email === personFilter ? -1 : 0) - (b.email === personFilter ? -1 : 0));
+  }
+  const shown = list.slice(0, 3);
+  btn.innerHTML = shown.map(p =>
+    `<span class="pf-ava ${p.email === personFilter ? 'active' : ''}" title="${Arc.esc(p.name)}">${arcPersonAva(p, 24)}</span>`
+  ).join('') + (people.length > 3 ? `<span class="pf-more">+${people.length - 3}</span>` : '');
+  btn.title = personFilter
+    ? `Showing ${Arc.People.nameFor(personFilter)} — click to change`
+    : 'Filter by person';
 }
 
 // ── Project multi-select ─────────────────────────────────────────────
@@ -625,9 +650,11 @@ function renderTaskCard(task, bucketId, shared) {
     ? `<span class="tc-st-prog ${stDone === sts.length ? 'complete' : ''}">✓ ${stDone}/${sts.length}</span>`
     : '';
 
+  const canShare = !!(window._arcUser && window._arcDb);
   const actions = shared
     ? `<div class="card-action-btn" onclick="confirmLeaveShared('${task.id}')" title="Remove from my board" style="color:var(--red)">✕</div>`
-    : `<div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">📌</div>
+    : `${canShare ? `<div class="card-action-btn" onclick="cardShareModal('${task.id}')" title="Share">👥</div>` : ''}
+       <div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">📌</div>
        <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">✕</div>`;
 
   return `<div class="task-card ${isDone?'done-card':''} ${peopleCluster?'has-people':''}"
@@ -865,7 +892,7 @@ function tsRenderShareRow(taskId, shared) {
     return `<span class="ts-ava-wrap" title="${Arc.esc(p.name)} — click to remove" onclick="arcTaskShareRemove('${taskId}','${Arc.esc(m)}')">${arcPersonAva(p, 28)}</span>`;
   }).join('') + `
     <div style="position:relative;display:inline-flex">
-      <button class="ts-add-btn" title="Share this task" onclick="tsToggleShareDd(event,'${taskId}')">+</button>
+      <button class="ts-add-btn" title="Share this task" onclick="tsToggleShareDd(event,'${taskId}')"><span style="font-size:13px">👥</span> Share</button>
       <div class="ts-share-dd hidden" id="ts-share-dd"></div>
     </div>`;
 }
@@ -910,6 +937,66 @@ async function arcTaskShareRemove(taskId, email) {
   try { await Arc.Shared.unshare(taskId, email); }
   catch (e) { alert('Could not remove: ' + (e.message || e)); }
   tsRenderShareRow(taskId, null);
+  renderBoard();
+}
+
+// ── Quick share from the card (hover action) ─────────────────────────
+function cardShareModal(taskId) {
+  const task = Arc.Tasks.getAll().find(t => t.id === taskId);
+  if (!task) return;
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr">
+      <div><div class="modal-title">Share Task</div><div class="modal-sub">${Arc.esc(task.title)}</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div id="csm-body"></div>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">Done</button></div>
+  </div>`);
+  csmRender(taskId);
+}
+
+function csmRender(taskId) {
+  const body = document.getElementById('csm-body');
+  if (!body) return;
+  const ms = Arc.Shared.membersOf(taskId);
+  const candidates = Arc.People.connected().filter(p => !ms.includes(p.email));
+  body.innerHTML = `
+    ${ms.length ? `<div class="csm-lbl">Shared with</div>` + ms.map(m => {
+      const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
+      return `<div class="csm-row">
+        ${arcPersonAva(p, 28)}
+        <div class="csm-info"><div class="csm-name">${Arc.esc(Arc.People.nameFor(m))}</div><div class="csm-mail">${Arc.esc(m)}</div></div>
+        <button class="csm-x" onclick="csmRemove('${taskId}','${Arc.esc(m)}')" title="Remove access">✕</button>
+      </div>`;
+    }).join('') : ''}
+    ${candidates.length ? `<div class="csm-lbl">Add people</div>` + candidates.map(p => `
+      <div class="csm-row csm-add" onclick="csmAdd('${taskId}','${Arc.esc(p.email)}')">
+        ${arcPersonAva(p, 28)}
+        <div class="csm-info"><div class="csm-name">${Arc.esc(p.name)}</div><div class="csm-mail">${Arc.esc(p.email)}</div></div>
+        <span class="csm-plus">＋</span>
+      </div>`).join('') : ''}
+    ${!ms.length && !candidates.length ? `<div style="font-size:12px;color:var(--dim);padding:4px 0 10px;line-height:1.7">No connected people yet — add them on the <strong>People &amp; Sharing</strong> page, or share by email below.</div>` : ''}
+    <div class="csm-lbl">Or by email</div>
+    <input class="form-inp" id="csm-email" type="email" placeholder="their-email@gmail.com"
+      onkeydown="if(event.key==='Enter'&&this.value.trim()){csmAdd('${taskId}',this.value);event.preventDefault()}">
+    <div id="csm-err" style="font-size:11px;color:var(--red);min-height:14px;margin-top:4px"></div>`;
+}
+
+async function csmAdd(taskId, email) {
+  const task = Arc.Tasks.getAll().find(t => t.id === taskId);
+  if (!task || !email || !String(email).trim()) return;
+  const err = document.getElementById('csm-err');
+  if (err) err.textContent = '';
+  try { await Arc.Shared.share('task', task, email); }
+  catch (e) { if (err) err.textContent = e.message || 'Could not share.'; return; }
+  csmRender(taskId);
+  renderBoard();
+}
+
+async function csmRemove(taskId, email) {
+  try { await Arc.Shared.unshare(taskId, email); }
+  catch (e) { alert('Could not remove: ' + (e.message || e)); }
+  csmRender(taskId);
   renderBoard();
 }
 
