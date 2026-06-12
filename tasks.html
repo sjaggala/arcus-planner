@@ -159,24 +159,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .comment-body p:last-child { margin-bottom:0; }
 .comment-empty { padding:16px 14px;font-size:11px;color:var(--dim);text-align:center; }
 
-/* ── Rich text editor ── */
-.rte-wrap { border:1px solid var(--border); border-radius:8px; background:var(--s1); overflow:hidden; }
-.rte-toolbar { display:flex; gap:3px; padding:5px 7px; background:var(--s2); border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center; }
-.rte-btn { width:26px;height:26px;border-radius:5px;border:1px solid transparent;background:transparent;
-  color:var(--muted);cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;
-  transition:all .12s; line-height:1; }
-.rte-btn:hover { background:var(--s3); color:var(--text); border-color:var(--border); }
-.rte-btn.active { background:rgba(123,121,247,.2); color:var(--accent); border-color:rgba(123,121,247,.4); }
-.rte-sep { width:1px; height:16px; background:var(--border); margin:0 3px; }
-.rte-select { background:var(--s3); border:1px solid var(--border); border-radius:5px; padding:3px 5px;
-  color:var(--text); font-size:11px; font-weight:500; cursor:pointer; }
-.rte-color-btn { width:20px;height:20px;border-radius:4px;cursor:pointer;border:2px solid var(--border);flex-shrink:0; }
-.rte-body { min-height:72px; max-height:180px; overflow-y:auto; padding:9px 11px; font-size:13px;
-  color:var(--text); line-height:1.6; outline:none; }
-.rte-body:empty::before { content:attr(data-placeholder); color:var(--dim); pointer-events:none; }
-.rte-footer { display:flex; justify-content:flex-end; padding:5px 8px; border-top:1px solid var(--border); background:var(--s2); }
-.rte-color-input { opacity:0; position:absolute; pointer-events:none; width:1px; height:1px; }
-
 /* ── Label picker in modal ── */
 .label-chips { display:flex; gap:6px; flex-wrap:wrap; }
 .label-chip { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; cursor:pointer;
@@ -280,7 +262,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=9"></script>
+<script src="data.js?v=10"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -491,7 +473,6 @@ function buildProjDropdown() {
     html += `<div class="pmd-divider"></div>`;
     html += projects.map(p => `<div class="pmd-item" onclick="toggleProject('${p.id}',event)">
       <input type="checkbox" ${selectedProjects.includes(p.id)?'checked':''} id="pmd-${p.id}">
-      <div class="pmd-dot" style="background:${p.color||'#7b79f7'}"></div>
       <span>${Arc.esc(p.name)}</span>
     </div>`).join('');
   }
@@ -1080,97 +1061,7 @@ function toggleTaskLabel(labelId) {
 // ======================================================
 // RICH TEXT EDITOR
 // ======================================================
-function renderRTE(id, placeholder) {
-  return `<div class="rte-wrap" id="${id}-wrap">
-    <div class="rte-toolbar">
-      <button type="button" class="rte-btn" id="${id}-bold"   title="Bold"   onclick="rteCmd('${id}','bold')"><b>B</b></button>
-      <button type="button" class="rte-btn" id="${id}-italic" title="Italic" onclick="rteCmd('${id}','italic')"><i>I</i></button>
-      <button type="button" class="rte-btn" id="${id}-ul"     title="Bullet list" onclick="rteCmd('${id}','insertUnorderedList')">☰</button>
-      <div class="rte-sep"></div>
-      <select class="rte-select" id="${id}-size" onchange="rteFontSize('${id}',this.value)" title="Font size">
-        <option value="1">Small</option>
-        <option value="3" selected>Normal</option>
-        <option value="4">Large</option>
-        <option value="5">X-Large</option>
-      </select>
-      <select class="rte-select" id="${id}-font" onchange="rteFontFamily('${id}',this.value)" title="Font family">
-        <option value="Outfit">Outfit</option>
-        <option value="Fraunces">Fraunces</option>
-        <option value="Georgia">Georgia</option>
-        <option value="Arial">Arial</option>
-        <option value="Courier New">Mono</option>
-      </select>
-      <div class="rte-sep"></div>
-      <div class="rte-color-btn" id="${id}-clrbtn" style="background:#fff" title="Text color"
-        onclick="document.getElementById('${id}-clrinp').click()"></div>
-      <input type="color" class="rte-color-input" id="${id}-clrinp" value="#ffffff"
-        oninput="rteTextColor('${id}',this.value)">
-    </div>
-    <div class="rte-body" id="${id}-body" contenteditable="true"
-      data-placeholder="${placeholder}"
-      onkeydown="rteKeyDown(event,'${id}')"></div>
-  </div>`;
-}
-
-function initRTE(id, entityId) {
-  // Store entityId on wrap so Ctrl+Enter can retrieve it
-  const wrap = document.getElementById(`${id}-wrap`);
-  if (wrap && entityId) wrap.dataset.entityId = entityId;
-  // Update color preview when user picks
-  const clrBtn = document.getElementById(`${id}-clrbtn`);
-  const clrInp = document.getElementById(`${id}-clrinp`);
-  if (clrInp && clrBtn) {
-    clrInp.addEventListener('input', () => { clrBtn.style.background = clrInp.value; });
-  }
-}
-
-function rteCmd(id, cmd) {
-  document.getElementById(`${id}-body`).focus();
-  document.execCommand(cmd, false, null);
-  // Toggle active state for bold/italic
-  if (cmd === 'bold')   document.getElementById(`${id}-bold`).classList.toggle('active', document.queryCommandState('bold'));
-  if (cmd === 'italic') document.getElementById(`${id}-italic`).classList.toggle('active', document.queryCommandState('italic'));
-}
-
-function rteFontSize(id, size) {
-  document.getElementById(`${id}-body`).focus();
-  document.execCommand('fontSize', false, size);
-}
-
-function rteFontFamily(id, font) {
-  document.getElementById(`${id}-body`).focus();
-  document.execCommand('fontName', false, font);
-}
-
-function rteTextColor(id, color) {
-  document.getElementById(`${id}-clrbtn`).style.background = color;
-  document.getElementById(`${id}-body`).focus();
-  document.execCommand('foreColor', false, color);
-}
-
-function rteKeyDown(e, id) {
-  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-    // Ctrl+Enter to submit, plain Enter creates new line — natural behaviour
-  }
-  if (e.key === 'Enter' && e.ctrlKey) {
-    e.preventDefault();
-    const entityId = id.replace('cm-rte','').replace('cm-rte-','') || '';
-    // We stored entityId in a data attr on the rte-wrap
-    const wrap = document.getElementById(`${id}-wrap`);
-    const eid  = wrap?.dataset.entityId;
-    if (eid) postComment(eid);
-  }
-}
-
-function getRteHtml(id) {
-  const body = document.getElementById(`${id}-body`);
-  return body ? body.innerHTML.trim() : '';
-}
-
-function clearRte(id) {
-  const body = document.getElementById(`${id}-body`);
-  if (body) body.innerHTML = '';
-}
+// renderRTE / initRTE / rte* helpers are shared — defined in data.js
 
 // ======================================================
 // COMMENTS / UPDATES

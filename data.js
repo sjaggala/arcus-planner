@@ -138,6 +138,9 @@ const Arc = (() => {
     calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
     chart:    '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
     'pin-fill': '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+    droplet:  '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+    link:     '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    code:     '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
   };
   const FILLED_ICONS = new Set(['pin-fill']);
   const icon = (name, size = 16, sw = 2) => {
@@ -201,7 +204,9 @@ const Arc = (() => {
   const Settings = {
     _d: null,
     load()      { try { this._d = JSON.parse(localStorage.getItem('arc_cfg')) || {}; } catch { this._d = {}; } return this; },
-    save()      { localStorage.setItem('arc_cfg', JSON.stringify(this._d || {})); },
+    // Route through DB.set so settings sync to Firestore — otherwise the
+    // cloud copy of arc_cfg overwrites local changes on the next page load
+    save()      { DB.set('arc_cfg', this._d || {}); },
     get(k, def) { if (!this._d) this.load(); return this._d[k] ?? def; },
     set(k, v)   { if (!this._d) this.load(); this._d[k] = v; this.save(); },
   };
@@ -1274,6 +1279,132 @@ function arcLabelDel(id) {
 function arcLmClose() {
   closeModal();
   if (typeof window._arcLmOnClose === 'function') { const cb = window._arcLmOnClose; window._arcLmOnClose = null; cb(); }
+}
+
+// =====================================================================
+// RICH TEXT EDITOR (shared by task updates and goal updates)
+// Jira-style toolbar: text style, bold/italic/underline/strike, colour,
+// lists, link, inline code, quote, clear formatting. Ctrl+Enter posts.
+// =====================================================================
+function renderRTE(id, placeholder) {
+  return `<div class="rte-wrap" id="${id}-wrap">
+    <div class="rte-toolbar">
+      <select class="rte-select" id="${id}-style" onchange="rteHeading('${id}',this.value)" title="Text style">
+        <option value="p" selected>Normal</option>
+        <option value="h1">Heading 1</option>
+        <option value="h2">Heading 2</option>
+        <option value="h3">Heading 3</option>
+      </select>
+      <div class="rte-sep"></div>
+      <button type="button" class="rte-btn" id="${id}-bold" title="Bold (Ctrl+B)" onclick="rteCmd('${id}','bold')"><b>B</b></button>
+      <button type="button" class="rte-btn" id="${id}-italic" title="Italic (Ctrl+I)" onclick="rteCmd('${id}','italic')"><i>I</i></button>
+      <button type="button" class="rte-btn" id="${id}-underline" title="Underline (Ctrl+U)" onclick="rteCmd('${id}','underline')"><u>U</u></button>
+      <button type="button" class="rte-btn" id="${id}-strikeThrough" title="Strikethrough" onclick="rteCmd('${id}','strikeThrough')"><s>S</s></button>
+      <div class="rte-sep"></div>
+      <button type="button" class="rte-btn" title="Text colour" onclick="document.getElementById('${id}-clrinp').click()" style="position:relative">
+        ${Arc.icon('droplet', 12)}
+        <span class="rte-clr-bar" id="${id}-clrbar"></span>
+      </button>
+      <input type="color" class="rte-color-input" id="${id}-clrinp" value="#7b79f7" oninput="rteTextColor('${id}',this.value)">
+      <div class="rte-sep"></div>
+      <button type="button" class="rte-btn" title="Bullet list" onclick="rteCmd('${id}','insertUnorderedList')">${Arc.icon('list', 13)}</button>
+      <button type="button" class="rte-btn rte-btn-txt" title="Numbered list" onclick="rteCmd('${id}','insertOrderedList')">1.</button>
+      <div class="rte-sep"></div>
+      <button type="button" class="rte-btn" title="Link" onclick="rteLink('${id}')">${Arc.icon('link', 12)}</button>
+      <button type="button" class="rte-btn" title="Inline code" onclick="rteInlineCode('${id}')">${Arc.icon('code', 12)}</button>
+      <button type="button" class="rte-btn rte-btn-txt" title="Quote" onclick="rteQuote('${id}')" style="font-family:Georgia,serif;font-size:15px;line-height:0">&rdquo;</button>
+      <div class="rte-sep"></div>
+      <button type="button" class="rte-btn rte-btn-txt" title="Clear formatting" onclick="rteClear('${id}')" style="font-size:11px;text-decoration:line-through">Aa</button>
+    </div>
+    <div class="rte-body" id="${id}-body" contenteditable="true"
+      data-placeholder="${placeholder}"
+      onkeyup="rteSyncStates('${id}')" onmouseup="rteSyncStates('${id}')"
+      onkeydown="rteKeyDown(event,'${id}')"></div>
+  </div>`;
+}
+
+function initRTE(id, entityId) {
+  // Store entityId on the wrap so Ctrl+Enter can post against it
+  const wrap = document.getElementById(`${id}-wrap`);
+  if (wrap && entityId) wrap.dataset.entityId = entityId;
+  const bar = document.getElementById(`${id}-clrbar`);
+  if (bar) bar.style.background = '#7b79f7';
+}
+
+function rteCmd(id, cmd) {
+  document.getElementById(`${id}-body`).focus();
+  document.execCommand(cmd, false, null);
+  rteSyncStates(id);
+}
+
+function rteSyncStates(id) {
+  ['bold', 'italic', 'underline', 'strikeThrough'].forEach(cmd => {
+    const btn = document.getElementById(`${id}-${cmd}`);
+    if (btn) { try { btn.classList.toggle('active', document.queryCommandState(cmd)); } catch {} }
+  });
+}
+
+function rteHeading(id, block) {
+  document.getElementById(`${id}-body`).focus();
+  document.execCommand('formatBlock', false, block);
+}
+
+function rteTextColor(id, color) {
+  const bar = document.getElementById(`${id}-clrbar`);
+  if (bar) bar.style.background = color;
+  document.getElementById(`${id}-body`).focus();
+  document.execCommand('foreColor', false, color);
+}
+
+function rteLink(id) {
+  document.getElementById(`${id}-body`).focus();
+  const url = prompt('Link URL:', 'https://');
+  if (!url || url === 'https://') return;
+  const sel = window.getSelection();
+  if (sel && sel.toString()) {
+    document.execCommand('createLink', false, url);
+  } else {
+    document.execCommand('insertHTML', false, `<a href="${Arc.esc(url)}" target="_blank">${Arc.esc(url)}</a>&nbsp;`);
+  }
+}
+
+function rteInlineCode(id) {
+  document.getElementById(`${id}-body`).focus();
+  const sel = window.getSelection();
+  const text = sel ? sel.toString() : '';
+  if (!text) return;
+  document.execCommand('insertHTML', false, `<code>${Arc.esc(text)}</code>&nbsp;`);
+}
+
+function rteQuote(id) {
+  document.getElementById(`${id}-body`).focus();
+  document.execCommand('formatBlock', false, 'blockquote');
+}
+
+function rteClear(id) {
+  document.getElementById(`${id}-body`).focus();
+  document.execCommand('removeFormat', false, null);
+  document.execCommand('formatBlock', false, 'p');
+  rteSyncStates(id);
+}
+
+function rteKeyDown(e, id) {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    const wrap = document.getElementById(`${id}-wrap`);
+    const eid  = wrap?.dataset.entityId;
+    if (eid && typeof postComment === 'function') postComment(eid);
+  }
+}
+
+function getRteHtml(id) {
+  const body = document.getElementById(`${id}-body`);
+  return body ? body.innerHTML.trim() : '';
+}
+
+function clearRte(id) {
+  const body = document.getElementById(`${id}-body`);
+  if (body) body.innerHTML = '';
 }
 
 // ── Person avatar helper (used by tasks.html and people.html) ─────────

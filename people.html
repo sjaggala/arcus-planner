@@ -22,8 +22,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 [data-theme="light"] body { background: #ffffff; }
 
-/* Layout: side nav + main, separated by a vertical line */
-.pg-layout { display: flex; gap: 24px; align-items: stretch; }
+/* Layout: side nav + main, separated by a full-height vertical line */
+.pg-layout { display: flex; gap: 24px; align-items: stretch; min-height: calc(100vh - 215px); }
 .pg-nav { width: 195px; flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; border-right: 1px solid var(--border); padding-right: 18px; }
 .pg-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 9px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border: 1px solid transparent; transition: all .13s; height: fit-content; }
 .pg-nav-item:hover { color: var(--text); background: var(--s2); }
@@ -53,11 +53,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   grid-template-columns: minmax(150px,1.4fr) minmax(170px,1.6fr) minmax(90px,1fr) minmax(90px,1fr) minmax(100px,1fr) minmax(90px,1fr) 150px;
   padding: 10px 16px 10px 12px; border-bottom: 1px solid var(--border);
 }
-/* When the detail panel is open, collapse to the essential columns */
-.pp-split.open .pp-row, .pp-split.open .pp-cols-hdr {
-  grid-template-columns: minmax(150px,1.4fr) minmax(170px,1.6fr) 150px;
-}
-.pp-split.open .pp-c-x { display: none; }
 .pp-cols-hdr { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); padding-top: 12px; padding-bottom: 8px; }
 .pp-row { cursor: pointer; transition: background .1s; }
 .pp-row:hover { background: rgba(123,121,247,.05); }
@@ -73,10 +68,10 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .pg-chip.type    { color: var(--accent); background: rgba(123,121,247,.12); border: 1px solid rgba(123,121,247,.25); }
 
 /* Person detail panel */
-.pd-hdr { display: flex; align-items: center; gap: 12px; padding: 16px 18px 14px; border-bottom: 1px solid var(--border); }
+.pd-hdr { display: flex; align-items: center; gap: 15px; padding: 20px 18px 18px; border-bottom: 1px solid var(--border); }
 .pd-hdr-main { flex: 1; min-width: 0; }
-.pd-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pd-email { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-name { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.2px; }
+.pd-email { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .pd-del { width: 28px; height: 28px; border-radius: 7px; border: 1px solid rgba(240,111,111,.3); background: rgba(240,111,111,.08); color: var(--red); cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
 .pd-del:hover { background: rgba(240,111,111,.18); }
 .pd-body { padding: 16px 18px 18px; }
@@ -94,8 +89,12 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .sh-tr { transition: background .1s; }
 .sh-tr:hover { background: rgba(123,121,247,.05); }
 .sh-tr:last-child { border-bottom: none; }
-.sh-cols-mine   { grid-template-columns: minmax(140px,2fr) 74px 64px minmax(80px,1fr) 86px 92px 100px; }
+.sh-cols-mine   { grid-template-columns: minmax(140px,1.8fr) minmax(150px,1.5fr) 64px minmax(80px,1fr) 86px 92px 100px; }
 .sh-cols-withme { grid-template-columns: minmax(140px,2fr) minmax(90px,1fr) 64px 86px 92px 80px; }
+.sh-people-cell { display:flex; align-items:center; gap:10px; min-width:0; overflow:hidden; }
+.sh-person { display:inline-flex; align-items:center; gap:5px; min-width:0; }
+.sh-person-name { font-size:11.5px; color:var(--text); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:84px; }
+.sh-search { margin-left:auto; width:230px; font-size:12px; padding:6px 11px; }
 .sh-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sh-title a { color: var(--text); text-decoration: none; }
 .sh-title a:hover { color: var(--accent); }
@@ -141,7 +140,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=9"></script>
+<script src="data.js?v=10"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const TYPE_LABEL = { task: 'Task', goal: 'Goal', project: 'Project' };
@@ -315,7 +314,7 @@ function renderPersonDetail() {
   </div>`;
   el.innerHTML = `
     <div class="pd-hdr">
-      ${arcPersonAva({ ...p, name }, 38)}
+      ${arcPersonAva({ ...p, name }, 62)}
       <div class="pd-hdr-main">
         <div class="pd-name">${Arc.esc(name)}</div>
         <div class="pd-email">${Arc.esc(p.email)}</div>
@@ -394,23 +393,37 @@ function itemLink(s) {
     : Arc.esc(s.data?.title || 'Untitled');
 }
 
-function peopleCluster(emails) {
+// People column: up to 2 avatar+name pairs, then a +n count
+function peopleCell(emails) {
   const shown = emails.slice(0, 2);
-  return `<div class="sh-people" title="${Arc.esc(emails.map(m => Arc.People.nameFor(m)).join(', '))}">
-    ${shown.map(m => arcPersonAva(Arc.People.byEmail(m) || { name: m, email: m, photo: null }, 24)).join('')}
-    ${emails.length > 2 ? `<span class="sh-people-more">+${emails.length - 2}</span>` : ''}
-  </div>`;
+  return `<div class="sh-people-cell">${shown.map(m => {
+    const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
+    const name = Arc.People.nameFor(m);
+    return `<span class="sh-person" title="${Arc.esc(name)} (${Arc.esc(m)})">${arcPersonAva(p, 20)}<span class="sh-person-name">${Arc.esc(name.split(' ')[0])}</span></span>`;
+  }).join('')}${emails.length > 2 ? `<span style="font-size:11px;color:var(--muted);font-weight:700;flex-shrink:0">+${emails.length - 2}</span>` : ''}</div>`;
 }
 
-function renderByMe() {
+let qByMe = '', qWithMe = '';
+
+function shMatches(s, q) {
+  if (!q) return true;
+  if ((s.data?.title || '').toLowerCase().includes(q)) return true;
+  if ((s.ownerName || '').toLowerCase().includes(q) || (s.ownerEmail || '').includes(q)) return true;
+  return (s.members || []).some(m => m.includes(q) || Arc.People.nameFor(m).toLowerCase().includes(q));
+}
+
+function renderByMe(keepFocus) {
   const main = document.getElementById('pg-main');
-  const mine = Arc.Shared._mine;
+  const q = qByMe.trim().toLowerCase();
+  const mine = Arc.Shared._mine.filter(s => shMatches(s, q));
   main.innerHTML = `<div class="pg-panel">
     <div class="pg-panel-hdr">
       <div>
         <div class="pg-panel-title">Shared by me</div>
         <div class="pg-panel-sub">Items you've shared with others — they can edit and comment</div>
       </div>
+      <input class="form-inp sh-search" id="sh-q-mine" placeholder="Search items or people…" value="${Arc.esc(qByMe)}"
+        oninput="qByMe=this.value;renderByMe(true)">
     </div>
     ${mine.length ? `<div class="sh-table">
       <div class="sh-thead sh-cols-mine"><div>Title</div><div>People</div><div>Type</div><div>Project</div><div>Shared</div><div>Status</div><div></div></div>
@@ -418,7 +431,7 @@ function renderByMe() {
         const proj = s.data?.projectId ? Arc.Projects.getById(s.data.projectId) : null;
         return `<div class="sh-tr sh-cols-mine">
           <div class="sh-title">${itemLink(s)}</div>
-          ${peopleCluster(s.members || [])}
+          ${peopleCell(s.members || [])}
           <div><span class="pg-chip type">${TYPE_LABEL[s.type] || s.type}</span></div>
           <div class="sh-cell">${proj ? Arc.esc(proj.name) : '—'}</div>
           <div class="sh-cell">${fmtShareDate(s.createdAt)}</div>
@@ -427,20 +440,27 @@ function renderByMe() {
         </div>`;
       }).join('')}
     </div>`
-    : `<div class="pg-empty">You haven't shared anything yet.<br>Open a task on the board and use the ＋ button next to its title.</div>`}
+    : `<div class="pg-empty">${q ? 'No shared items match your search.' : `You haven't shared anything yet.<br>Open a task on the board and use the Share button.`}</div>`}
   </div>`;
+  if (keepFocus) {
+    const inp = document.getElementById('sh-q-mine');
+    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  }
 }
 
 // ── Shared with me ─────────────────────────────────────────────────────
-function renderWithMe() {
+function renderWithMe(keepFocus) {
   const main = document.getElementById('pg-main');
-  const withMe = Arc.Shared._withMe;
+  const q = qWithMe.trim().toLowerCase();
+  const withMe = Arc.Shared._withMe.filter(s => shMatches(s, q));
   main.innerHTML = `<div class="pg-panel">
     <div class="pg-panel-hdr">
       <div>
         <div class="pg-panel-title">Shared with me</div>
         <div class="pg-panel-sub">Items other people share with you — they appear on your task board too</div>
       </div>
+      <input class="form-inp sh-search" id="sh-q-withme" placeholder="Search items or people…" value="${Arc.esc(qWithMe)}"
+        oninput="qWithMe=this.value;renderWithMe(true)">
     </div>
     ${withMe.length ? `<div class="sh-table">
       <div class="sh-thead sh-cols-withme"><div>Title</div><div>From</div><div>Type</div><div>Shared</div><div>Status</div><div></div></div>
@@ -456,8 +476,12 @@ function renderWithMe() {
         <div style="text-align:right"><button class="sh-stop" onclick="shLeave('${s.id}')">Leave</button></div>
       </div>`).join('')}
     </div>`
-    : `<div class="pg-empty">Nothing has been shared with you yet.<br>When someone shares a task, it shows up here and on your task board.</div>`}
+    : `<div class="pg-empty">${q ? 'No shared items match your search.' : 'Nothing has been shared with you yet.<br>When someone shares a task, it shows up here and on your task board.'}</div>`}
   </div>`;
+  if (keepFocus) {
+    const inp = document.getElementById('sh-q-withme');
+    if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  }
 }
 
 async function shUnshare(id) {

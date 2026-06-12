@@ -82,22 +82,33 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .sticky-date { font-size:10px; opacity:.65; }
 .sticky-label-pill { font-size:10px;font-weight:400;padding:1px 7px;border-radius:8px;letter-spacing:.15px; }
 
-/* Style panel (appears below note on hover/click) */
+/* Style panel (appears below note when the droplet button is clicked) */
 .sticky-style-panel {
-  position:absolute; left:0; top:calc(100% + 6px);
+  position:absolute; left:0; top:calc(100% + 8px);
   background:var(--s2); border:1px solid var(--border2);
-  border-radius:10px; padding:10px; z-index:50;
-  box-shadow:0 8px 24px rgba(0,0,0,.3);
-  display:none; min-width:240px;
+  border-radius:12px; padding:14px; z-index:50;
+  box-shadow:0 14px 40px rgba(0,0,0,.38);
+  display:none; width:250px; color:var(--text); text-align:left;
+  font-family:'Outfit',sans-serif; font-size:12px; font-weight:400; font-style:normal;
 }
 .sticky-note.show-panel .sticky-style-panel { display:block; }
-.sp-row { display:flex; gap:6px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
-.sp-row:last-child { margin-bottom:0; }
-.sp-lbl { font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);min-width:38px; }
-.sp-swatch { width:20px;height:20px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:transform .1s; }
-.sp-swatch:hover { transform:scale(1.2); }
-.sp-swatch.sel { border-color:#fff; box-shadow:0 0 0 1px rgba(0,0,0,.3); }
-.sp-select { background:var(--s3);border:1px solid var(--border);border-radius:5px;padding:3px 6px;color:var(--text);font-size:11px; }
+.sp-title { font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-bottom:11px; }
+.sp-section { margin-bottom:13px; }
+.sp-lbl { font-size:10px; font-weight:600; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+.sp-swatches { display:flex; gap:8px; flex-wrap:wrap; }
+.sp-swatch { width:24px; height:24px; border-radius:50%; cursor:pointer; transition:transform .12s, box-shadow .12s; }
+.sp-swatch:hover { transform:scale(1.15); }
+.sp-swatch.sel { box-shadow:0 0 0 2px var(--s2), 0 0 0 4px var(--accent); }
+.sp-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+.sp-select { width:100%; background:var(--s3); border:1px solid var(--border); border-radius:7px; padding:6px 8px; color:var(--text); font-size:12px; font-family:'Outfit',sans-serif; cursor:pointer; }
+.sp-select:focus { border-color:var(--accent); outline:none; }
+.sp-toggles { display:flex; gap:8px; }
+.sp-toggle { flex:1; padding:7px 0; border-radius:7px; border:1px solid var(--border); background:var(--s3); color:var(--muted); cursor:pointer; font-size:11.5px; font-weight:600; font-family:'Outfit',sans-serif; transition:all .13s; display:flex; align-items:center; justify-content:center; gap:5px; }
+.sp-toggle:hover { border-color:var(--border2); color:var(--text); }
+.sp-toggle.on { border-color:var(--accent); color:var(--accent); background:rgba(123,121,247,.1); }
+.sp-foot { border-top:1px solid var(--border); padding-top:11px; }
+.sp-open { width:100%; padding:7px 0; border-radius:7px; border:1px solid var(--border); background:transparent; color:var(--accent); cursor:pointer; font-size:12px; font-weight:600; font-family:'Outfit',sans-serif; transition:all .13s; display:flex; align-items:center; justify-content:center; gap:6px; }
+.sp-open:hover { border-color:var(--accent); background:rgba(123,121,247,.08); }
 
 /* Note color swatches */
 .nc-yellow  { background:#fef08a; }
@@ -155,7 +166,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=9"></script>
+<script src="data.js?v=10"></script>
 <script>
 // ── Note color palette ────────────────────────────────────────────────
 const NOTE_COLORS = [
@@ -259,8 +270,7 @@ function buildNote(pin, task) {
   noteEl.innerHTML = `
     <div class="sticky-hdr">
       <div class="sticky-hdr-grip" onmousedown="startDrag(event,'${task.id}')"></div>
-      <button class="sticky-btn" onclick="toggleExpand('${task.id}')" title="Expand/collapse">${Arc.icon('expand', 10)}</button>
-      <button class="sticky-btn" onclick="toggleStylePanel('${task.id}');event.stopPropagation()" title="Style">${Arc.icon('sliders', 10)}</button>
+      <button class="sticky-btn" onclick="toggleStylePanel('${task.id}');event.stopPropagation()" title="Style">${Arc.icon('droplet', 10)}</button>
       <button class="sticky-btn" onclick="unpinNote('${task.id}')" title="Unpin">${Arc.icon('x', 11)}</button>
     </div>
     <div class="sticky-body" onclick="toggleExpand('${task.id}')">
@@ -276,24 +286,30 @@ function buildNote(pin, task) {
       </div>
     </div>
     <div class="sticky-style-panel" id="sp-${task.id}" onclick="event.stopPropagation()">
-      <div class="sp-row">
-        <div class="sp-lbl">Color</div>
-        ${colorSwatches}
+      <div class="sp-title">Note style</div>
+      <div class="sp-section">
+        <div class="sp-lbl">Colour</div>
+        <div class="sp-swatches">${colorSwatches}</div>
       </div>
-      <div class="sp-row">
-        <div class="sp-lbl">Font</div>
-        <select class="sp-select" onchange="setNoteFont('${task.id}',this.value)">${fontFamilyOpts}</select>
-        <select class="sp-select" onchange="setNoteFontSize('${task.id}',parseInt(this.value))">${fontSizeOpts}</select>
+      <div class="sp-section sp-grid2">
+        <div>
+          <div class="sp-lbl">Font</div>
+          <select class="sp-select" onchange="setNoteFont('${task.id}',this.value)">${fontFamilyOpts}</select>
+        </div>
+        <div>
+          <div class="sp-lbl">Size</div>
+          <select class="sp-select" onchange="setNoteFontSize('${task.id}',parseInt(this.value))">${fontSizeOpts}</select>
+        </div>
       </div>
-      <div class="sp-row">
-        <div class="sp-lbl">Style</div>
-        <button class="sticky-btn" style="font-weight:800;${pin.bold?'background:rgba(0,0,0,.22)':''}" onclick="toggleNoteBold('${task.id}')">B</button>
-        <button class="sticky-btn" style="font-style:italic;${pin.italic?'background:rgba(0,0,0,.22)':''}" onclick="toggleNoteItalic('${task.id}')">I</button>
+      <div class="sp-section">
+        <div class="sp-lbl">Text</div>
+        <div class="sp-toggles">
+          <button class="sp-toggle ${pin.bold?'on':''}" onclick="toggleNoteBold('${task.id}')"><b>B</b> Bold</button>
+          <button class="sp-toggle ${pin.italic?'on':''}" onclick="toggleNoteItalic('${task.id}')"><i>I</i> Italic</button>
+        </div>
       </div>
-      <div class="sp-row">
-        <div class="sp-lbl">Go to</div>
-        <button class="sticky-btn" style="width:auto;padding:0 10px;font-size:11px;font-weight:600"
-          onclick="window.location.href='tasks.html?tid=${task.id}'">Open Task ↗</button>
+      <div class="sp-foot">
+        <button class="sp-open" onclick="window.location.href='tasks.html?tid=${task.id}'">Open Task ${Arc.icon('arrow-right', 12)}</button>
       </div>
     </div>
     ${isDone ? `<div class="sticky-done-overlay">✓</div>` : ''}`;
