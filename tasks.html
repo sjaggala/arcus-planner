@@ -152,7 +152,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .comment-item:last-child { border-bottom:none; }
 .comment-meta { display:flex;align-items:center;justify-content:space-between;margin-bottom:4px; }
 .comment-time { font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.2px; }
-.comment-del  { background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:0;line-height:1;transition:color .15s; }
+.comment-del  { background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0;line-height:1;opacity:0;transition:opacity .15s,color .15s; }
+.comment-item:hover .comment-del { opacity:1; }
 .comment-del:hover { color:var(--red); }
 .comment-body { font-size:13px;color:var(--text);line-height:1.6;word-break:break-word; }
 .comment-body p { margin:0 0 4px; }
@@ -262,7 +263,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=10"></script>
+<script src="data.js?v=11"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -1086,7 +1087,7 @@ function renderCommentsList(entityId) {
   return comments.map(c => `<div class="comment-item">
     <div class="comment-meta">
       <span class="comment-time">${c.by ? `<span style="color:var(--accent)">${Arc.esc(c.by)}</span> · ` : ''}${fmtCommentTime(c.createdAt)}</span>
-      <button class="comment-del" onclick="deleteComment('${entityId}','${c.id}')" title="Delete">✕</button>
+      <button class="comment-del" onclick="deleteComment('${entityId}','${c.id}')" title="Delete">${Arc.icon('trash', 11)}</button>
     </div>
     <div class="comment-body">${c.html || Arc.esc(c.text || '')}</div>
   </div>`).join('');

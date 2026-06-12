@@ -31,11 +31,8 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .mc-day.is-cur { background:var(--s3); color:var(--text); font-weight:700; outline:1px solid var(--accent); }
 .mc-day.has-ev { font-weight:700; color:var(--text); }
 
-/* Toolbar — pinned to the top while the view below scrolls */
-.cal-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  position:sticky; top:0; z-index:25; background:var(--bg);
-  margin:-28px -36px 20px; padding:16px 36px 12px; border-bottom:1px solid var(--border); }
-[data-theme="light"] .cal-toolbar { background:#ffffff; }
+/* Toolbar */
+.cal-toolbar { display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
 .cal-nav { display:flex; align-items:center; gap:4px; }
 .cal-nav-btn { width:30px; height:30px; border-radius:7px; background:var(--s2); border:1px solid var(--border); color:var(--text); font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s; }
 .cal-nav-btn:hover { background:var(--s3); }
@@ -90,8 +87,10 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .day-allday-bar { padding:8px 12px; border-bottom:1px solid var(--border); display:flex; gap:6px; flex-wrap:wrap; align-items:center; background:var(--s1); min-height:36px; }
 .day-allday-lbl { font-size:10px; color:var(--dim); margin-right:4px; }
 
-/* List view (agenda) — two-column grid */
-.agenda-grid { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--s1); flex-shrink:0; }
+/* List view (agenda) — two-column grid inside its own scroller, so the
+   toolbar above stays put like in the month/week/day views */
+.agenda-scroll { flex:1; overflow-y:auto; min-height:0; }
+.agenda-grid { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--s1); }
 .agenda-grid-row { display:grid; grid-template-columns:76px 1fr; border-bottom:1px solid var(--border); background:var(--s1); }
 .agenda-grid-row:last-child { border-bottom:none; }
 .agr-date { padding:14px 10px; background:var(--s2); border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; text-align:center; flex-shrink:0; }
@@ -169,7 +168,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=10"></script>
+<script src="data.js?v=11"></script>
 <script>
 const DAYS_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAYS_LONG   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -302,11 +301,12 @@ function render() {
   updateTitle();
   renderMiniCal();
   const body = document.getElementById('cal-body');
-  // Agenda grows naturally (parent page-body scrolls); other views fill viewport height
+  // All views fill the viewport height; the agenda scrolls inside its own
+  // container so the toolbar above never moves
   if (curView === 'agenda') {
-    body.style.flex = 'none';
-    body.style.minHeight = '';
-    body.innerHTML = renderAgenda();
+    body.style.flex = '1';
+    body.style.minHeight = '0';
+    body.innerHTML = `<div class="agenda-scroll">${renderAgenda()}</div>`;
   } else {
     body.style.flex = '1';
     body.style.minHeight = '0';

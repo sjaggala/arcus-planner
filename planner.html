@@ -188,7 +188,8 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .comment-item:last-child { border-bottom:none; }
 .comment-meta { display:flex;align-items:center;justify-content:space-between;margin-bottom:4px; }
 .comment-time { font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.2px; }
-.comment-del  { background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:0;line-height:1;transition:color .15s; }
+.comment-del  { background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0;line-height:1;opacity:0;transition:opacity .15s,color .15s; }
+.comment-item:hover .comment-del { opacity:1; }
 .comment-del:hover { color:var(--red); }
 .comment-body { font-size:13px;color:var(--text);line-height:1.6;word-break:break-word; }
 .comment-body p { margin:0 0 4px; }
@@ -256,7 +257,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=10"></script>
+<script src="data.js?v=11"></script>
 <script>
 // =====================================================================
 // STATE
@@ -942,7 +943,7 @@ function goalModal(goal, dc, prefillParentId) {
       <select class="form-inp" id="gm-proj">${projOpts}</select>
     </div>
     <div class="form-group">
-      <label class="form-lbl">Sub-goal of <span style="font-weight:400;color:var(--dim);text-transform:none;letter-spacing:0;font-size:11px">(optional — nest under a parent goal)</span></label>
+      <label class="form-lbl">Parent Goal</label>
       <select class="form-inp" id="gm-parent">${parentOpts}</select>
     </div>
     <div class="form-group"><label class="form-lbl">Goal Title *</label><input class="form-inp" id="gm-title" placeholder="e.g. Launch marketing campaign" value="${Arc.esc(g.title)}" maxlength="80"></div>
@@ -954,7 +955,7 @@ function goalModal(goal, dc, prefillParentId) {
         <input class="form-inp" id="gm-cat" list="gm-cats" placeholder="e.g. Marketing, Design…" value="${Arc.esc(g.category || '')}">
       </div>
       <div class="form-group">
-        <label class="form-lbl">Labels <span style="font-weight:400;color:var(--dim);text-transform:none;letter-spacing:0;font-size:11px">(global — shared with tasks)</span></label>
+        <label class="form-lbl">Labels</label>
         <div id="gm-label-chips" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">${labelChipsHtml}</div>
         <span class="focus-link" style="font-size:11px" onclick="openLabelMgrForGoal('${ie ? g.id : ''}')">＋ Manage Labels</span>
       </div>
@@ -966,7 +967,7 @@ function goalModal(goal, dc, prefillParentId) {
     </div>
     <div class="form-group"><label class="form-lbl">Status</label><div class="status-grid" id="gm-sw">${stOpts}</div><input type="hidden" id="gm-status" value="${g.status}"></div>
     <div class="form-group">
-      <label class="form-lbl">Depends On <span style="font-weight:400;color:var(--dim);text-transform:none;letter-spacing:0;font-size:11px">(optional)</span></label>
+      <label class="form-lbl">Depends On</label>
       ${depsHtml}
     </div>
     ${ie ? `</div><div class="split-sidebar">
@@ -1005,7 +1006,7 @@ function renderCommentsList(entityId) {
   return comments.map(c => `<div class="comment-item">
     <div class="comment-meta">
       <span class="comment-time">${fmtCommentTime(c.createdAt)}</span>
-      <button class="comment-del" onclick="deleteComment('${entityId}','${c.id}')" title="Delete">✕</button>
+      <button class="comment-del" onclick="deleteComment('${entityId}','${c.id}')" title="Delete">${Arc.icon('trash', 11)}</button>
     </div>
     <div class="comment-body">${c.html || Arc.esc(c.text || '')}</div>
   </div>`).join('');
