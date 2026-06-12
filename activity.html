@@ -30,7 +30,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .audit-clear-btn:hover { background: rgba(240,111,111,.16); border-color: rgba(240,111,111,.5); }
 
 /* Activity list panel */
-.audit-panel { background: var(--s1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.audit-panel { background: var(--s1); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .audit-day-group { }
 .audit-day-label { padding: 10px 18px 8px; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); background: var(--s2); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2; }
 .act-item { display: flex; align-items: center; gap: 12px; padding: 11px 18px; border-bottom: 1px solid var(--border); transition: background .1s; }
@@ -87,7 +87,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=11"></script>
+<script src="data.js?v=12"></script>
 <script>
 const TYPE_LABEL = {
   project: 'Project', goal: 'Goal', task: 'Task', event: 'Event', journal: 'Journal',

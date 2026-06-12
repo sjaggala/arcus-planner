@@ -227,6 +227,7 @@ const Arc = (() => {
   const Projects = {
     getAll()   { return DB.get('arc_p') || []; },
     getById(id){ return this.getAll().find(p => p.id === id) || null; },
+    save(ps)   { DB.set('arc_p', ps); },
   };
 
   // ── Goals (read helpers) ─────────────────────────────────────────────
@@ -412,8 +413,8 @@ const Arc = (() => {
     getAll()    { return DB.get('arc_checklists') || []; },
     save(cls)   { DB.set('arc_checklists', cls); },
     add(cl)     { const all = this.getAll(); all.push(cl); this.save(all); },
-    update(cl)  { this.save(this.getAll().map(x => x.id === cl.id ? cl : x)); },
-    delete(id)  { this.save(this.getAll().filter(x => x.id !== id)); },
+    update(cl)  { this.save(this.getAll().map(x => x.id === cl.id ? cl : x)); Shared.pushUpdate(cl); },
+    delete(id)  { this.save(this.getAll().filter(x => x.id !== id)); Shared.unshareAll(id); },
     getById(id) { return this.getAll().find(x => x.id === id) || null; },
   };
 
@@ -465,15 +466,27 @@ const Arc = (() => {
     // Owner: merge member edits into the local store (the shared doc wins)
     applyMineToLocal() {
       const sharedTasks = this._mine.filter(s => s.type === 'task');
-      if (!sharedTasks.length) return;
-      const tasks = Tasks.getAll(); let changed = false;
-      sharedTasks.forEach(s => {
-        const i = tasks.findIndex(t => t.id === s.id);
-        if (i >= 0 && JSON.stringify(tasks[i]) !== JSON.stringify(s.data)) {
-          tasks[i] = { ...s.data }; changed = true;
-        }
-      });
-      if (changed) Tasks.save(tasks);
+      if (sharedTasks.length) {
+        const tasks = Tasks.getAll(); let changed = false;
+        sharedTasks.forEach(s => {
+          const i = tasks.findIndex(t => t.id === s.id);
+          if (i >= 0 && JSON.stringify(tasks[i]) !== JSON.stringify(s.data)) {
+            tasks[i] = { ...s.data }; changed = true;
+          }
+        });
+        if (changed) Tasks.save(tasks);
+      }
+      const sharedLists = this._mine.filter(s => s.type === 'list');
+      if (sharedLists.length) {
+        const cls = Checklists.getAll(); let changed = false;
+        sharedLists.forEach(s => {
+          const i = cls.findIndex(c => c.id === s.id);
+          if (i >= 0 && JSON.stringify(cls[i]) !== JSON.stringify(s.data)) {
+            cls[i] = { ...s.data }; changed = true;
+          }
+        });
+        if (changed) Checklists.save(cls);
+      }
     },
     async share(type, item, email) {
       const e = String(email).toLowerCase().trim();
@@ -1065,7 +1078,13 @@ const Arc = (() => {
     </div>`);
   }
 
-  return { uid, esc, dateStr, today, icon, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
+  // Generic synced-store access — pages must use this instead of writing
+  // localStorage directly, or the change never reaches Firestore and the
+  // cloud copy overwrites it on the next load.
+  const dbGet = k => DB.get(k);
+  const dbSet = (k, v) => DB.set(k, v);
+
+  return { uid, esc, dateStr, today, icon, dbGet, dbSet, STATUSES, COLORS, PROJ_COLORS, EMOJIS, PRIORITIES,
            Settings, Profile, Projects, Goals, DEFAULT_BUCKETS, Buckets, Tasks, Events, Activity, Comments, Labels, PinnedTasks, Checklists, Shared, People, FolderSave,
            avatarHtml, applyTheme, navHtml, exportAllData, importData, openProfileModal, openSettingsModal, openLabelManager };
 })();

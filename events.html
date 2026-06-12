@@ -42,7 +42,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .view-pill.active { background:var(--accent); color:#fff; }
 
 /* Month grid */
-.month-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:0; background:var(--s1); border:1px solid var(--border); border-radius:10px; overflow:hidden; flex:1; }
+.month-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:0; background:var(--s1); border:1px solid var(--border); border-radius:7px; overflow:hidden; flex:1; }
 .day-hdr { background:var(--s2); padding:4px 0; text-align:center; font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
 .day-cell { background:var(--s1); min-height:90px; padding:6px; position:relative; cursor:pointer; transition:background .1s; border-right:1px solid var(--border); border-bottom:1px solid var(--border); min-width:0; overflow:hidden; }
 .month-grid > *:nth-child(7n) { border-right:none; }
@@ -59,7 +59,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 
 /* Week grid — header, all-day row and hour grid share ONE scroll container
    so their 7 day-columns always align perfectly */
-.week-grid { flex:1; border:1px solid var(--border); border-radius:10px; overflow-y:auto; display:flex; flex-direction:column; }
+.week-grid { flex:1; border:1px solid var(--border); border-radius:7px; overflow-y:auto; display:flex; flex-direction:column; }
 .week-sticky { position:sticky; top:0; z-index:5; }
 .week-hdr-row { display:grid; grid-template-columns:52px repeat(7,minmax(0,1fr)); background:var(--s2); border-bottom:1px solid var(--border); }
 .week-hdr-cell { padding:8px 6px; text-align:center; font-size:11px; font-weight:700; color:var(--muted); min-width:0; }
@@ -79,7 +79,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .week-ev-block:hover { filter:brightness(1.15); z-index:2; }
 
 /* Day view */
-.day-view { display:flex; flex-direction:column; flex:1; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.day-view { display:flex; flex-direction:column; flex:1; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
 .day-view-hdr { padding:14px 16px; background:var(--s2); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
 .day-view-title { font-family:'Fraunces',serif; font-size:20px; font-weight:600; }
 .day-view-body { flex:1; overflow-y:auto; display:grid; grid-template-columns:52px 1fr; }
@@ -90,7 +90,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 /* List view (agenda) — two-column grid inside its own scroller, so the
    toolbar above stays put like in the month/week/day views */
 .agenda-scroll { flex:1; overflow-y:auto; min-height:0; }
-.agenda-grid { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--s1); }
+.agenda-grid { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:7px; overflow:hidden; background:var(--s1); }
 .agenda-grid-row { display:grid; grid-template-columns:76px 1fr; border-bottom:1px solid var(--border); background:var(--s1); }
 .agenda-grid-row:last-child { border-bottom:none; }
 .agr-date { padding:14px 10px; background:var(--s2); border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; text-align:center; flex-shrink:0; }
@@ -168,7 +168,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=11"></script>
+<script src="data.js?v=12"></script>
 <script>
 const DAYS_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAYS_LONG   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -292,7 +292,7 @@ function init() {
     setTimeout(() => newEventModal(null), 150);
   }
   const eid = p.get('eid');
-  if (eid) setTimeout(() => editEvent(eid), 200);
+  if (eid && !window._urlModalOpened) { window._urlModalOpened = true; setTimeout(() => editEvent(eid), 200); }
 }
 
 window.closeModal = (orig => () => { orig(); setUrlParam('eid', null); })(window.closeModal);

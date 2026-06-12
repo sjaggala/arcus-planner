@@ -30,7 +30,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 /* ── Checklist Card ── */
 .cl-card {
   position:absolute; display:flex; flex-direction:column;
-  background:var(--s1); border:1px solid var(--border); border-radius:12px;
+  background:var(--s1); border:1px solid var(--border); border-radius:8px;
   box-shadow:0 2px 10px rgba(0,0,0,.18); min-width:220px; min-height:120px;
   overflow:hidden; transition:box-shadow .15s;
 }
@@ -60,6 +60,25 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
   transition:color .15s,background .15s; flex-shrink:0; padding:0;
 }
 .cl-hdr-btn:hover { background:var(--s3); color:var(--red); }
+
+/* ── Shared list indicators ── */
+.cl-card.shared-in { border-left:3px solid var(--accent); }
+.cl-people { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; margin-right:2px; }
+.cl-people > div, .cl-people > img { box-shadow:0 0 0 2px var(--s2); border-radius:50%; }
+.cl-dir { font-size:8.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--dim); }
+
+/* ── Quick share modal rows ── */
+.csm-lbl { font-size:10px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin:14px 0 7px; }
+.csm-lbl:first-child { margin-top:0; }
+.csm-row { display:flex; align-items:center; gap:10px; padding:7px 11px; border:1px solid var(--border); border-radius:8px; margin-bottom:6px; }
+.csm-row.csm-add { cursor:pointer; transition:border-color .15s, background .15s; }
+.csm-row.csm-add:hover { border-color:var(--accent); background:rgba(123,121,247,.05); }
+.csm-info { flex:1; min-width:0; }
+.csm-name { font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.csm-mail { font-size:10.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.csm-x { width:22px; height:22px; border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:11px; border-radius:5px; flex-shrink:0; padding:0; }
+.csm-x:hover { color:var(--red); }
+.csm-plus { color:var(--accent); font-weight:700; flex-shrink:0; display:flex; }
 
 /* ── Items area ── */
 .cl-items { flex:1; overflow-y:auto; padding:6px 0 8px; }
@@ -152,7 +171,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=11"></script>
+<script src="data.js?v=12"></script>
 <script>
 function init() {
   Arc.Settings.load();
@@ -164,27 +183,62 @@ function init() {
 function onProfileSaved() { document.getElementById('nav-container').innerHTML = Arc.navHtml('lists'); }
 function onDataImported() { window.location.reload(); }
 
+// ── Shared-list helpers ────────────────────────────────────────────────
+// A list shared WITH me lives in the shared doc, not in my own store.
+function getCl(id) {
+  const own = Arc.Checklists.getById(id);
+  if (own) return own;
+  const s = Arc.Shared.get(id);
+  return (s && Arc.Shared.isWithMe(id)) ? s.data : null;
+}
+
+function saveCl(cl) {
+  if (Arc.Shared.isWithMe(cl.id)) {
+    Arc.Shared.updateAsMember(cl.id, cl).catch(e => console.warn('Arcus: shared list save failed', e));
+    return;
+  }
+  Arc.Checklists.update(cl);
+}
+
 // ── Render ─────────────────────────────────────────────────────────────
 function renderBoard() {
   const canvas = document.getElementById('lists-canvas');
   canvas.querySelectorAll('.cl-card').forEach(c => c.remove());
-  const all = Arc.Checklists.getAll();
-  updateCount(all.length);
-  all.forEach(cl => canvas.appendChild(buildCard(cl)));
+  const own = Arc.Checklists.getAll();
+  const sharedIn = Arc.Shared.withMeOfType('list');
+  updateCount(own.length + sharedIn.length);
+  own.forEach(cl => canvas.appendChild(buildCard(cl)));
+  sharedIn.forEach(s => canvas.appendChild(buildCard(s.data, s)));
 }
 
-function buildCard(cl) {
+function buildCard(cl, shared) {
   const items  = cl.items || [];
   const active = items.filter(i => !i.done);
   const done   = items.filter(i =>  i.done);
+  const canShare = !!(window._arcUser && window._arcDb);
+  const sharedByMe = !shared && Arc.Shared.isSharedByMe(cl.id);
 
   const el = document.createElement('div');
-  el.className = 'cl-card';
+  el.className = 'cl-card' + (shared ? ' shared-in' : '');
   el.id = `cl-${cl.id}`;
   el.style.left  = (cl.x || 24) + 'px';
   el.style.top   = (cl.y || 24) + 'px';
   el.style.width = (cl.w || 280) + 'px';
   if (cl.h) el.style.height = cl.h + 'px';
+
+  // People badge in the header: "from" + owner on incoming, "with" + members on mine
+  let people = '';
+  if (shared) {
+    people = `<span class="cl-people" title="Shared by ${Arc.esc(shared.ownerName)}"><span class="cl-dir">from</span>${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 18)}</span>`;
+  } else if (sharedByMe) {
+    const ms = Arc.Shared.membersOf(cl.id);
+    people = `<span class="cl-people" title="Shared with ${Arc.esc(ms.map(m => Arc.People.nameFor(m)).join(', '))}"><span class="cl-dir">with</span>${ms.slice(0, 2).map(m => arcPersonAva(Arc.People.byEmail(m) || { name: m, email: m, photo: null }, 18)).join('')}${ms.length > 2 ? `<span class="cl-dir" style="margin-left:3px">+${ms.length - 2}</span>` : ''}</span>`;
+  }
+
+  const hdrBtns = shared
+    ? `<button class="cl-hdr-btn" onmousedown="event.stopPropagation()" onclick="leaveSharedList('${cl.id}')" title="Remove from my board">${Arc.icon('x', 11)}</button>`
+    : `${canShare ? `<button class="cl-hdr-btn" onmousedown="event.stopPropagation()" onclick="shareListModal('${cl.id}')" title="Share list">${Arc.icon('share', 11)}</button>` : ''}
+       <button class="cl-hdr-btn" onmousedown="event.stopPropagation()" onclick="deleteChecklist('${cl.id}')" title="Delete list">${Arc.icon('trash', 11)}</button>`;
 
   el.innerHTML = `
     <div class="cl-header" onmousedown="startDrag(event,'${cl.id}')">
@@ -192,7 +246,8 @@ function buildCard(cl) {
         onmousedown="event.stopPropagation()"
         onblur="saveTitle('${cl.id}',this.value)"
         onkeydown="if(event.key==='Enter')this.blur()">
-      <button class="cl-hdr-btn" onmousedown="event.stopPropagation()" onclick="deleteChecklist('${cl.id}')" title="Delete list">${Arc.icon('trash', 11)}</button>
+      ${people}
+      ${hdrBtns}
     </div>
     <div class="cl-items" id="cli-${cl.id}">
       ${active.map(i => itemHtml(cl.id, i)).join('')}
@@ -222,12 +277,12 @@ function itemHtml(clId, item) {
 }
 
 function reRenderCard(clId) {
-  const cl  = Arc.Checklists.getById(clId);
+  const cl  = getCl(clId);
   const old = document.getElementById(`cl-${clId}`);
   if (!cl || !old) return;
   // Preserve current DOM position/size
   const nx = old.style.left, ny = old.style.top, nw = old.style.width, nh = old.style.height;
-  const newCard = buildCard(cl);
+  const newCard = buildCard(cl, Arc.Shared.isWithMe(clId) ? Arc.Shared.get(clId) : null);
   newCard.style.left = nx; newCard.style.top = ny;
   newCard.style.width = nw; if (nh) newCard.style.height = nh;
   old.replaceWith(newCard);
@@ -235,7 +290,7 @@ function reRenderCard(clId) {
 }
 
 function updateCount(n) {
-  const c = n ?? Arc.Checklists.getAll().length;
+  const c = n ?? (Arc.Checklists.getAll().length + Arc.Shared.withMeOfType('list').length);
   document.getElementById('lists-count').textContent = `${c} list${c !== 1 ? 's' : ''}`;
   document.getElementById('lists-empty').style.display = c ? 'none' : '';
 }
@@ -259,32 +314,32 @@ function addChecklist() {
 }
 
 function saveTitle(clId, val) {
-  const cl = Arc.Checklists.getById(clId);
-  if (cl && cl.title !== val) Arc.Checklists.update({ ...cl, title: val });
+  const cl = getCl(clId);
+  if (cl && cl.title !== val) saveCl({ ...cl, title: val });
 }
 
 function addItem(clId) {
   const inp  = document.getElementById(`clai-${clId}`);
   const text = inp?.value?.trim();
   if (!text) { inp?.focus(); return; }
-  const cl = Arc.Checklists.getById(clId);
+  const cl = getCl(clId);
   if (!cl) return;
-  Arc.Checklists.update({ ...cl, items: [...(cl.items || []), { id: Arc.uid(), text, done: false }] });
+  saveCl({ ...cl, items: [...(cl.items || []), { id: Arc.uid(), text, done: false }] });
   reRenderCard(clId);
   setTimeout(() => document.getElementById(`clai-${clId}`)?.focus(), 20);
 }
 
 function toggleItem(clId, itemId, done) {
-  const cl = Arc.Checklists.getById(clId);
+  const cl = getCl(clId);
   if (!cl) return;
-  Arc.Checklists.update({ ...cl, items: cl.items.map(i => i.id === itemId ? { ...i, done } : i) });
+  saveCl({ ...cl, items: cl.items.map(i => i.id === itemId ? { ...i, done } : i) });
   reRenderCard(clId);
 }
 
 function deleteItem(clId, itemId) {
-  const cl = Arc.Checklists.getById(clId);
+  const cl = getCl(clId);
   if (!cl) return;
-  Arc.Checklists.update({ ...cl, items: cl.items.filter(i => i.id !== itemId) });
+  saveCl({ ...cl, items: cl.items.filter(i => i.id !== itemId) });
   reRenderCard(clId);
 }
 
@@ -293,6 +348,74 @@ function deleteChecklist(clId) {
   Arc.Checklists.delete(clId);
   document.getElementById(`cl-${clId}`)?.remove();
   updateCount();
+}
+
+function leaveSharedList(clId) {
+  const s = Arc.Shared.get(clId);
+  if (!confirm(`Remove this list from your board? ${s?.ownerName || 'The owner'} keeps it.`)) return;
+  Arc.Shared.leave(clId)
+    .then(() => { document.getElementById(`cl-${clId}`)?.remove(); updateCount(); })
+    .catch(e => alert('Could not remove: ' + (e.message || e)));
+}
+
+// ── Share modal ────────────────────────────────────────────────────────
+function shareListModal(clId) {
+  const cl = Arc.Checklists.getById(clId);
+  if (!cl) return;
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr">
+      <div><div class="modal-title">Share List</div><div class="modal-sub">${Arc.esc(cl.title || 'Untitled list')}</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div id="slm-body"></div>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">Done</button></div>
+  </div>`);
+  slmRender(clId);
+}
+
+function slmRender(clId) {
+  const body = document.getElementById('slm-body');
+  if (!body) return;
+  const ms = Arc.Shared.membersOf(clId);
+  const candidates = Arc.People.connected().filter(p => !ms.includes(p.email));
+  body.innerHTML = `
+    ${ms.length ? `<div class="csm-lbl">Shared with</div>` + ms.map(m => {
+      const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
+      return `<div class="csm-row">
+        ${arcPersonAva(p, 28)}
+        <div class="csm-info"><div class="csm-name">${Arc.esc(Arc.People.nameFor(m))}</div><div class="csm-mail">${Arc.esc(m)}</div></div>
+        <button class="csm-x" onclick="slmRemove('${clId}','${Arc.esc(m)}')" title="Remove access">✕</button>
+      </div>`;
+    }).join('') : ''}
+    ${candidates.length ? `<div class="csm-lbl">Add people</div>` + candidates.map(p => `
+      <div class="csm-row csm-add" onclick="slmAdd('${clId}','${Arc.esc(p.email)}')">
+        ${arcPersonAva(p, 28)}
+        <div class="csm-info"><div class="csm-name">${Arc.esc(p.name)}</div><div class="csm-mail">${Arc.esc(p.email)}</div></div>
+        <span class="csm-plus">${Arc.icon('plus', 14)}</span>
+      </div>`).join('') : ''}
+    ${!ms.length && !candidates.length ? `<div style="font-size:12px;color:var(--dim);padding:4px 0 10px;line-height:1.7">No connected people yet — add them on the <strong>People &amp; Sharing</strong> page, or share by email below.</div>` : ''}
+    <div class="csm-lbl">Or by email</div>
+    <input class="form-inp" id="slm-email" type="email" placeholder="their-email@gmail.com"
+      onkeydown="if(event.key==='Enter'&&this.value.trim()){slmAdd('${clId}',this.value);event.preventDefault()}">
+    <div id="slm-err" style="font-size:11px;color:var(--red);min-height:14px;margin-top:4px"></div>`;
+}
+
+async function slmAdd(clId, email) {
+  const cl = Arc.Checklists.getById(clId);
+  if (!cl || !email || !String(email).trim()) return;
+  const err = document.getElementById('slm-err');
+  if (err) err.textContent = '';
+  try { await Arc.Shared.share('list', cl, email); }
+  catch (e) { if (err) err.textContent = e.message || 'Could not share.'; return; }
+  slmRender(clId);
+  reRenderCard(clId);
+}
+
+async function slmRemove(clId, email) {
+  try { await Arc.Shared.unshare(clId, email); }
+  catch (e) { alert('Could not remove: ' + (e.message || e)); }
+  slmRender(clId);
+  reRenderCard(clId);
 }
 
 function autoArrange() {
@@ -324,8 +447,8 @@ function startDrag(e, clId) {
     if (!_drag) return;
     const nx = Math.max(0, _drag.ox + ev.clientX - _drag.sx);
     const ny = Math.max(0, _drag.oy + ev.clientY - _drag.sy);
-    const cl = Arc.Checklists.getById(clId);
-    if (cl) Arc.Checklists.update({ ...cl, x: Math.round(nx), y: Math.round(ny) });
+    const cl = getCl(clId);
+    if (cl) saveCl({ ...cl, x: Math.round(nx), y: Math.round(ny) });
     card.classList.remove('is-dragging');
     card.style.zIndex = '';
     _drag = null;
@@ -351,8 +474,8 @@ function startResize(e, clId) {
   const onUp = ev => {
     const w = Math.max(220, sw + ev.clientX - sx);
     const h = Math.max(150, sh + ev.clientY - sy);
-    const cl = Arc.Checklists.getById(clId);
-    if (cl) Arc.Checklists.update({ ...cl, w: Math.round(w), h: Math.round(h) });
+    const cl = getCl(clId);
+    if (cl) saveCl({ ...cl, w: Math.round(w), h: Math.round(h) });
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
   };

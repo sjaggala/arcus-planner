@@ -257,7 +257,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=11"></script>
+<script src="data.js?v=12"></script>
 <script>
 // =====================================================================
 // STATE
@@ -839,7 +839,7 @@ function saveNote(goalId, ds, txt) {
   const n = getNotes();
   if (txt.trim()) n[`${goalId}_${ds}`] = txt.trim();
   else delete n[`${goalId}_${ds}`];
-  localStorage.setItem('arc_n', JSON.stringify(n));
+  Arc.dbSet('arc_n', n);
 }
 
 function getJournals() { return JSON.parse(localStorage.getItem('arc_j') || '{}'); }
@@ -848,7 +848,7 @@ function saveJournal(ds, txt) {
   const j = getJournals();
   if (txt.trim()) j[ds] = txt.trim();
   else delete j[ds];
-  localStorage.setItem('arc_j', JSON.stringify(j));
+  Arc.dbSet('arc_j', j);
 }
 
 // =====================================================================
@@ -1239,7 +1239,7 @@ function init() {
   });
 
   const gid = new URLSearchParams(location.search).get('gid');
-  if (gid) setTimeout(() => editGoalModal(gid), 200);
+  if (gid && !window._urlModalOpened) { window._urlModalOpened = true; setTimeout(() => editGoalModal(gid), 200); }
 }
 
 window.closeModal = (orig => () => { orig(); setUrlParam('gid', null); })(window.closeModal);

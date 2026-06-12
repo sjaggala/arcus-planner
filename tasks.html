@@ -71,7 +71,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 /* ── Kanban ── */
 .kanban-wrap { flex:1; overflow-x:auto; overflow-y:hidden; padding:16px 18px; }
 .kanban-board { display:flex; gap:12px; height:100%; min-width:max-content; }
-.bucket-col { width:290px; flex-shrink:0; display:flex; flex-direction:column; background:var(--s2); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.bucket-col { width:290px; flex-shrink:0; display:flex; flex-direction:column; background:var(--s2); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
 .bucket-col.new-col { background:transparent; border:2px dashed var(--border2); cursor:pointer; align-items:center; justify-content:center; color:var(--muted); font-size:13px;font-weight:500;gap:6px; transition:border-color .2s,color .2s; }
 .bucket-col.new-col:hover { border-color:var(--accent);color:var(--accent); }
 .bucket-header { padding:12px 14px 10px; display:flex; align-items:center; gap:8px; border-bottom:none; flex-shrink:0; }
@@ -92,7 +92,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 /* ── Task Cards ── */
 .task-card {
-  background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--s1); border: 1px solid var(--border); border-radius: 7px;
   padding: 13px 14px 12px; cursor: pointer; position: relative;
   transition: box-shadow .2s, transform .15s, border-color .2s;
 }
@@ -191,6 +191,9 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .tc-people > * { margin-left:-6px; box-shadow:0 0 0 2px var(--s1); border-radius:50%; }
 .tc-people > *:first-child { margin-left:0; }
 .tc-people-more { font-size:9px; color:var(--muted); font-weight:700; margin-left:3px !important; box-shadow:none !important; }
+.tc-dir { font-size:8.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--dim); margin-left:0 !important; margin-right:5px; box-shadow:none !important; border-radius:0 !important; }
+/* Incoming shared tasks get an accent edge so direction is obvious at a glance */
+.task-card.shared-in { border-left:3px solid var(--accent); }
 [data-theme="light"] .tc-people > * { box-shadow:0 0 0 2px #ffffff; }
 [data-theme="dark"] .tc-people > * { box-shadow:0 0 0 2px #222225; }
 .task-card.has-people .task-card-meta { padding-right:52px; }
@@ -263,7 +266,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=11"></script>
+<script src="data.js?v=12"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -370,10 +373,13 @@ function init() {
     }
   });
 
+  // init() runs twice (page load + after auth) — only open URL-param modals once
   const params = new URLSearchParams(location.search);
   const tid = params.get('tid');
-  if (tid) setTimeout(() => editTaskModal(tid), 200);
-  else if (params.get('new')) { setUrlParam('new', null); setTimeout(() => newTaskModal('b_todo'), 200); }
+  if (!window._urlModalOpened) {
+    if (tid) { window._urlModalOpened = true; setTimeout(() => editTaskModal(tid), 200); }
+    else if (params.get('new')) { window._urlModalOpened = true; setUrlParam('new', null); setTimeout(() => newTaskModal('b_todo'), 200); }
+  }
 }
 
 window.closeModal = (orig => () => { orig(); setUrlParam('tid', null); })(window.closeModal);
@@ -612,16 +618,18 @@ function renderTaskCard(task, bucketId, shared) {
   if (task.priority === 'high') metaParts.push(`<span class="tc-high">High</span>`);
   if (proj) metaParts.push(`<span class="tc-proj">${Arc.esc(proj.name)}</span>`);
 
-  // Shared indicator: people avatars in the card's bottom-right corner —
-  // the owner's photo on tasks shared WITH me, member photos on tasks I shared
+  // Shared indicator: people avatars bottom-right with a direction label —
+  // "from" + owner photo on incoming tasks, "with" + member photos on mine
   let peopleCluster = '';
   if (shared) {
     peopleCluster = `<div class="tc-people" title="Shared by ${Arc.esc(shared.ownerName)}">
+      <span class="tc-dir">from</span>
       ${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 20)}</div>`;
   } else if (sharedByMe) {
     const ms = Arc.Shared.membersOf(task.id);
     const names = ms.map(m => Arc.People.nameFor(m)).join(', ');
     peopleCluster = `<div class="tc-people" title="Shared with ${Arc.esc(names)}">
+      <span class="tc-dir">with</span>
       ${ms.slice(0, 3).map(m => {
         const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
         return arcPersonAva(p, 20);
@@ -648,7 +656,7 @@ function renderTaskCard(task, bucketId, shared) {
        <div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">${Arc.icon('pin', 12)}</div>
        <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">${Arc.icon('trash', 11)}</div>`;
 
-  return `<div class="task-card ${isDone?'done-card':''} ${peopleCluster?'has-people':''}"
+  return `<div class="task-card ${isDone?'done-card':''} ${peopleCluster?'has-people':''} ${shared?'shared-in':''}"
     draggable="true" ondragstart="onDragStart(event,'${task.id}')" ondragend="onDragEnd(event)"
     onclick="editTaskModal('${task.id}')">
     ${isPinned ? `<div class="tc-pin-dot" title="Pinned to Focus">${Arc.icon('pin-fill', 13, 1.5)}</div>` : ''}

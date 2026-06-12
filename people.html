@@ -89,11 +89,8 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .sh-tr { transition: background .1s; }
 .sh-tr:hover { background: rgba(123,121,247,.05); }
 .sh-tr:last-child { border-bottom: none; }
-.sh-cols-mine   { grid-template-columns: minmax(140px,1.8fr) minmax(150px,1.5fr) 64px minmax(80px,1fr) 86px 92px 100px; }
+.sh-cols-mine   { grid-template-columns: minmax(140px,2fr) 84px 64px minmax(80px,1fr) 86px 92px 100px; }
 .sh-cols-withme { grid-template-columns: minmax(140px,2fr) minmax(90px,1fr) 64px 86px 92px 80px; }
-.sh-people-cell { display:flex; align-items:center; gap:10px; min-width:0; overflow:hidden; }
-.sh-person { display:inline-flex; align-items:center; gap:5px; min-width:0; }
-.sh-person-name { font-size:11.5px; color:var(--text); font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px; }
 .sh-search-wrap { position:relative; margin-left:auto; display:flex; align-items:center; }
 .sh-search-wrap > svg { position:absolute; left:11px; color:var(--dim); pointer-events:none; }
 .sh-search { width:230px; font-size:12px; padding:6px 11px 6px 32px; }
@@ -142,10 +139,10 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=11"></script>
+<script src="data.js?v=12"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const TYPE_LABEL = { task: 'Task', goal: 'Goal', project: 'Project' };
+const TYPE_LABEL = { task: 'Task', goal: 'Goal', project: 'Project', list: 'List' };
 
 let section  = 'people';   // 'people' | 'by-me' | 'with-me'
 let selEmail = null;       // selected person in the People section
@@ -390,19 +387,19 @@ async function ppRemove(id, email, msg) {
 
 // ── Shared by me ───────────────────────────────────────────────────────
 function itemLink(s) {
-  return s.type === 'task'
-    ? `<a href="tasks.html?tid=${s.id}">${Arc.esc(s.data?.title || 'Untitled')}</a>`
-    : Arc.esc(s.data?.title || 'Untitled');
+  const title = Arc.esc(s.data?.title || 'Untitled');
+  if (s.type === 'task') return `<a href="tasks.html?tid=${s.id}">${title}</a>`;
+  if (s.type === 'list') return `<a href="lists.html">${title}</a>`;
+  return title;
 }
 
-// People column: up to 2 avatar+name pairs, then a +n count
+// People column: overlapping profile circles only (names in the tooltip)
 function peopleCell(emails) {
-  const shown = emails.slice(0, 2);
-  return `<div class="sh-people-cell">${shown.map(m => {
-    const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
-    const name = Arc.People.nameFor(m);
-    return `<span class="sh-person" title="${Arc.esc(name)} (${Arc.esc(m)})">${arcPersonAva(p, 20)}<span class="sh-person-name">${Arc.esc(name)}</span></span>`;
-  }).join('')}${emails.length > 2 ? `<span style="font-size:11px;color:var(--muted);font-weight:700;flex-shrink:0">+${emails.length - 2}</span>` : ''}</div>`;
+  const shown = emails.slice(0, 3);
+  return `<div class="sh-people" title="${Arc.esc(emails.map(m => Arc.People.nameFor(m)).join(', '))}">
+    ${shown.map(m => arcPersonAva(Arc.People.byEmail(m) || { name: m, email: m, photo: null }, 24)).join('')}
+    ${emails.length > 3 ? `<span class="sh-people-more">+${emails.length - 3}</span>` : ''}
+  </div>`;
 }
 
 let qByMe = '', qWithMe = '';
