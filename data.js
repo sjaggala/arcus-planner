@@ -233,7 +233,7 @@ const Arc = (() => {
   // ── Goals (read helpers) ─────────────────────────────────────────────
   const Goals = {
     getAll()        { return DB.get('arc_g') || []; },
-    save(gs)        { DB.set('arc_g', gs); },
+    save(gs)        { DB.set('arc_g', gs); Shared.pushProjectGoals(gs); },
     getByProject(pid){ return this.getAll().filter(g => g.projectId === pid); },
     activeToday()   { const t = today(); return this.getAll().filter(g => g.dateFrom <= t && g.dateTo >= t); },
     overdue()       { return this.getAll().filter(g => this.isOverdue(g)); },
@@ -487,6 +487,20 @@ const Arc = (() => {
         });
         if (changed) Checklists.save(cls);
       }
+      // Shared projects: the doc's goals snapshot wins for that project
+      const sharedProjects = this._mine.filter(s => s.type === 'project');
+      if (sharedProjects.length) {
+        let gs = Goals.getAll(); let changed = false;
+        sharedProjects.forEach(s => {
+          if (!Array.isArray(s.goals)) return;
+          const local = gs.filter(g => g.projectId === s.id);
+          if (JSON.stringify(local) !== JSON.stringify(s.goals)) {
+            gs = gs.filter(g => g.projectId !== s.id).concat(s.goals);
+            changed = true;
+          }
+        });
+        if (changed) DB.set('arc_g', gs);
+      }
     },
     async share(type, item, email) {
       const e = String(email).toLowerCase().trim();
@@ -512,6 +526,9 @@ const Arc = (() => {
           members:    [e],
           createdAt:  Date.now(), ts: Date.now(),
         };
+        // Sharing a whole project shares its GOALS (not its tasks — those
+        // respect task-level sharing). The goals snapshot lives in the doc.
+        if (type === 'project') doc.goals = Goals.getByProject(item.id);
         await this._col().doc(item.id).set(doc);
         this._mine.push({ id: item.id, ...doc });
         this._persist();
@@ -548,6 +565,26 @@ const Arc = (() => {
       const s = this._withMe.find(x => x.id === id); if (!s) return;
       s.data = { ...item };
       await this._col().doc(id).update({ data: s.data, ts: Date.now() });
+      this._persist();
+    },
+    // Owner: sync a shared project's goals snapshot whenever goals change
+    pushProjectGoals(allGoals) {
+      this._mine.filter(s => s.type === 'project').forEach(s => {
+        const pg = (allGoals || Goals.getAll()).filter(g => g.projectId === s.id);
+        if (JSON.stringify(pg) === JSON.stringify(s.goals || [])) return;
+        s.goals = pg;
+        this._col().doc(s.id).update({ goals: pg, ts: Date.now() })
+          .catch(e => console.warn('Arcus: project goals push failed', e));
+        this._persist();
+      });
+    },
+    // Member: save goal edits on a project shared with them
+    async updateProjectGoalsAsMember(projectId, goals) {
+      const s = this._withMe.find(x => x.id === projectId && x.type === 'project');
+      if (!s) return;
+      s.goals = goals;
+      await this._col().doc(projectId).update({ goals, ts: Date.now() });
+      this._persist();
     },
     // Member: remove themself from a shared item
     async leave(id) {

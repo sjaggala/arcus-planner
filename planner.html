@@ -257,7 +257,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=12"></script>
+<script src="data.js?v=13"></script>
 <script>
 // =====================================================================
 // STATE
@@ -1222,10 +1222,35 @@ function init() {
   document.getElementById('nav-container').innerHTML = Arc.navHtml('projects');
   loadPlannerFilters();
 
+  // Project shared WITH me: resolve project + goals from the shared doc and
+  // route goal saves back to it — the rest of the planner works unchanged
+  const sp = PS.pid && !Arc.Projects.getById(PS.pid) && Arc.Shared.isWithMe(PS.pid)
+    ? Arc.Shared.get(PS.pid) : null;
+  if (sp && sp.type === 'project' && !window._sharedProjPatched) {
+    window._sharedProjPatched = true;
+    const pid = PS.pid;
+    const origPGetAll  = Arc.Projects.getAll.bind(Arc.Projects);
+    const origPGetById = Arc.Projects.getById.bind(Arc.Projects);
+    Arc.Projects.getAll  = () => [...origPGetAll(), Arc.Shared.get(pid)?.data].filter(Boolean);
+    Arc.Projects.getById = id => origPGetById(id) || (id === pid ? Arc.Shared.get(pid)?.data : null);
+    const origGGetAll = Arc.Goals.getAll.bind(Arc.Goals);
+    Arc.Goals.getAll = () => [...origGGetAll().filter(g => g.projectId !== pid), ...(Arc.Shared.get(pid)?.goals || [])];
+    Arc.Goals.save = gs => {
+      Arc.dbSet('arc_g', gs.filter(g => g.projectId !== pid));
+      Arc.Shared.updateProjectGoalsAsMember(pid, gs.filter(g => g.projectId === pid))
+        .catch(e => console.warn('Arcus: shared project goal save failed', e));
+    };
+  }
+
   if (PS.pid) {
     const proj = PS.project;
-    if (!proj) { location.href = 'projects.html'; return; }
-    document.title = `Arcus — ${proj.name}`;
+    if (!proj) {
+      // The shared doc may still be loading on a cold start — don't bounce yet
+      const authPending = sessionStorage.getItem('arc_auth_ok') && localStorage.getItem('arc_local_mode') !== '1';
+      if (!authPending) { location.href = 'projects.html'; return; }
+    } else {
+      document.title = `Arcus — ${proj.name}`;
+    }
   } else {
     document.title = 'Arcus — Planner';
   }

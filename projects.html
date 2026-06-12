@@ -46,6 +46,26 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .prog-bar { height: 4px; border-radius: 2px; background: var(--s3); overflow: hidden; }
 .prog-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width .3s; }
 
+/* Shared project indicators */
+.project-card.shared-in { border-left: 3px solid var(--accent); }
+.pc-people { display: inline-flex; align-items: center; flex-shrink: 0; }
+.pc-people > div, .pc-people > img { box-shadow: 0 0 0 2px var(--s1); border-radius: 50%; margin-left: -6px; }
+.pc-people > *:first-child { margin-left: 0; }
+.pc-more { font-size: 9px; font-weight: 700; color: var(--muted); margin-left: 3px; }
+
+/* Quick share modal rows */
+.csm-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin: 14px 0 7px; }
+.csm-lbl:first-child { margin-top: 0; }
+.csm-row { display: flex; align-items: center; gap: 10px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+.csm-row.csm-add { cursor: pointer; transition: border-color .15s, background .15s; }
+.csm-row.csm-add:hover { border-color: var(--accent); background: rgba(123,121,247,.05); }
+.csm-info { flex: 1; min-width: 0; }
+.csm-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.csm-mail { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.csm-x { width: 22px; height: 22px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; border-radius: 5px; flex-shrink: 0; padding: 0; }
+.csm-x:hover { color: var(--red); }
+.csm-plus { color: var(--accent); font-weight: 700; flex-shrink: 0; display: flex; }
+
 /* Add card */
 .add-project-card { background: transparent; border: 2px dashed var(--border2); border-radius: 8px; padding: 18px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--muted); min-height: 130px; font-size: 13px; font-weight: 500; transition: border-color .2s, color .2s; }
 .add-project-card:hover { border-color: var(--accent); color: var(--accent); }
@@ -86,7 +106,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=12"></script>
+<script src="data.js?v=13"></script>
 <script>
 function init() {
   Arc.Settings.load();
@@ -123,9 +143,11 @@ function renderStats() {
 function renderGrid() {
   const ps = Arc.Projects.getAll();
   const gs = Arc.Goals.getAll();
+  const sharedIn = Arc.Shared.withMeOfType('project');
+  const canShare = !!(window._arcUser && window._arcDb);
   const grid = document.getElementById('projects-grid');
 
-  if (ps.length === 0) {
+  if (ps.length === 0 && sharedIn.length === 0) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
       <div class="empty-state-icon">📁</div>
       <h3>No projects yet</h3>
@@ -135,16 +157,27 @@ function renderGrid() {
     return;
   }
 
-  const cards = ps.map(p => {
-    const pgs  = gs.filter(g => g.projectId === p.id);
+  const cardHtml = (p, pgs, shared) => {
     const done = pgs.filter(g => g.status === 'completed').length;
     const od   = pgs.filter(g => Arc.Goals.isOverdue(g)).length;
     const pct  = pgs.length ? Math.round(done / pgs.length * 100) : 0;
     const clr  = p.color || '#7b79f7';
-    return `<div class="project-card" style="--card-color:${clr}" onclick="openProject('${p.id}')">
+    const sharedByMe = !shared && Arc.Shared.isSharedByMe(p.id);
+    let people = '';
+    if (shared) {
+      people = `<span class="pc-people" title="Shared by ${Arc.esc(shared.ownerName)}">${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 20)}</span>`;
+    } else if (sharedByMe) {
+      const ms = Arc.Shared.membersOf(p.id);
+      people = `<span class="pc-people" title="Shared with ${Arc.esc(ms.map(m => Arc.People.nameFor(m)).join(', '))}">${ms.slice(0, 2).map(m => arcPersonAva(Arc.People.byEmail(m) || { name: m, email: m, photo: null }, 20)).join('')}${ms.length > 2 ? `<span class="pc-more">+${ms.length - 2}</span>` : ''}</span>`;
+    }
+    const btns = shared
+      ? `<div class="card-edit-btn" onclick="event.stopPropagation();leaveSharedProject('${p.id}')" title="Remove from my projects">${Arc.icon('x', 12)}</div>`
+      : `${canShare ? `<div class="card-edit-btn" onclick="event.stopPropagation();shareProjectModal('${p.id}')" title="Share project (goals only)">${Arc.icon('share', 11)}</div>` : ''}
+         <div class="card-edit-btn" onclick="event.stopPropagation();editProject('${p.id}')" title="Edit project">${Arc.icon('edit', 12)}</div>`;
+    return `<div class="project-card ${shared ? 'shared-in' : ''}" style="--card-color:${clr}" onclick="openProject('${p.id}')">
       <div class="card-top">
         <div class="card-emoji">${p.emoji || '📁'}</div>
-        <div class="card-edit-btn" onclick="event.stopPropagation();editProject('${p.id}')" title="Edit project">${Arc.icon('edit', 12)}</div>
+        <div style="display:flex;align-items:center;gap:5px">${people}${btns}</div>
       </div>
       <div class="card-name">${Arc.esc(p.name)}</div>
       <div class="card-desc">${Arc.esc(p.description || 'No description')}</div>
@@ -155,12 +188,81 @@ function renderGrid() {
       </div>
       <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
     </div>`;
-  }).join('');
+  };
+
+  const cards = ps.map(p => cardHtml(p, gs.filter(g => g.projectId === p.id), null)).join('')
+    + sharedIn.map(s => cardHtml(s.data, s.goals || [], s)).join('');
 
   grid.innerHTML = cards + `<div class="add-project-card" onclick="newProjectModal()">
     <div class="add-icon">＋</div>
     <span>New Project</span>
   </div>`;
+}
+
+function leaveSharedProject(pid) {
+  const s = Arc.Shared.get(pid);
+  if (!confirm(`Remove "${s?.data?.name || 'this project'}" from your projects? ${s?.ownerName || 'The owner'} keeps it.`)) return;
+  Arc.Shared.leave(pid).then(() => render()).catch(e => alert('Could not remove: ' + (e.message || e)));
+}
+
+// ── Share project (goals only — tasks respect task-level sharing) ─────
+function shareProjectModal(pid) {
+  const p = Arc.Projects.getById(pid);
+  if (!p) return;
+  showModal(`<div class="modal narrow">
+    <div class="modal-hdr">
+      <div><div class="modal-title">Share Project</div><div class="modal-sub">${Arc.esc(p.name)} — shares the project and its goals; tasks stay private unless shared individually</div></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div id="spm-body"></div>
+    <div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">Done</button></div>
+  </div>`);
+  spmRender(pid);
+}
+
+function spmRender(pid) {
+  const body = document.getElementById('spm-body');
+  if (!body) return;
+  const ms = Arc.Shared.membersOf(pid);
+  const candidates = Arc.People.connected().filter(x => !ms.includes(x.email));
+  body.innerHTML = `
+    ${ms.length ? `<div class="csm-lbl">Shared with</div>` + ms.map(m => {
+      const pr = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
+      return `<div class="csm-row">
+        ${arcPersonAva(pr, 28)}
+        <div class="csm-info"><div class="csm-name">${Arc.esc(Arc.People.nameFor(m))}</div><div class="csm-mail">${Arc.esc(m)}</div></div>
+        <button class="csm-x" onclick="spmRemove('${pid}','${Arc.esc(m)}')" title="Remove access">✕</button>
+      </div>`;
+    }).join('') : ''}
+    ${candidates.length ? `<div class="csm-lbl">Add people</div>` + candidates.map(pr => `
+      <div class="csm-row csm-add" onclick="spmAdd('${pid}','${Arc.esc(pr.email)}')">
+        ${arcPersonAva(pr, 28)}
+        <div class="csm-info"><div class="csm-name">${Arc.esc(pr.name)}</div><div class="csm-mail">${Arc.esc(pr.email)}</div></div>
+        <span class="csm-plus">${Arc.icon('plus', 14)}</span>
+      </div>`).join('') : ''}
+    ${!ms.length && !candidates.length ? `<div style="font-size:12px;color:var(--dim);padding:4px 0 10px;line-height:1.7">No connected people yet — add them on the <strong>People &amp; Sharing</strong> page, or share by email below.</div>` : ''}
+    <div class="csm-lbl">Or by email</div>
+    <input class="form-inp" id="spm-email" type="email" placeholder="their-email@gmail.com"
+      onkeydown="if(event.key==='Enter'&&this.value.trim()){spmAdd('${pid}',this.value);event.preventDefault()}">
+    <div id="spm-err" style="font-size:11px;color:var(--red);min-height:14px;margin-top:4px"></div>`;
+}
+
+async function spmAdd(pid, email) {
+  const p = Arc.Projects.getById(pid);
+  if (!p || !email || !String(email).trim()) return;
+  const err = document.getElementById('spm-err');
+  if (err) err.textContent = '';
+  try { await Arc.Shared.share('project', p, email); }
+  catch (e) { if (err) err.textContent = e.message || 'Could not share.'; return; }
+  spmRender(pid);
+  renderGrid();
+}
+
+async function spmRemove(pid, email) {
+  try { await Arc.Shared.unshare(pid, email); }
+  catch (e) { alert('Could not remove: ' + (e.message || e)); }
+  spmRender(pid);
+  renderGrid();
 }
 
 function openProject(id) { window.location.href = `planner.html?pid=${id}`; }
@@ -204,6 +306,7 @@ function saveProject(id) {
   const p = { id:id||Arc.uid(), name, description:document.getElementById('pm-d').value.trim(), emoji:document.getElementById('pm-e').value||'📁', color:document.getElementById('pm-c').value||Arc.PROJ_COLORS[0], createdAt:existing?.createdAt||new Date().toISOString() };
   if (id) Arc.Projects.save(ps.map(x => x.id === id ? p : x));
   else { ps.push(p); Arc.Projects.save(ps); }
+  Arc.Shared.pushUpdate(p);   // keep the shared copy in sync if this project is shared
   Arc.Activity.log(id ? 'updated' : 'created', 'project', name, p.id);
   closeModal(); render();
 }
@@ -222,6 +325,7 @@ function doDelProject(id) {
   if (_delP) Arc.Activity.log('deleted', 'project', _delP.name, id);
   Arc.Projects.save(Arc.Projects.getAll().filter(p => p.id !== id));
   Arc.Goals.save(Arc.Goals.getAll().filter(g => g.projectId !== id));
+  Arc.Shared.unshareAll(id);
   closeModal(); render();
 }
 

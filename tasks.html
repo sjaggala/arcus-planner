@@ -191,7 +191,6 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .tc-people > * { margin-left:-6px; box-shadow:0 0 0 2px var(--s1); border-radius:50%; }
 .tc-people > *:first-child { margin-left:0; }
 .tc-people-more { font-size:9px; color:var(--muted); font-weight:700; margin-left:3px !important; box-shadow:none !important; }
-.tc-dir { font-size:8.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--dim); margin-left:0 !important; margin-right:5px; box-shadow:none !important; border-radius:0 !important; }
 /* Incoming shared tasks get an accent edge so direction is obvious at a glance */
 .task-card.shared-in { border-left:3px solid var(--accent); }
 [data-theme="light"] .tc-people > * { box-shadow:0 0 0 2px #ffffff; }
@@ -266,7 +265,7 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=12"></script>
+<script src="data.js?v=13"></script>
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -618,18 +617,16 @@ function renderTaskCard(task, bucketId, shared) {
   if (task.priority === 'high') metaParts.push(`<span class="tc-high">High</span>`);
   if (proj) metaParts.push(`<span class="tc-proj">${Arc.esc(proj.name)}</span>`);
 
-  // Shared indicator: people avatars bottom-right with a direction label —
-  // "from" + owner photo on incoming tasks, "with" + member photos on mine
+  // Shared indicator: people avatars bottom-right — the owner's photo on
+  // incoming tasks (accent left edge marks direction), members on mine
   let peopleCluster = '';
   if (shared) {
     peopleCluster = `<div class="tc-people" title="Shared by ${Arc.esc(shared.ownerName)}">
-      <span class="tc-dir">from</span>
       ${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 20)}</div>`;
   } else if (sharedByMe) {
     const ms = Arc.Shared.membersOf(task.id);
     const names = ms.map(m => Arc.People.nameFor(m)).join(', ');
     peopleCluster = `<div class="tc-people" title="Shared with ${Arc.esc(names)}">
-      <span class="tc-dir">with</span>
       ${ms.slice(0, 3).map(m => {
         const p = Arc.People.byEmail(m) || { name: m, email: m, photo: null };
         return arcPersonAva(p, 20);

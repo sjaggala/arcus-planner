@@ -57,15 +57,17 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
   width:22px; height:22px; border-radius:5px; background:transparent;
   border:none; color:var(--muted); cursor:pointer; display:flex;
   align-items:center; justify-content:center; font-size:12px;
-  transition:color .15s,background .15s; flex-shrink:0; padding:0;
+  transition:color .15s,background .15s,opacity .15s; flex-shrink:0; padding:0;
+  opacity:0;
 }
+.cl-card:hover .cl-hdr-btn { opacity:1; }
 .cl-hdr-btn:hover { background:var(--s3); color:var(--red); }
 
 /* ── Shared list indicators ── */
 .cl-card.shared-in { border-left:3px solid var(--accent); }
 .cl-people { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; margin-right:2px; }
 .cl-people > div, .cl-people > img { box-shadow:0 0 0 2px var(--s2); border-radius:50%; }
-.cl-dir { font-size:8.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--dim); }
+.cl-more { font-size:9px; font-weight:700; color:var(--muted); }
 
 /* ── Quick share modal rows ── */
 .csm-lbl { font-size:10px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin:14px 0 7px; }
@@ -171,7 +173,7 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="data.js?v=12"></script>
+<script src="data.js?v=13"></script>
 <script>
 function init() {
   Arc.Settings.load();
@@ -226,13 +228,14 @@ function buildCard(cl, shared) {
   el.style.width = (cl.w || 280) + 'px';
   if (cl.h) el.style.height = cl.h + 'px';
 
-  // People badge in the header: "from" + owner on incoming, "with" + members on mine
+  // People badge in the header: owner's photo on incoming (accent edge marks
+  // direction), member photos on lists I shared
   let people = '';
   if (shared) {
-    people = `<span class="cl-people" title="Shared by ${Arc.esc(shared.ownerName)}"><span class="cl-dir">from</span>${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 18)}</span>`;
+    people = `<span class="cl-people" title="Shared by ${Arc.esc(shared.ownerName)}">${arcPersonAva({ name: shared.ownerName, email: shared.ownerEmail, photo: shared.ownerPhoto }, 18)}</span>`;
   } else if (sharedByMe) {
     const ms = Arc.Shared.membersOf(cl.id);
-    people = `<span class="cl-people" title="Shared with ${Arc.esc(ms.map(m => Arc.People.nameFor(m)).join(', '))}"><span class="cl-dir">with</span>${ms.slice(0, 2).map(m => arcPersonAva(Arc.People.byEmail(m) || { name: m, email: m, photo: null }, 18)).join('')}${ms.length > 2 ? `<span class="cl-dir" style="margin-left:3px">+${ms.length - 2}</span>` : ''}</span>`;
+    people = `<span class="cl-people" title="Shared with ${Arc.esc(ms.map(m => Arc.People.nameFor(m)).join(', '))}">${ms.slice(0, 2).map(m => arcPersonAva(Arc.People.byEmail(m) || { name: m, email: m, photo: null }, 18)).join('')}${ms.length > 2 ? `<span class="cl-more">+${ms.length - 2}</span>` : ''}</span>`;
   }
 
   const hdrBtns = shared
