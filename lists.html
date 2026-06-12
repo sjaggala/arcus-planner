@@ -55,12 +55,13 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .cl-title::placeholder { color:var(--dim); font-weight:500; }
 .cl-hdr-btn {
   width:22px; height:22px; border-radius:5px; background:transparent;
-  border:none; color:var(--muted); cursor:pointer; display:flex;
+  border:none; color:var(--muted); cursor:pointer;
   align-items:center; justify-content:center; font-size:12px;
-  transition:color .15s,background .15s,opacity .15s; flex-shrink:0; padding:0;
-  opacity:0;
+  transition:color .15s,background .15s; flex-shrink:0; padding:0;
+  /* hidden AND collapsed until hover, so the people badge sits at the corner */
+  display:none;
 }
-.cl-card:hover .cl-hdr-btn { opacity:1; }
+.cl-card:hover .cl-hdr-btn { display:flex; }
 .cl-hdr-btn:hover { background:var(--s3); color:var(--red); }
 
 /* ── Shared list indicators ── */

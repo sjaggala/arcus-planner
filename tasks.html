@@ -246,7 +246,9 @@ body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
   <div class="tb-sep"></div>
   <div class="filter-set">
     <span class="filter-lbl">Shared:</span>
-    <div class="fpill" id="f-shared" onclick="toggleSharedOnly()">Shared only</div>
+    <div class="fpill" id="f-sh-with" onclick="setSharedFilter('with')">With me</div>
+    <div class="fpill" id="f-sh-by" onclick="setSharedFilter('by')">By me</div>
+    <div class="fpill" id="f-sh-all" onclick="setSharedFilter('all')">All shared</div>
     <div class="proj-multi-wrap" id="pf-wrap">
       <div class="pf-btn" id="pf-btn" title="Filter by person"></div>
       <div class="proj-multi-dropdown" id="pf-dd"></div>
@@ -274,7 +276,7 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 // ======================================================
 let selectedProjects = []; // array of project IDs; empty = all
 let selectedLabels   = []; // array of label IDs;   empty = all
-let sharedOnly   = false;  // show only shared items
+let sharedFilter = null;   // null | 'with' (shared with me) | 'by' (shared by me) | 'all'
 let personFilter = null;   // email — show only items involving this person
 let openDropdown = null;
 let projDropdownOpen = false;
@@ -340,11 +342,12 @@ function init() {
     const saved = JSON.parse(localStorage.getItem('arc_tasks_filter') || '{}');
     if (Array.isArray(saved.projects)) selectedProjects = saved.projects;
     if (Array.isArray(saved.labels))   selectedLabels   = saved.labels;
-    if (typeof saved.sharedOnly === 'boolean') sharedOnly = saved.sharedOnly;
+    if (['with', 'by', 'all'].includes(saved.sharedFilter)) sharedFilter = saved.sharedFilter;
+    else if (saved.sharedOnly === true) sharedFilter = 'all';   // migrate old setting
     if (saved.person) personFilter = saved.person;
   } catch {}
 
-  updateSharedPill();
+  updateSharedPills();
   updatePersonBtn();
   buildProjDropdown();
   buildLabelFilterPills();
@@ -389,19 +392,21 @@ window.closeModal = (orig => () => { orig(); setUrlParam('tid', null); })(window
 function saveTasksFilter() {
   localStorage.setItem('arc_tasks_filter', JSON.stringify({
     projects: selectedProjects, labels: selectedLabels,
-    sharedOnly, person: personFilter,
+    sharedFilter, person: personFilter,
   }));
 }
 
 // ── Shared / person filters ──────────────────────────────────────────
-function toggleSharedOnly() {
-  sharedOnly = !sharedOnly;
-  updateSharedPill();
+function setSharedFilter(mode) {
+  sharedFilter = (sharedFilter === mode) ? null : mode;   // click again to clear
+  updateSharedPills();
   saveTasksFilter(); renderBoard();
 }
 
-function updateSharedPill() {
-  document.getElementById('f-shared')?.classList.toggle('on', sharedOnly);
+function updateSharedPills() {
+  document.getElementById('f-sh-with')?.classList.toggle('on', sharedFilter === 'with');
+  document.getElementById('f-sh-by')?.classList.toggle('on', sharedFilter === 'by');
+  document.getElementById('f-sh-all')?.classList.toggle('on', sharedFilter === 'all');
 }
 
 // Everyone I could be collaborating with: connected people + owners of items shared with me
@@ -568,11 +573,14 @@ function renderBoard() {
     let tasks = allTasks.filter(t => t.bucketId === bucket.id);
     if (selectedProjects.length) tasks = tasks.filter(t => selectedProjects.includes(t.projectId));
     if (selectedLabels.length)   tasks = tasks.filter(t => (t.labels||[]).some(lid => selectedLabels.includes(lid)));
-    if (sharedOnly)   tasks = tasks.filter(t => Arc.Shared.isSharedByMe(t.id));
+    // 'by' / 'all' keep only my shared tasks; 'with' hides my tasks entirely
+    if (sharedFilter === 'by' || sharedFilter === 'all') tasks = tasks.filter(t => Arc.Shared.isSharedByMe(t.id));
+    else if (sharedFilter === 'with') tasks = [];
     if (personFilter) tasks = tasks.filter(t => Arc.Shared.membersOf(t.id).includes(personFilter));
 
     let shared = sharedWithMe.filter(s =>
       (bucketIds.includes(s.data.bucketId) ? s.data.bucketId : fallbackBucket) === bucket.id);
+    if (sharedFilter === 'by') shared = [];   // incoming hidden when filtering to "by me"
     if (personFilter) shared = shared.filter(s =>
       (s.ownerEmail || '').toLowerCase() === personFilter || (s.members || []).includes(personFilter));
 
@@ -1023,22 +1031,25 @@ function stRender() {
     <div class="st-item ${s.done ? 'done' : ''}">
       <input type="checkbox" ${s.done ? 'checked' : ''} onchange="stToggle(${i},this.checked)">
       <span class="st-item-text">${Arc.esc(s.text)}</span>
-      <button class="st-item-del" onclick="stRemove(${i})" title="Remove">✕</button>
+      <button class="st-item-del" onclick="stRemove(${i})" title="Remove">${Arc.icon('trash', 10)}</button>
     </div>`).join('');
+  // Typed text is committed on Enter OR when the input loses focus, so a
+  // sub-task is never lost just because the user forgot to hit Enter
   const ghost = `<div class="st-item st-new-row" style="display:flex;align-items:center;gap:8px">
       <input type="checkbox" class="st-new-cb" disabled>
       <input class="st-new-inp" id="tm-st-inp" placeholder="Add a sub-task…"
-        onkeydown="if(event.key==='Enter'&&this.value.trim()){stAdd();event.preventDefault()}">
+        onkeydown="if(event.key==='Enter'&&this.value.trim()){stAdd();event.preventDefault()}"
+        onblur="if(this.value.trim())stAdd(true)">
     </div>`;
   list.innerHTML = items + ghost;
 }
-function stAdd() {
+function stAdd(noFocus) {
   const inp = document.getElementById('tm-st-inp');
   const text = inp?.value?.trim();
   if (!text) return;
   window._stBuf = [...(window._stBuf || []), { id: Arc.uid(), text, done: false }];
   stRender();
-  document.getElementById('tm-st-inp')?.focus();
+  if (!noFocus) document.getElementById('tm-st-inp')?.focus();
 }
 function stToggle(idx, done) {
   if (window._stBuf?.[idx]) window._stBuf[idx].done = done;
@@ -1148,6 +1159,9 @@ function deleteComment(entityId, commentId) {
 function saveTask(id) {
   const title = document.getElementById('tm-title').value.trim();
   if (!title) { document.getElementById('tm-title').style.borderColor='var(--red)'; document.getElementById('tm-title').focus(); return; }
+  // Commit any sub-task text still sitting in the ghost input
+  const pendingSt = document.getElementById('tm-st-inp')?.value?.trim();
+  if (pendingSt) window._stBuf = [...(window._stBuf || []), { id: Arc.uid(), text: pendingSt, done: false }];
   // Task shared with me: edit the shared copy; the owner's project/labels
   // are personal to them and aren't shown in my form, so carry them over.
   const sharedWithMe = id && Arc.Shared.isWithMe(id);
