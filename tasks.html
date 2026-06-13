@@ -617,7 +617,7 @@ function renderTaskCard(task, bucketId, shared) {
   const proj   = (!shared && task.projectId) ? Arc.Projects.getById(task.projectId) : null;
   const isDone = bucketId === 'b_done';
   const isOd   = task.dueDate && task.dueDate < Arc.today() && !isDone;
-  const isPinned = !shared && Arc.PinnedTasks.isPinned(task.id);
+  const isPinned = Arc.PinnedTasks.isPinned(task.id);
   const sharedByMe = !shared && Arc.Shared.isSharedByMe(task.id);
 
   const metaParts = [];
@@ -656,7 +656,8 @@ function renderTaskCard(task, bucketId, shared) {
 
   const canShare = !!(window._arcUser && window._arcDb);
   const actions = shared
-    ? `<div class="card-action-btn" onclick="confirmLeaveShared('${task.id}')" title="Remove from my board" style="color:var(--red)">${Arc.icon('trash', 11)}</div>`
+    ? `<div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">${Arc.icon('pin', 12)}</div>
+       <div class="card-action-btn" onclick="confirmLeaveShared('${task.id}')" title="Remove from my board" style="color:var(--red)">${Arc.icon('trash', 11)}</div>`
     : `${canShare ? `<div class="card-action-btn" onclick="cardShareModal('${task.id}')" title="Share">${Arc.icon('share', 11)}</div>` : ''}
        <div class="card-action-btn ${isPinned?'pinned':''}" onclick="togglePin('${task.id}')" title="${isPinned?'Unpin from Focus':'Pin to Focus'}">${Arc.icon('pin', 12)}</div>
        <div class="card-action-btn" onclick="confirmDelTask('${task.id}')" title="Delete" style="color:var(--red)">${Arc.icon('trash', 11)}</div>`;

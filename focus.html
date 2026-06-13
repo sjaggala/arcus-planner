@@ -69,6 +69,10 @@ body { display:flex; flex-direction:column; height:100vh; overflow:hidden; }
 .sticky-hdr .sticky-btn { opacity:0; }
 .sticky-note:hover .sticky-hdr .sticky-btn,
 .sticky-note.show-panel .sticky-hdr .sticky-btn { opacity:1; }
+/* Open-task icon is always faintly visible; full opacity on hover */
+.sticky-btn.sticky-btn-always { opacity:0.35; }
+.sticky-note:hover .sticky-btn.sticky-btn-always,
+.sticky-note.show-panel .sticky-btn.sticky-btn-always { opacity:1; }
 
 /* Note body */
 .sticky-body { padding:10px 12px 12px; }
@@ -216,19 +220,22 @@ function renderBoard() {
   const empty   = document.getElementById('focus-empty');
   const pins    = Arc.PinnedTasks.getAll();
   const allTasks = Arc.Tasks.getAll();
+  const sharedWithMe = Arc.Shared.withMeOfType('task');
 
   // Remove old notes (keep empty placeholder)
   canvas.querySelectorAll('.sticky-note').forEach(n => n.remove());
 
   const valid = pins.filter(p => {
-    const t = allTasks.find(t => t.id === p.taskId);
+    const t = allTasks.find(t => t.id === p.taskId)
+      || sharedWithMe.find(s => s.data.id === p.taskId)?.data;
     return t && t.bucketId !== 'b_done';
   });
   document.getElementById('focus-count').textContent = `${valid.length} pinned`;
   empty.style.display = valid.length ? 'none' : '';
 
   valid.forEach(pin => {
-    const task = allTasks.find(t => t.id === pin.taskId);
+    const task = allTasks.find(t => t.id === pin.taskId)
+      || sharedWithMe.find(s => s.data.id === pin.taskId)?.data;
     if (!task) return;
     canvas.appendChild(buildNote(pin, task));
   });
@@ -270,6 +277,7 @@ function buildNote(pin, task) {
   noteEl.innerHTML = `
     <div class="sticky-hdr">
       <div class="sticky-hdr-grip" onmousedown="startDrag(event,'${task.id}')"></div>
+      <button class="sticky-btn sticky-btn-always" onclick="window.location.href='tasks.html?tid=${task.id}';event.stopPropagation()" title="Open task">${Arc.icon('expand', 10)}</button>
       <button class="sticky-btn" onclick="toggleStylePanel('${task.id}');event.stopPropagation()" title="Style">${Arc.icon('droplet', 10)}</button>
       <button class="sticky-btn" onclick="unpinNote('${task.id}')" title="Unpin">${Arc.icon('x', 11)}</button>
     </div>
@@ -307,9 +315,6 @@ function buildNote(pin, task) {
           <button class="sp-toggle ${pin.bold?'on':''}" onclick="toggleNoteBold('${task.id}')"><b>B</b> Bold</button>
           <button class="sp-toggle ${pin.italic?'on':''}" onclick="toggleNoteItalic('${task.id}')"><i>I</i> Italic</button>
         </div>
-      </div>
-      <div class="sp-foot">
-        <button class="sp-open" onclick="window.location.href='tasks.html?tid=${task.id}'">Open Task ${Arc.icon('arrow-right', 12)}</button>
       </div>
     </div>
     ${isDone ? `<div class="sticky-done-overlay">✓</div>` : ''}`;
@@ -388,7 +393,9 @@ function toggleNoteItalic(taskId) {
 
 function rebuildNote(taskId) {
   const pin  = Arc.PinnedTasks.getAll().find(p => p.taskId === taskId);
-  const task = Arc.Tasks.getAll().find(t => t.id === taskId);
+  const sharedWithMe = Arc.Shared.withMeOfType('task');
+  const task = Arc.Tasks.getAll().find(t => t.id === taskId)
+    || sharedWithMe.find(s => s.data.id === taskId)?.data;
   if (!pin || !task) return;
   const old = document.getElementById(`note-${taskId}`);
   const wasExpanded = old?.classList.contains('expanded');
